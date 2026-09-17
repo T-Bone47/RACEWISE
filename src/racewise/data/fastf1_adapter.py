@@ -75,7 +75,7 @@ class FastF1Adapter:
     def session_summary(self, session: fastf1.sessions.Session) -> SessionSummary:
         laps = session.laps
         return SessionSummary(
-            session_key=f"{session.event.Year}-{session.event.EventName.replace(' ', '')}-{session.name}",
+            session_key=f"{session.event.year}-{session.event.EventName.replace(' ', '')}-{session.name}",
             event_name=str(session.event.EventName),
             session_type=str(session.name),
             date=session.date.to_pydatetime() if session.date is not None else None,

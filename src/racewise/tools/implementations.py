@@ -1,0 +1,503 @@
+"""Concrete deterministic tools exposed to the agent.
+
+Each tool wraps pure analytics functions behind the Tool contract with
+explicit input/output schemas and versions. The agent can only call these;
+it never receives raw dataframe access.
+"""
+from __future__ import annotations
+
+import statistics
+from typing import Any, Optional
+
+from racewise.data.fastf1_adapter import FastF1Adapter
+from racewise.domain.schemas import Lap
+from racewise.tools.analytics import (
+    ANALYTICS_VERSION,
+    compare_sectors,
+    delta_time_between_drivers,
+    detect_pace_anomaly,
+    filter_clean_laps,
+    linear_degradation,
+    pace_summary,
+    stint_laps,
+    traffic_exposure,
+)
+from racewise.tools.contract import Tool, ToolError, ToolRegistry, ToolSpec
+from racewise.tools.race_state import (
+    RACE_STATE_VERSION,
+    cars_ahead_at_lap,
+    compound_of_lap,
+    laps_for_driver,
+    laps_in_window,
+    mean_pace,
+    position_at_lap,
+    stint_boundary_laps,
+    time_gap_at_lap,
+)
+
+PIT_LOSS_VERSION = "1.0.0"
+
+
+def _lap_dict(lap: Lap) -> dict[str, Any]:
+    return {
+        "driver": lap.driver,
+        "lap_number": lap.lap_number,
+        "lap_time_s": lap.lap_time_s,
+        "compound": lap.compound,
+        "tyre_life": lap.tyre_life,
+        "stint": lap.stint,
+        "position": lap.position,
+        "is_pit_in_lap": lap.is_pit_in_lap,
+        "is_pit_out_lap": lap.is_pit_out_lap,
+        "track_status": lap.track_status,
+    }
+
+
+class SessionContext:
+    """Holds one loaded session's normalized data for tool execution."""
+
+    def __init__(self, adapter: FastF1Adapter, year: int, event: str, session_type: str = "R") -> None:
+        self.adapter = adapter
+        self.year = year
+        self.event = event
+        self.session_type = session_type
+        self._session: Any = None
+        self._laps: Optional[list[Lap]] = None
+        self._summary: Optional[SessionSummary] = None
+
+    def load(self) -> None:
+        if self._session is None:
+            self._session = self.adapter.load_session(self.year, self.event, self.session_type)
+            self._laps = self.adapter.laps(self._session)
+            self._summary = self.adapter.session_summary(self._session)
+
+    @property
+    def laps(self) -> list[Lap]:
+        self.load()
+        assert self._laps is not None
+        return self._laps
+
+    @property
+    def summary(self) -> SessionSummary:
+        self.load()
+        assert self._summary is not None
+        return self._summary
+
+    def driver_laps(self, driver: str) -> list[Lap]:
+        if driver not in self.summary.drivers:
+            raise ToolError(f"Driver '{driver}' not found in session", missing=True)
+        return laps_for_driver(self.laps, driver)
+
+
+class GetSessionTool(Tool):
+    """Session metadata: event, circuit, drivers, lap totals."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = ToolSpecWrapper(
+            name="get_session",
+            description="Return session metadata: event name, circuit, session type, driver list, total lap count.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            output_schema={"type": "object"},
+            version="1.0.0",
+            limitations=["Historical data only; no live sessions."],
+        ).spec
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        summary = self._context.summary
+        return {
+            "event_name": summary.event_name,
+            "session_type": summary.session_type,
+            "date": summary.date.isoformat() if summary.date else None,
+            "circuit": summary.circuit,
+            "total_laps": summary.total_laps,
+            "drivers": summary.drivers,
+            "n_drivers": len(summary.drivers),
+        }
+
+
+class ToolSpecWrapper:
+    def __init__(self, name: str, description: str, input_schema: dict, output_schema: dict, version: str, limitations: Optional[list] = None) -> None:
+        self.spec = ToolSpec(
+            name=name,
+            description=description,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            version=version,
+            limitations=limitations or [],
+        )
+
+
+def _spec(name: str, description: str, properties: dict, required: list[str], version: str, limitations: Optional[list[str]] = None) -> ToolSpec:
+    return ToolSpec(
+        name=name,
+        description=description,
+        input_schema={"type": "object", "properties": properties, "required": required},
+        output_schema={"type": "object"},
+        version=version,
+        limitations=limitations or [],
+    )
+
+
+DRIVER_PARAM = {"type": "string", "description": "Three-letter driver code, e.g. VER"}
+LAP_START_PARAM = {"type": "integer", "description": "First lap number of window"}
+LAP_END_PARAM = {"type": "integer", "description": "Last lap number of window"}
+
+
+class GetLapsTool(Tool):
+    """Canonical laps for one driver."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "get_laps",
+            "Return normalized lap records for one driver: lap number, time, compound, tyre life, stint, position, pit flags.",
+            {"driver": DRIVER_PARAM},
+            ["driver"],
+            "1.0.0",
+            ["Returns at most one season-race; includes pit in/out laps flagged."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        laps = self._context.driver_laps(kwargs["driver"])
+        return {"driver": kwargs["driver"], "n_laps": len(laps), "laps": [_lap_dict(lap) for lap in laps]}
+
+
+class GetStintsTool(Tool):
+    """Stint structure for one driver."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "get_stints",
+            "Return tyre stint windows for one driver: stint number, compound, start/end lap, lap count.",
+            {"driver": DRIVER_PARAM},
+            ["driver"],
+            "1.0.0",
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        driver = kwargs["driver"]
+        driver_laps = self._context.driver_laps(driver)
+        bounds = stint_boundary_laps(driver_laps, driver)
+        stints = []
+        for stint_number, (lap_start, lap_end) in sorted(bounds.items()):
+            compounds = {lap.compound for lap in driver_laps if lap.stint == stint_number and lap.compound}
+            stints.append(
+                {
+                    "stint": stint_number,
+                    "compound": sorted(compounds)[0] if compounds else None,
+                    "lap_start": lap_start,
+                    "lap_end": lap_end,
+                    "lap_count": lap_end - lap_start + 1,
+                }
+            )
+        return {"driver": driver, "stints": stints}
+
+
+class AnalyzeTyreDegradationTool(Tool):
+    """Linear tyre degradation slope for a driver stint (clean laps)."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "analyze_tyre_degradation",
+            "Estimate lap-time degradation slope (s/lap) vs tyre life for one driver stint using clean laps only.",
+            {"driver": DRIVER_PARAM, "stint": {"type": "integer", "description": "Stint number (1-based)"}},
+            ["driver"],
+            ANALYTICS_VERSION,
+            ["Linear model; unreliable for stints with < 3 clean laps or heavy traffic/fuel variation."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        driver = kwargs["driver"]
+        stint = kwargs.get("stint")
+        driver_laps = self._context.driver_laps(driver)
+        if stint is None:
+            stints_present = sorted({lap.stint for lap in driver_laps if lap.stint is not None})
+            results = {}
+            for s in stints_present:
+                clean = filter_clean_laps(stint_laps(driver_laps, driver, s))
+                results[str(s)] = linear_degradation(clean)
+            return {"driver": driver, "per_stint": results}
+        clean = filter_clean_laps(stint_laps(driver_laps, driver, stint))
+        deg = linear_degradation(clean)
+        if deg is None:
+            raise ToolError(f"Not enough clean laps in stint {stint} for {driver}", missing=True)
+        return {"driver": driver, "stint": stint, **deg}
+
+
+class AnalyzeTrafficTool(Tool):
+    """Traffic exposure estimate for a driver lap window."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "analyze_traffic",
+            "Estimate traffic exposure for one driver over a lap window: which laps the car directly ahead was within a time threshold.",
+            {
+                "driver": DRIVER_PARAM,
+                "lap_start": LAP_START_PARAM,
+                "lap_end": LAP_END_PARAM,
+                "gap_threshold_s": {"type": "number", "description": "Max gap to car ahead counted as traffic (default 1.0)"},
+            },
+            ["driver", "lap_start", "lap_end"],
+            ANALYTICS_VERSION,
+            ["Approximation from cumulative clean lap times; under safety car the estimate degrades."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        result = traffic_exposure(
+            self._context.laps,
+            kwargs["driver"],
+            int(kwargs["lap_start"]),
+            int(kwargs["lap_end"]),
+            float(kwargs.get("gap_threshold_s", 1.0)),
+        )
+        return result
+
+
+class CompareSectorsTool(Tool):
+    """Per-sector mean comparison between two drivers over a lap window."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "compare_sectors",
+            "Compare mean sector times between two drivers over matched lap windows; returns per-sector deltas.",
+            {"driver_a": DRIVER_PARAM, "driver_b": DRIVER_PARAM, "lap_start": LAP_START_PARAM, "lap_end": LAP_END_PARAM},
+            ["driver_a", "driver_b", "lap_start", "lap_end"],
+            ANALYTICS_VERSION,
+            ["Sector times can be missing for some laps; means use available data."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        laps = self._context.laps
+        a = [
+            lap
+            for lap in laps_in_window(laps, kwargs["driver_a"], int(kwargs["lap_start"]), int(kwargs["lap_end"]))
+            if lap.lap_time_s is not None and not lap.is_pit_in_lap and not lap.is_pit_out_lap
+        ]
+        b = [
+            lap
+            for lap in laps_in_window(laps, kwargs["driver_b"], int(kwargs["lap_start"]), int(kwargs["lap_end"]))
+            if lap.lap_time_s is not None and not lap.is_pit_in_lap and not lap.is_pit_out_lap
+        ]
+        if not a or not b:
+            raise ToolError("No comparable laps in window for one of the drivers", missing=True)
+        result = compare_sectors(a, b)
+        assert result is not None
+        return result
+
+
+class CompareDriverPaceTool(Tool):
+    """Clean-lap pace comparison between two drivers, optionally per stint."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "compare_driver_pace",
+            "Compare mean and fastest clean-lap pace between two drivers; optionally restricted to a lap window.",
+            {"driver_a": DRIVER_PARAM, "driver_b": DRIVER_PARAM, "lap_start": LAP_START_PARAM, "lap_end": LAP_END_PARAM},
+            ["driver_a", "driver_b"],
+            ANALYTICS_VERSION,
+            ["Uses IsAccurate filtering; results are approximations, not official classifications."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        laps = self._context.laps
+        start = int(kwargs["lap_start"]) if kwargs.get("lap_start") else None
+        end = int(kwargs["lap_end"]) if kwargs.get("lap_end") else None
+
+        def pick(driver: str) -> list[Lap]:
+            driver_laps = laps_for_driver(laps, driver)
+            if start is not None and end is not None:
+                driver_laps = laps_in_window(driver_laps, driver, start, end)
+            return filter_clean_laps(driver_laps)
+
+        a = pick(kwargs["driver_a"])
+        b = pick(kwargs["driver_b"])
+        if not a or not b:
+            raise ToolError("No clean laps for one of the drivers in the requested window", missing=True)
+        result = delta_time_between_drivers(a, b)
+        assert result is not None
+        return result
+
+
+class DetectPaceAnomalyTool(Tool):
+    """Rolling-median anomaly detection over a driver's laps."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "detect_pace_anomaly",
+            "Flag laps slower than a rolling median by a robust threshold; useful for finding pace drops, traffic clusters or problems.",
+            {"driver": DRIVER_PARAM, "lap_start": LAP_START_PARAM, "lap_end": LAP_END_PARAM},
+            ["driver"],
+            ANALYTICS_VERSION,
+            ["Median/MAD heuristic; flags outliers but does not explain them."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        driver = kwargs["driver"]
+        driver_laps = self._context.driver_laps(driver)
+        start = int(kwargs["lap_start"]) if kwargs.get("lap_start") else 1
+        end = int(kwargs["lap_end"]) if kwargs.get("lap_end") else 10**6
+        window = laps_in_window(driver_laps, driver, start, end)
+        anomalies = detect_pace_anomaly(window)
+        return {"driver": driver, "window": [start, end], "anomalies": anomalies}
+
+
+class AnalyzePitLossTool(Tool):
+    """Observed pit-cycle time loss for one driver's pit stops."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "analyze_pit_loss",
+            "Estimate total pit-cycle time loss (station + lane) per stop from in-lap vs out-lap times for one driver.",
+            {"driver": DRIVER_PARAM},
+            ["driver"],
+            PIT_LOSS_VERSION,
+            ["Approximation: compares pit in-lap and out-lap vs driver's rolling median lap time."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        driver = kwargs["driver"]
+        driver_laps = self._context.driver_laps(driver)
+        timed = [lap for lap in driver_laps if lap.lap_time_s is not None and not lap.is_pit_in_lap and not lap.is_pit_out_lap]
+        if len(timed) < 5:
+            raise ToolError("Not enough timed laps to estimate pit loss", missing=True)
+        baseline = statistics.median([lap.lap_time_s for lap in timed])
+        stops = []
+        for i, lap in enumerate(driver_laps):
+            if not lap.is_pit_in_lap or lap.lap_time_s is None:
+                continue
+            in_loss = lap.lap_time_s - baseline
+            out_loss = None
+            if i + 1 < len(driver_laps) and driver_laps[i + 1].lap_time_s is not None:
+                out_loss = driver_laps[i + 1].lap_time_s - baseline
+            total = None
+            if in_loss is not None and out_loss is not None:
+                total = round(in_loss + out_loss, 4)
+            stops.append(
+                {
+                    "pit_in_lap": lap.lap_number,
+                    "in_lap_loss_s": round(in_loss, 4) if in_loss is not None else None,
+                    "out_lap_loss_s": round(out_loss, 4) if out_loss is not None else None,
+                    "total_loss_s": total,
+                }
+            )
+        if not stops:
+            raise ToolError(f"No pit stops recorded for {driver}", missing=True)
+        totals = [s["total_loss_s"] for s in stops if s["total_loss_s"] is not None]
+        return {
+            "driver": driver,
+            "median_clean_lap_s": round(baseline, 4),
+            "stops": stops,
+            "mean_total_loss_s": round(statistics.fmean(totals), 4) if totals else None,
+        }
+
+
+class GetWeatherTool(Tool):
+    """Session weather records."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "get_weather",
+            "Return recorded weather during the session: air/track temperature, humidity, rainfall over time.",
+            {},
+            [],
+            "1.0.0",
+            ["Weather granularity is per-minute samples; no per-lap interpolation."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        records = self._context.adapter.weather(self._context._session)
+        rain_rows = [w for w in records if w.rainfall]
+        temps = [w.track_temp_c for w in records if w.track_temp_c is not None]
+        return {
+            "n_records": len(records),
+            "rainfall_records": len(rain_rows),
+            "any_rain": bool(rain_rows),
+            "track_temp_min_c": min(temps) if temps else None,
+            "track_temp_max_c": max(temps) if temps else None,
+        }
+
+
+class GetRaceControlTool(Tool):
+    """Race control messages with lap mapping."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "get_race_control",
+            "Return race-control events (flags, safety car, investigations) with approximate lap numbers.",
+            {"category": {"type": "string", "description": "Optional filter on category, e.g. 'Other', 'Flag'"}},
+            [],
+            "1.0.0",
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        events = self._context.adapter.race_control(self._context._session)
+        category = kwargs.get("category")
+        out = []
+        for e in events:
+            if category and (e.category or "") != category:
+                continue
+            out.append({"lap": e.lap, "category": e.category, "message": e.message})
+        return {"n_events": len(out), "events": out}
+
+
+class GetPitStopsTool(Tool):
+    """Pit stop records for one driver or all drivers."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "get_pit_stops",
+            "Return pit stops: driver, pit-in lap, compounds before/after.",
+            {"driver": DRIVER_PARAM},
+            [],
+            "1.0.0",
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        laps = self._context.laps
+        stops = self._context.adapter.pit_stops(laps)
+        driver = kwargs.get("driver")
+        if driver:
+            stops = [s for s in stops if s.driver == driver]
+        return {
+            "n_stops": len(stops),
+            "stops": [
+                {
+                    "driver": s.driver,
+                    "pit_in_lap": s.pit_in_lap,
+                    "compound_before": s.compound_before,
+                    "compound_after": s.compound_after,
+                }
+                for s in stops
+            ],
+        }
+
+
+def build_default_registry(context: SessionContext) -> ToolRegistry:
+    registry = ToolRegistry()
+    for tool in (
+        GetSessionTool(context),
+        GetLapsTool(context),
+        GetStintsTool(context),
+        AnalyzeTyreDegradationTool(context),
+        AnalyzeTrafficTool(context),
+        CompareSectorsTool(context),
+        CompareDriverPaceTool(context),
+        DetectPaceAnomalyTool(context),
+        AnalyzePitLossTool(context),
+        GetWeatherTool(context),
+        GetRaceControlTool(context),
+        GetPitStopsTool(context),
+    ):
+        registry.register(tool)
+    return registry
