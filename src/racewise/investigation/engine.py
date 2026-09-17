@@ -222,6 +222,62 @@ class InvestigationEngine:
             InvestigationState.INSUFFICIENT_EVIDENCE,
         )
 
+    # -- finalization gate ---------------------------------------------------
+    def gate_failures(self) -> list[str]:
+        """Invariant violations blocking synthesis; empty list = gate open."""
+        failures: list[str] = []
+        if not self.hypotheses:
+            failures.append("hypotheses_present")
+        if not self.evidence:
+            failures.append("evidence_collected")
+        leading = self.leading_hypothesis()
+        if leading is None:
+            failures.append("falsification_attempted")
+            failures.append("falsification_recorded")
+        else:
+            if not any(leading.id in ev.contradicts for ev in self.evidence):
+                failures.append("falsification_attempted")
+            recorded = [
+                ev for ev in self.evidence
+                if leading.id in ev.contradicts
+                and (ev.tool_execution_id is not None or any(
+                    obs_id in {o.id for o in self.observations} for obs_id in ev.observation_ids
+                ))
+            ]
+            if not recorded:
+                failures.append("falsification_recorded")
+        return failures
+
+    def can_finalize(self) -> bool:
+        return not self.gate_failures()
+
+    def unsupported_claims(self) -> list[str]:
+        """Evidence statements without tool provenance or recorded observations."""
+        observation_ids = {obs.id for obs in self.observations}
+        observation_ids.update({obs.tool_execution_id or "" for obs in self.observations if obs.tool_execution_id})
+        unsupported: list[str] = []
+        for ev in self.evidence:
+            if ev.tool_execution_id is None and not any(
+                obs_id in observation_ids for obs_id in ev.observation_ids
+            ):
+                unsupported.append(ev.statement)
+        return unsupported
+
+    def finalize(self) -> None:
+        """Attempt synthesis; only transitions to COMPLETED when the gate opens."""
+        self.emit("SYNTHESIS_STARTED", {})
+        if not self.can_finalize():
+            self.emit("INSUFFICIENT_EVIDENCE", {"gate_failures": self.gate_failures()})
+            self._set_state(InvestigationState.INSUFFICIENT_EVIDENCE)
+            return
+        self.emit("SYNTHESIS_COMPLETED", {"n_hypotheses": len(self.hypotheses), "n_evidence": len(self.evidence)})
+        self.emit("INVESTIGATION_COMPLETED", {})
+        self._set_state(InvestigationState.COMPLETED)
+
+    def falsification_gate_open(self) -> bool:
+        """The gate requires at least one attempted falsification before synthesis."""
+        return not self.gate_failures()
+
     def _fail(self, state: InvestigationState, message: str) -> None:
         self._set_state(state)
         self.emit("investigation.failed", {"state": state.value, "message": message})
