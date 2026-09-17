@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "racewise": {
+      "type": "local",
+      "command": ["python", "src/racewise/mcp/server.py"],
+      "environment": {
+        "FASTF1_CACHE_DIR": ".fastf1-cache",
+        "PYTHONPATH": "src"
+      },
+      "enabled": true
+    }
+  }
+}
