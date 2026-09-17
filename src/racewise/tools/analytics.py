@@ -9,6 +9,7 @@ import statistics
 from typing import Optional
 
 from racewise.domain.schemas import Lap
+from racewise.tools.race_state import cars_ahead_at_lap, laps_for_driver, time_gap_at_lap
 
 ANALYTICS_VERSION = "1.0.0"
 
@@ -50,10 +51,7 @@ def stint_laps(laps: list[Lap], driver: str, stint_number: int) -> list[Lap]:
 
 
 def linear_degradation(laps: list[Lap]) -> Optional[dict]:
-    """Least-squares slope of lap time vs tyre life for a lap set.
-
-    Returns slope in seconds per tyre-life lap plus fit quality stats.
-    """
+    """Least-squares slope of lap time vs tyre life for a lap set."""
     points = [
         (float(lap.tyre_life), float(lap.lap_time_s))
         for lap in laps
@@ -87,8 +85,8 @@ def linear_degradation(laps: list[Lap]) -> Optional[dict]:
 def compare_sectors(laps_a: list[Lap], laps_b: list[Lap]) -> Optional[dict]:
     """Mean sector times for two lap sets and the per-sector delta A-B."""
 
-    def means(laps: list[Lap]) -> dict[str, Optional[float]]:
-        out: dict[str, Optional[float]] = {}
+    def means(laps: list[Lap]) -> dict:
+        out: dict = {}
         for sector in ("sector_1_s", "sector_2_s", "sector_3_s"):
             values = [getattr(lap, sector) for lap in laps if getattr(lap, sector) is not None]
             out[sector] = round(statistics.fmean(values), 4) if values else None
@@ -113,11 +111,10 @@ def pace_summary(laps: list[Lap]) -> Optional[dict]:
     clean = [lap.lap_time_s for lap in laps if lap.lap_time_s is not None]
     if not clean:
         return None
-    fastest = min(clean)
     return {
         "n_laps": len(clean),
         "mean_s": round(statistics.fmean(clean), 4),
-        "fastest_s": round(fastest, 4),
+        "fastest_s": round(min(clean), 4),
         "stdev_s": round(statistics.pstdev(clean), 4) if len(clean) > 1 else 0.0,
     }
 
@@ -128,20 +125,16 @@ def detect_pace_anomaly(
     window: int = 5,
     threshold_factor: float = 2.0,
 ) -> list[dict]:
-    """Detect laps slower than a rolling median by > threshold_factor * MAD.
-
-    Returns per-lap anomaly records with deviation in seconds.
-    """
+    """Detect laps slower than a rolling median by > threshold_factor * scaled MAD."""
     timed = sorted(
         (lap for lap in laps if lap.lap_time_s is not None),
         key=lambda lap: lap.lap_number,
     )
-    times = [lap.lap_time_s for lap in timed]
     anomalies: list[dict] = []
     for i, lap in enumerate(timed):
         lo = max(0, i - window)
         hi = min(len(timed), i + window + 1)
-        neighborhood = times[lo:i] + times[i + 1 : hi]
+        neighborhood = [t for j, t in enumerate([x.lap_time_s for x in timed[lo:hi]]) if lo + j != i]
         if len(neighborhood) < 3:
             continue
         med = statistics.median(neighborhood)
@@ -161,11 +154,8 @@ def detect_pace_anomaly(
     return anomalies
 
 
-def delta_time_between_drivers(
-    driver_laps: list[Lap],
-    reference_laps: list[Lap],
-) -> Optional[dict]:
-    """Rolling mean pace delta between two matched clean-lap sets."""
+def delta_time_between_drivers(driver_laps: list[Lap], reference_laps: list[Lap]) -> Optional[dict]:
+    """Mean and fastest pace delta between two clean-lap sets."""
     a = pace_summary(driver_laps)
     b = pace_summary(reference_laps)
     if a is None or b is None:
@@ -177,4 +167,49 @@ def delta_time_between_drivers(
         "driver_fastest_s": a["fastest_s"],
         "reference_fastest_s": b["fastest_s"],
         "fastest_delta_s": round(a["fastest_s"] - b["fastest_s"], 4),
+        "driver_n_laps": a["n_laps"],
+        "reference_n_laps": b["n_laps"],
+    }
+
+
+def traffic_exposure(
+    all_laps: list[Lap],
+    driver: str,
+    lap_start: int,
+    lap_end: int,
+    gap_threshold_s: float = 1.0,
+) -> dict:
+    """Estimate dirty-air/traffic exposure in a lap window.
+
+    A lap counts as 'in traffic' when the car directly ahead on track is
+    within gap_threshold_s of cumulative race time at that lap.
+    """
+    target_cum: dict[int, float] = {}
+    for lap in laps_for_driver(all_laps, driver):
+        if lap.lap_time_s is not None:
+            target_cum[lap.lap_number] = target_cum.get(lap.lap_number - 1, 0.0) + lap.lap_time_s
+    exposures: list[dict] = []
+    for lap_number in range(lap_start, lap_end + 1):
+        ahead = cars_ahead_at_lap(all_laps, lap_number, driver, count=1)
+        if not ahead:
+            exposures.append({"lap_number": lap_number, "in_traffic": False, "gap_s": None, "car_ahead": None})
+            continue
+        ahead_name = ahead[0]
+        gap = time_gap_at_lap(all_laps, lap_number, ahead_name, driver)
+        in_traffic = gap is not None and abs(gap) <= gap_threshold_s
+        exposures.append(
+            {
+                "lap_number": lap_number,
+                "in_traffic": in_traffic,
+                "gap_s": gap,
+                "car_ahead": ahead_name,
+            }
+        )
+    traffic_laps = [e["lap_number"] for e in exposures if e["in_traffic"]]
+    return {
+        "window": [lap_start, lap_end],
+        "laps_analyzed": len(exposures),
+        "traffic_laps": traffic_laps,
+        "traffic_fraction": round(len(traffic_laps) / len(exposures), 4) if exposures else 0.0,
+        "exposure_detail": exposures,
     }
