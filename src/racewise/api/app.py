@@ -166,6 +166,11 @@ def _deterministic_plan(engine: InvestigationEngine, record: InvestigationRecord
     engine._set_state(InvestigationState.COMPLETED)
 
 
+@app.get("/api/health")
+def health() -> dict[str, Any]:
+    return {"status": "ok", "service": "racewise", "version": "0.1.0", "model_provider": os.environ.get("MODEL_PROVIDER", "union_alpha"), "model_configured": provider_from_env() is not None}
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     return {
