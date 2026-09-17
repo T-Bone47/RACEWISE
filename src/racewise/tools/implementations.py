@@ -85,7 +85,7 @@ class SessionContext:
 
     def driver_laps(self, driver: str) -> list[Lap]:
         if driver not in self.summary.drivers:
-            raise ToolError(f"Driver '{driver}' not found in session", missing=True)
+            raise ToolError(f"Driver '{driver}' not found in session", missing=True, code="missing_data", field="driver")
         return laps_for_driver(self.laps, driver)
 
 
@@ -98,7 +98,19 @@ class GetSessionTool(Tool):
             name="get_session",
             description="Return session metadata: event name, circuit, session type, driver list, total lap count.",
             input_schema={"type": "object", "properties": {}, "required": []},
-            output_schema={"type": "object"},
+            output_schema={
+                "type": "object",
+                "properties": {
+                    "event_name": {"type": "string"},
+                    "session_type": {"type": "string"},
+                    "date": OUT_TRACK_STATUS,
+                    "circuit": OUT_COMPOUND,
+                    "total_laps": OUT_POSITION,
+                    "drivers": {"type": "array", "items": {"type": "string"}},
+                    "n_drivers": {"type": "integer"},
+                },
+                "required": ["event_name", "session_type", "date", "circuit", "total_laps", "drivers", "n_drivers"],
+            },
             version="1.0.0",
             limitations=["Historical data only; no live sessions."],
         ).spec
@@ -128,12 +140,12 @@ class ToolSpecWrapper:
         )
 
 
-def _spec(name: str, description: str, properties: dict, required: list[str], version: str, limitations: Optional[list[str]] = None) -> ToolSpec:
+def _spec(name: str, description: str, properties: dict, required: list[str], version: str, output_schema: dict, limitations: Optional[list[str]] = None) -> ToolSpec:
     return ToolSpec(
         name=name,
         description=description,
         input_schema={"type": "object", "properties": properties, "required": required},
-        output_schema={"type": "object"},
+        output_schema=output_schema,
         version=version,
         limitations=limitations or [],
     )
@@ -142,6 +154,36 @@ def _spec(name: str, description: str, properties: dict, required: list[str], ve
 DRIVER_PARAM = {"type": "string", "description": "Three-letter driver code, e.g. VER"}
 LAP_START_PARAM = {"type": "integer", "description": "First lap number of window"}
 LAP_END_PARAM = {"type": "integer", "description": "Last lap number of window"}
+
+OUT_DRIVER = {"type": "string"}
+OUT_LAP_NUMBER = {"type": "integer"}
+OUT_LAP_TIME_S = {"type": ["number", "null"]}
+OUT_COMPOUND = {"type": ["string", "null"]}
+OUT_TYRE_LIFE = {"type": ["integer", "null"]}
+OUT_STINT = {"type": ["integer", "null"]}
+OUT_POSITION = {"type": ["integer", "null"]}
+OUT_BOOL = {"type": "boolean"}
+OUT_TRACK_STATUS = {"type": ["string", "null"]}
+
+LAP_RECORD_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "driver": OUT_DRIVER,
+        "lap_number": OUT_LAP_NUMBER,
+        "lap_time_s": OUT_LAP_TIME_S,
+        "compound": OUT_COMPOUND,
+        "tyre_life": OUT_TYRE_LIFE,
+        "stint": OUT_STINT,
+        "position": OUT_POSITION,
+        "is_pit_in_lap": OUT_BOOL,
+        "is_pit_out_lap": OUT_BOOL,
+        "track_status": OUT_TRACK_STATUS,
+    },
+    "required": [
+        "driver", "lap_number", "lap_time_s", "compound", "tyre_life",
+        "stint", "position", "is_pit_in_lap", "is_pit_out_lap", "track_status",
+    ],
+}
 
 
 class GetLapsTool(Tool):
@@ -155,6 +197,15 @@ class GetLapsTool(Tool):
             {"driver": DRIVER_PARAM},
             ["driver"],
             "1.0.0",
+            {
+                "type": "object",
+                "properties": {
+                    "driver": OUT_DRIVER,
+                    "n_laps": {"type": "integer"},
+                    "laps": {"type": "array", "items": LAP_RECORD_SCHEMA},
+                },
+                "required": ["driver", "n_laps", "laps"],
+            },
             ["Returns at most one season-race; includes pit in/out laps flagged."],
         )
 
@@ -174,6 +225,27 @@ class GetStintsTool(Tool):
             {"driver": DRIVER_PARAM},
             ["driver"],
             "1.0.0",
+            {
+                "type": "object",
+                "properties": {
+                    "driver": OUT_DRIVER,
+                    "stints": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stint": {"type": "integer"},
+                                "compound": OUT_COMPOUND,
+                                "lap_start": {"type": "integer"},
+                                "lap_end": {"type": "integer"},
+                                "lap_count": {"type": "integer"},
+                            },
+                            "required": ["stint", "compound", "lap_start", "lap_end", "lap_count"],
+                        },
+                    },
+                },
+                "required": ["driver", "stints"],
+            },
         )
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
@@ -206,6 +278,31 @@ class AnalyzeTyreDegradationTool(Tool):
             {"driver": DRIVER_PARAM, "stint": {"type": "integer", "description": "Stint number (1-based)"}},
             ["driver"],
             ANALYTICS_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "driver": OUT_DRIVER,
+                    "stint": OUT_STINT,
+                    "per_stint": {
+                        "type": ["object", "null"],
+                        "additionalProperties": {
+                            "type": ["object", "null"],
+                            "properties": {
+                                "slope_s_per_lap": {"type": "number"},
+                                "intercept_s": {"type": "number"},
+                                "r_squared": {"type": "number"},
+                                "n_laps": {"type": "integer"},
+                            },
+                            "required": ["slope_s_per_lap", "intercept_s", "r_squared", "n_laps"],
+                        },
+                    },
+                    "slope_s_per_lap": {"type": "number"},
+                    "intercept_s": {"type": "number"},
+                    "r_squared": {"type": "number"},
+                    "n_laps": {"type": "integer"},
+                },
+                "required": ["driver"],
+            },
             ["Linear model; unreliable for stints with < 3 clean laps or heavy traffic/fuel variation."],
         )
 
@@ -223,7 +320,7 @@ class AnalyzeTyreDegradationTool(Tool):
         clean = filter_clean_laps(stint_laps(driver_laps, driver, stint))
         deg = linear_degradation(clean)
         if deg is None:
-            raise ToolError(f"Not enough clean laps in stint {stint} for {driver}", missing=True)
+            raise ToolError(f"Not enough clean laps in stint {stint} for {driver}", missing=True, code="missing_data", field="stint")
         return {"driver": driver, "stint": stint, **deg}
 
 
@@ -243,6 +340,34 @@ class AnalyzeTrafficTool(Tool):
             },
             ["driver", "lap_start", "lap_end"],
             ANALYTICS_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "window": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "minItems": 2,
+                        "maxItems": 2,
+                    },
+                    "laps_analyzed": {"type": "integer"},
+                    "traffic_laps": {"type": "array", "items": {"type": "integer"}},
+                    "traffic_fraction": {"type": "number"},
+                    "exposure_detail": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "lap_number": {"type": "integer"},
+                                "in_traffic": OUT_BOOL,
+                                "gap_s": OUT_LAP_TIME_S,
+                                "car_ahead": OUT_COMPOUND,
+                            },
+                            "required": ["lap_number", "in_traffic", "gap_s", "car_ahead"],
+                        },
+                    },
+                },
+                "required": ["window", "laps_analyzed", "traffic_laps", "traffic_fraction", "exposure_detail"],
+            },
             ["Approximation from cumulative clean lap times; under safety car the estimate degrades."],
         )
 
@@ -268,6 +393,39 @@ class CompareSectorsTool(Tool):
             {"driver_a": DRIVER_PARAM, "driver_b": DRIVER_PARAM, "lap_start": LAP_START_PARAM, "lap_end": LAP_END_PARAM},
             ["driver_a", "driver_b", "lap_start", "lap_end"],
             ANALYTICS_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "a_means": {
+                        "type": "object",
+                        "properties": {
+                            "sector_1_s": OUT_LAP_TIME_S,
+                            "sector_2_s": OUT_LAP_TIME_S,
+                            "sector_3_s": OUT_LAP_TIME_S,
+                        },
+                        "required": ["sector_1_s", "sector_2_s", "sector_3_s"],
+                    },
+                    "b_means": {
+                        "type": "object",
+                        "properties": {
+                            "sector_1_s": OUT_LAP_TIME_S,
+                            "sector_2_s": OUT_LAP_TIME_S,
+                            "sector_3_s": OUT_LAP_TIME_S,
+                        },
+                        "required": ["sector_1_s", "sector_2_s", "sector_3_s"],
+                    },
+                    "delta_a_minus_b": {
+                        "type": "object",
+                        "properties": {
+                            "sector_1_s": OUT_LAP_TIME_S,
+                            "sector_2_s": OUT_LAP_TIME_S,
+                            "sector_3_s": OUT_LAP_TIME_S,
+                        },
+                        "required": ["sector_1_s", "sector_2_s", "sector_3_s"],
+                    },
+                },
+                "required": ["a_means", "b_means", "delta_a_minus_b"],
+            },
             ["Sector times can be missing for some laps; means use available data."],
         )
 
@@ -284,7 +442,7 @@ class CompareSectorsTool(Tool):
             if lap.lap_time_s is not None and not lap.is_pit_in_lap and not lap.is_pit_out_lap
         ]
         if not a or not b:
-            raise ToolError("No comparable laps in window for one of the drivers", missing=True)
+            raise ToolError("No comparable laps in window for one of the drivers", missing=True, code="missing_data", field="lap_start")
         result = compare_sectors(a, b)
         assert result is not None
         return result
@@ -301,6 +459,24 @@ class CompareDriverPaceTool(Tool):
             {"driver_a": DRIVER_PARAM, "driver_b": DRIVER_PARAM, "lap_start": LAP_START_PARAM, "lap_end": LAP_END_PARAM},
             ["driver_a", "driver_b"],
             ANALYTICS_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "driver_mean_s": {"type": "number"},
+                    "reference_mean_s": {"type": "number"},
+                    "delta_s": {"type": "number"},
+                    "driver_fastest_s": {"type": "number"},
+                    "reference_fastest_s": {"type": "number"},
+                    "fastest_delta_s": {"type": "number"},
+                    "driver_n_laps": {"type": "integer"},
+                    "reference_n_laps": {"type": "integer"},
+                },
+                "required": [
+                    "driver_mean_s", "reference_mean_s", "delta_s",
+                    "driver_fastest_s", "reference_fastest_s", "fastest_delta_s",
+                    "driver_n_laps", "reference_n_laps",
+                ],
+            },
             ["Uses IsAccurate filtering; results are approximations, not official classifications."],
         )
 
@@ -318,7 +494,7 @@ class CompareDriverPaceTool(Tool):
         a = pick(kwargs["driver_a"])
         b = pick(kwargs["driver_b"])
         if not a or not b:
-            raise ToolError("No clean laps for one of the drivers in the requested window", missing=True)
+            raise ToolError("No clean laps for one of the drivers in the requested window", missing=True, code="missing_data", field="driver_a")
         result = delta_time_between_drivers(a, b)
         assert result is not None
         return result
@@ -335,6 +511,33 @@ class DetectPaceAnomalyTool(Tool):
             {"driver": DRIVER_PARAM, "lap_start": LAP_START_PARAM, "lap_end": LAP_END_PARAM},
             ["driver"],
             ANALYTICS_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "driver": OUT_DRIVER,
+                    "window": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "minItems": 2,
+                        "maxItems": 2,
+                    },
+                    "anomalies": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "lap_number": {"type": "integer"},
+                                "lap_time_s": {"type": "number"},
+                                "window_median_s": {"type": "number"},
+                                "deviation_s": {"type": "number"},
+                                "threshold_s": {"type": "number"},
+                            },
+                            "required": ["lap_number", "lap_time_s", "window_median_s", "deviation_s", "threshold_s"],
+                        },
+                    },
+                },
+                "required": ["driver", "window", "anomalies"],
+            },
             ["Median/MAD heuristic; flags outliers but does not explain them."],
         )
 
@@ -359,6 +562,28 @@ class AnalyzePitLossTool(Tool):
             {"driver": DRIVER_PARAM},
             ["driver"],
             PIT_LOSS_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "driver": OUT_DRIVER,
+                    "median_clean_lap_s": {"type": "number"},
+                    "stops": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "pit_in_lap": {"type": "integer"},
+                                "in_lap_loss_s": OUT_LAP_TIME_S,
+                                "out_lap_loss_s": OUT_LAP_TIME_S,
+                                "total_loss_s": OUT_LAP_TIME_S,
+                            },
+                            "required": ["pit_in_lap", "in_lap_loss_s", "out_lap_loss_s", "total_loss_s"],
+                        },
+                    },
+                    "mean_total_loss_s": OUT_LAP_TIME_S,
+                },
+                "required": ["driver", "median_clean_lap_s", "stops", "mean_total_loss_s"],
+            },
             ["Approximation: compares pit in-lap and out-lap vs driver's rolling median lap time."],
         )
 
@@ -367,7 +592,7 @@ class AnalyzePitLossTool(Tool):
         driver_laps = self._context.driver_laps(driver)
         timed = [lap for lap in driver_laps if lap.lap_time_s is not None and not lap.is_pit_in_lap and not lap.is_pit_out_lap]
         if len(timed) < 5:
-            raise ToolError("Not enough timed laps to estimate pit loss", missing=True)
+            raise ToolError("Not enough timed laps to estimate pit loss", missing=True, code="missing_data", field="driver")
         baseline = statistics.median([lap.lap_time_s for lap in timed])
         stops = []
         for i, lap in enumerate(driver_laps):
@@ -389,7 +614,7 @@ class AnalyzePitLossTool(Tool):
                 }
             )
         if not stops:
-            raise ToolError(f"No pit stops recorded for {driver}", missing=True)
+            raise ToolError(f"No pit stops recorded for {driver}", missing=True, code="missing_data", field="driver")
         totals = [s["total_loss_s"] for s in stops if s["total_loss_s"] is not None]
         return {
             "driver": driver,
@@ -410,6 +635,17 @@ class GetWeatherTool(Tool):
             {},
             [],
             "1.0.0",
+            {
+                "type": "object",
+                "properties": {
+                    "n_records": {"type": "integer"},
+                    "rainfall_records": {"type": "integer"},
+                    "any_rain": OUT_BOOL,
+                    "track_temp_min_c": OUT_LAP_TIME_S,
+                    "track_temp_max_c": OUT_LAP_TIME_S,
+                },
+                "required": ["n_records", "rainfall_records", "any_rain", "track_temp_min_c", "track_temp_max_c"],
+            },
             ["Weather granularity is per-minute samples; no per-lap interpolation."],
         )
 
@@ -437,6 +673,25 @@ class GetRaceControlTool(Tool):
             {"category": {"type": "string", "description": "Optional filter on category, e.g. 'Other', 'Flag'"}},
             [],
             "1.0.0",
+            {
+                "type": "object",
+                "properties": {
+                    "n_events": {"type": "integer"},
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "lap": OUT_POSITION,
+                                "category": OUT_COMPOUND,
+                                "message": {"type": "string"},
+                            },
+                            "required": ["lap", "category", "message"],
+                        },
+                    },
+                },
+                "required": ["n_events", "events"],
+            },
         )
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
@@ -461,6 +716,26 @@ class GetPitStopsTool(Tool):
             {"driver": DRIVER_PARAM},
             [],
             "1.0.0",
+            {
+                "type": "object",
+                "properties": {
+                    "n_stops": {"type": "integer"},
+                    "stops": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "driver": OUT_DRIVER,
+                                "pit_in_lap": {"type": "integer"},
+                                "compound_before": OUT_COMPOUND,
+                                "compound_after": OUT_COMPOUND,
+                            },
+                            "required": ["driver", "pit_in_lap", "compound_before", "compound_after"],
+                        },
+                    },
+                },
+                "required": ["n_stops", "stops"],
+            },
         )
 
     def execute(self, **kwargs: Any) -> dict[str, Any]:
