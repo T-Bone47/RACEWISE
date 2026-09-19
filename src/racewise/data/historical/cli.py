@@ -174,6 +174,71 @@ def cmd_fastf1(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_fastf1_canonical(args: argparse.Namespace) -> int:
+    """Ingest FastF1 modern engineering data into the canonical store.
+
+    Loads representative sessions (or a specific season/round), then maps
+    stints, weather and race control into canonical tables. Idempotent:
+    re-running produces identical counts. Skips sessions F1DB does not
+    represent (no invented sessions).
+    """
+    import pathlib
+    import time
+
+    from racewise.data.fastf1_adapter import FastF1Adapter
+    from racewise.data.historical.fastf1_canonical import FastF1Canonicalizer
+    from racewise.data.historical.f1db_canonical import CanonicalStore
+
+    default_targets = [(2023, 1, "R"), (2023, 1, "Q"), (2023, 2, "R"), (2023, 3, "R")]
+    if args.round:
+        targets = [(args.season, r, code) for r in args.round for code in (args.sessions or ["R"])]
+    else:
+        targets = default_targets
+
+    cache_dir = args.cache_dir or str(pathlib.Path.cwd() / ".fastf1-cache")
+    adapter = FastF1Adapter(cache_dir=cache_dir)
+    store = CanonicalStore()
+    canon = FastF1Canonicalizer(store)
+
+    totals = {"stints": 0, "weather": 0, "race_control": 0, "lap_rows": 0, "sessions": 0, "skipped": 0}
+    t_start = time.perf_counter()
+    load_seconds = 0.0
+    for year, round_num, code in targets:
+        t0 = time.perf_counter()
+        try:
+            session = adapter.load_session(year, round_num, code)
+        except Exception as e:
+            print(f"{year} R{round_num} {code}: LOAD FAILED ({type(e).__name__}: {e}) - DATA_UNAVAILABLE")
+            totals["skipped"] += 1
+            continue
+        load_seconds += time.perf_counter() - t0
+        res = canon.ingest_session(year, round_num, code, session)
+        if not res.get("attached"):
+            totals["skipped"] += 1
+            print(f"{year} R{round_num} {code}: no canonical session (F1DB does not represent it); skipped")
+            continue
+        totals["sessions"] += 1
+        totals["stints"] += res["stints"]
+        totals["weather"] += res["weather"]
+        totals["race_control"] += res["race_control"]
+        totals["lap_rows"] += res["lap_rows"]
+        print(
+            f"{year} R{round_num} {code}: stints={res['stints']} weather={res['weather']} "
+            f"race_control={res['race_control']} fastf1_lap_rows={res['lap_rows']} ({res['seconds']}s)"
+        )
+
+    # Availability catalog must reflect the new provider data.
+    f1db = canon._f1db
+    catalog_rows = f1db.rebuild_catalog()
+    elapsed = time.perf_counter() - t_start
+    print(f"\nCatalog rebuilt: {catalog_rows} sessions")
+    print(
+        f"Totals: {totals} | load time {load_seconds:.1f}s | total {elapsed:.1f}s "
+        f"| db size {store.db_path.stat().st_size / 1e6:.1f} MB"
+    )
+    return 0
+
+
 def cmd_catalog(args: argparse.Namespace) -> int:
     """Manage historical catalog."""
     catalog = get_catalog_manager()
@@ -261,6 +326,15 @@ def main() -> int:
     ff1_parser.add_argument("--resume", action="store_true", default=True)
     ff1_parser.add_argument("--force", action="store_true")
 
+    # FastF1 (modern engineering data)
+    ff1c_parser = subparsers.add_parser(
+        "fastf1-canonical", help="Ingest FastF1 stints/weather/race control into the canonical store"
+    )
+    ff1c_parser.add_argument("--season", type=int, default=2023)
+    ff1c_parser.add_argument("--round", type=int, action="append")
+    ff1c_parser.add_argument("--sessions", nargs="+", default=None, help="FastF1 session codes (default R)")
+    ff1c_parser.add_argument("--cache-dir", type=str, default=None)
+
     # Catalog
     cat_parser = subparsers.add_parser("catalog", help="Manage historical catalog")
     cat_parser.add_argument("--report", action="store_true")
@@ -286,6 +360,7 @@ def main() -> int:
         "coverage": cmd_coverage,
         "jolpica": cmd_jolpica,
         "fastf1": cmd_fastf1,
+        "fastf1-canonical": cmd_fastf1_canonical,
         "catalog": cmd_catalog,
         "availability": cmd_availability,
         "manifest": cmd_manifest,

@@ -218,6 +218,60 @@ class CanonicalQueries:
             rows = conn.execute(query, params).fetchall()
             return [dict(r) for r in rows]
 
+    # -- modern provider data (FastF1) ----------------------------------------
+
+    def get_stints(
+        self,
+        season: int,
+        round_num: int,
+        session_type: str = "RACE",
+        driver_key: Optional[str] = None,
+    ) -> list[dict]:
+        """Canonical stints for a session (FastF1-sourced where ingested)."""
+        session = self.resolve_session(season, round_num, session_type)
+        if session is None:
+            return []
+        query = """
+            SELECT st.*, d.driver_key, d.full_name AS driver_name, d.code AS driver_code
+            FROM canonical_stints st
+            JOIN canonical_drivers d ON d.driver_id = st.driver_id
+            WHERE st.session_id = ?
+        """
+        params: list[Any] = [session["session_id"]]
+        if driver_key:
+            query += " AND d.driver_key = ?"
+            params.append(driver_key)
+        query += " ORDER BY d.driver_key, st.stint_number"
+        with self._conn() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_weather(self, season: int, round_num: int, session_type: str = "RACE") -> list[dict]:
+        """Canonical weather observations for a session, time-ordered."""
+        session = self.resolve_session(season, round_num, session_type)
+        if session is None:
+            return []
+        with self._conn() as conn:
+            rows = conn.execute(
+                """SELECT * FROM canonical_weather WHERE session_id = ?
+                   ORDER BY timestamp""",
+                (session["session_id"],),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_race_control(self, season: int, round_num: int, session_type: str = "RACE") -> list[dict]:
+        """Canonical race-control events for a session, time-ordered."""
+        session = self.resolve_session(season, round_num, session_type)
+        if session is None:
+            return []
+        with self._conn() as conn:
+            rows = conn.execute(
+                """SELECT * FROM canonical_race_control WHERE session_id = ?
+                   ORDER BY timestamp, rowid""",
+                (session["session_id"],),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
 
 @lru_cache(maxsize=4)
 def get_canonical_queries(db_path: Optional[str] = None) -> CanonicalQueries:

@@ -286,7 +286,10 @@ def investigate_2023_bahrain_gp(queries: CanonicalQueries, fastf1_context: Any =
         {
             "id": "E5",
             "type": "FACT",
-            "statement": f"Fastest laps: {len(fastest_laps)} driver records",
+            "statement": (
+                f"Fastest-lap facts: {sum(1 for r in fastest_laps if r.get('source_provider') == 'f1db')} (f1db); "
+                f"per-lap rows: {sum(1 for r in fastest_laps if r.get('source_provider') == 'fastf1')} (fastf1)"
+            ),
             "source": "canonical_lap_times",
         },
     ]
