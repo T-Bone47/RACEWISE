@@ -31,6 +31,7 @@ React workstation UI  ──SSE──  FastAPI
 
 - **Domain schemas** — `src/racewise/domain/schemas.py`
 - **Data adapter** — `src/racewise/data/fastf1_adapter.py` (FastF1 → canonical Lap/Stint/PitStop/Weather/RaceControl)
+- **Historical canonical pipeline** — `src/racewise/data/historical/` (F1DB → canonical entities, sessions, results, qualifying, pit stops; data-derived availability catalog; deterministic ids; idempotent ingestion)
 - **Tools** — `src/racewise/tools/` (contract + 12 tools + versioned analytics)
 - **Investigation engine** — `src/racewise/investigation/engine.py`
 - **Provider abstraction** — `src/racewise/agent/provider.py` (`ModelProvider` protocol; `UnionAlphaProvider` for OpenRouter)
@@ -62,7 +63,7 @@ Without credentials the system runs in deterministic mode and labels model-depen
 ## Tests & benchmark
 
 ```bash
-python -m pytest -q          # 21 tests: reference analytics, simulator, engine, API
+python -m pytest -q          # 143 tests: canonical data, analytics, simulator, engine, API, MCP
 python tests/benchmark/run_benchmark.py
 ```
 
@@ -74,7 +75,8 @@ All analytics are pinned to hand-verified values from the 2023 Bahrain GP (VER: 
 
 ## Limitations
 
-- Historical data only (FastF1; 2023+ seasons). No live timing.
+- Historical data: full 1950–2026 race/qualifying/pit-stop record from F1DB (v2026.14.0) plus FastF1 telemetry for 2023+; no live timing.
+- Tyre stints, weather, race control and lap-by-lap telemetry are only available for sessions where a provider (FastF1/OpenF1) actually supplies them — availability is always data-derived, never assumed.
 - One reference session in the benchmark; the PRD target of 15–20 questions is not yet met.
 - No model credentials in the build environment ⇒ Union Alpha phases are implemented but unexercised; evaluation of LLM judgment dimensions is pending.
 - Linear degradation model; traffic is a cumulative-time approximation, not dirty-air physics.
@@ -83,6 +85,9 @@ All analytics are pinned to hand-verified values from the 2023 Bahrain GP (VER: 
 
 ## Docs
 
+- `docs/PHASE_5_5B_COMPLETION_REPORT.md` — verified session-level canonicalization results
+- `docs/HISTORICAL_COVERAGE.md`, `docs/F1DB_CANONICALIZATION.md` — what the canonical store contains and why
+- `docs/GOLDEN_INVESTIGATIONS.md`, `docs/CROSS_PROVIDER_VALIDATION.md` — golden-race and multi-provider evidence
 - `docs/IMPLEMENTATION_PLAN.md` — audit, phases, risks
 - `docs/DECISIONS.md` — ADR-style decision log
 - `docs/EVALUATION.md` — honest benchmark results and their boundaries

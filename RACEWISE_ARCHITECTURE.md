@@ -66,6 +66,10 @@ The application must never expose provider-specific JSON directly to the agent.
 
 ## 3. Canonical domain model
 
+### Historical canonical store (Phase 5.5B)
+
+Beyond the in-memory investigation model, RACEWISE maintains a persistent canonical SQLite store (`data/canonical/canonical.db`) built from F1DB: deterministic session identity (`f1db:<raceId>:<TYPE>` → SHA-256), 12 session types preserved exactly as the source represents them, results/qualifying/pit-stops/fastest-lap facts with full provenance columns, and a data-derived availability catalog (`canonical_session_catalog`). Availability flags come from actual record counts only — never from season-year heuristics. See `docs/F1DB_CANONICALIZATION.md` and `docs/HISTORICAL_COVERAGE.md`.
+
 ### Session
 ```python
 Session(
