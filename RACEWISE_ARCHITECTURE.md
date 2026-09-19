@@ -70,6 +70,10 @@ The application must never expose provider-specific JSON directly to the agent.
 
 Beyond the in-memory investigation model, RACEWISE maintains a persistent canonical SQLite store (`data/canonical/canonical.db`) built from F1DB: deterministic session identity (`f1db:<raceId>:<TYPE>` → SHA-256), 12 session types preserved exactly as the source represents them, results/qualifying/pit-stops/fastest-lap facts with full provenance columns, and a data-derived availability catalog (`canonical_session_catalog`). Availability flags come from actual record counts only — never from season-year heuristics. See `docs/F1DB_CANONICALIZATION.md` and `docs/HISTORICAL_COVERAGE.md`.
 
+### Modern engineering store (Phase 6A)
+
+FastF1 (2018+) feeds the same store: tyre stints and compounds (`canonical_stints`), weather observations (`canonical_weather`), race-control events (`canonical_race_control`) and per-lap engineering rows (`canonical_lap_times`, provider=`fastf1`) — all with provider provenance, deterministic ids, and idempotent upserts. F1DB remains the identity and classification authority; FastF1 rows attach to existing canonical sessions only. Driver codes resolve season-scoped (no cross-era guessing). Channel telemetry is deliberately deferred behind a bounded long-format policy. See `docs/FASTF1_MODERN_DATA.md` and `docs/PROVIDER_MERGE_POLICY.md`.
+
 ### Session
 ```python
 Session(
