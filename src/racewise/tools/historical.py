@@ -504,6 +504,223 @@ class SearchHistoricalCatalogTool(Tool):
         }
 
 
+class GetHistoricalStintsTool(Tool):
+    """Canonical tyre stints (FastF1 provider, modern sessions)."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "get_historical_stints",
+            "Return canonical tyre stints for a session (compound, lap range, count). "
+            "Sourced from FastF1 where ingested; empty list means UNAVAILABLE for this "
+            "session, never 'no stints occurred'.",
+            {"season": SEASON_PARAM, "round": ROUND_PARAM, "session_type": SESSION_TYPE_PARAM,
+             "driver_key": {"type": "string", "description": "Optional driver code filter (e.g. VER)"}},
+            ["season", "round"],
+            {
+                "type": "object",
+                "properties": {
+                    "season": {"type": "integer"},
+                    "round": {"type": "integer"},
+                    "session_type": {"type": "string"},
+                    "n_stints": {"type": "integer"},
+                    "available": {"type": "boolean"},
+                    "source_provider": {"type": ["string", "null"]},
+                    "stints": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "driver": {"type": "string"},
+                                "driver_key": {"type": "string"},
+                                "stint_number": {"type": "integer"},
+                                "compound": {"type": ["string", "null"]},
+                                "lap_start": {"type": "integer"},
+                                "lap_end": {"type": "integer"},
+                                "lap_count": {"type": "integer"},
+                            },
+                            "required": ["driver", "driver_key", "stint_number", "compound",
+                                         "lap_start", "lap_end", "lap_count"],
+                        },
+                    },
+                },
+                "required": ["season", "round", "session_type", "n_stints", "available",
+                             "source_provider", "stints"],
+            },
+            ["Compound is recorded by FastF1 only for sessions it covers (2018+); '|' marks mixed sets."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        season = int(kwargs["season"])
+        round_num = int(kwargs["round"])
+        session_type = str(kwargs.get("session_type", "RACE")).upper()
+        driver_key = kwargs.get("driver_key")
+        rows = self._queries.get_stints(season, round_num, session_type, driver_key)
+        providers = sorted({r.get("source_provider") for r in rows if r.get("source_provider")})
+        return {
+            "season": season,
+            "round": round_num,
+            "session_type": session_type,
+            "n_stints": len(rows),
+            "available": len(rows) > 0,
+            "source_provider": providers[0] if len(providers) == 1 else ("|".join(providers) if providers else None),
+            "stints": [
+                {
+                    "driver": r.get("driver_name"),
+                    "driver_key": r.get("driver_key"),
+                    "stint_number": r.get("stint_number"),
+                    "compound": r.get("compound"),
+                    "lap_start": r.get("lap_start"),
+                    "lap_end": r.get("lap_end"),
+                    "lap_count": r.get("lap_count"),
+                }
+                for r in rows
+            ],
+        }
+
+
+class GetHistoricalWeatherTool(Tool):
+    """Canonical weather observations (FastF1 provider)."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "get_historical_weather",
+            "Return canonical weather observations for a session (air/track temp, humidity, "
+            "rainfall, wind, pressure) at native source precision. No interpolation: gaps "
+            "between observations remain gaps.",
+            {"season": SEASON_PARAM, "round": ROUND_PARAM, "session_type": SESSION_TYPE_PARAM},
+            ["season", "round"],
+            {
+                "type": "object",
+                "properties": {
+                    "season": {"type": "integer"},
+                    "round": {"type": "integer"},
+                    "session_type": {"type": "string"},
+                    "n_observations": {"type": "integer"},
+                    "available": {"type": "boolean"},
+                    "source_provider": {"type": ["string", "null"]},
+                    "observations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "timestamp": {"type": ["string", "null"]},
+                                "air_temp_c": {"type": ["number", "null"]},
+                                "track_temp_c": {"type": ["number", "null"]},
+                                "humidity": {"type": ["number", "null"]},
+                                "rainfall": {"type": ["boolean", "null"]},
+                                "wind_direction": {"type": ["integer", "null"]},
+                                "wind_speed": {"type": ["number", "null"]},
+                                "pressure": {"type": ["number", "null"]},
+                            },
+                            "required": ["timestamp", "air_temp_c", "track_temp_c", "humidity",
+                                         "rainfall", "wind_direction", "wind_speed", "pressure"],
+                        },
+                    },
+                },
+                "required": ["season", "round", "session_type", "n_observations", "available",
+                             "source_provider", "observations"],
+            },
+            ["Weather is available only where the provider recorded it; UNAVAILABLE means no data."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        season = int(kwargs["season"])
+        round_num = int(kwargs["round"])
+        session_type = str(kwargs.get("session_type", "RACE")).upper()
+        rows = self._queries.get_weather(season, round_num, session_type)
+        providers = sorted({r.get("source_provider") for r in rows if r.get("source_provider")})
+        return {
+            "season": season,
+            "round": round_num,
+            "session_type": session_type,
+            "n_observations": len(rows),
+            "available": len(rows) > 0,
+            "source_provider": providers[0] if len(providers) == 1 else ("|".join(providers) if providers else None),
+            "observations": [
+                {
+                    "timestamp": r.get("timestamp"),
+                    "air_temp_c": r.get("air_temp_c"),
+                    "track_temp_c": r.get("track_temp_c"),
+                    "humidity": r.get("humidity"),
+                    "rainfall": (
+                        bool(r["rainfall"]) if r.get("rainfall") is not None else None
+                    ),
+                    "wind_direction": r.get("wind_direction"),
+                    "wind_speed": r.get("wind_speed"),
+                    "pressure": r.get("pressure"),
+                }
+                for r in rows
+            ],
+        }
+
+
+class GetHistoricalRaceControlTool(Tool):
+    """Canonical race-control events (FastF1 provider)."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "get_historical_race_control",
+            "Return canonical race-control events for a session (flags, safety car, "
+            "penalties, track status messages) in chronological order.",
+            {"season": SEASON_PARAM, "round": ROUND_PARAM, "session_type": SESSION_TYPE_PARAM},
+            ["season", "round"],
+            {
+                "type": "object",
+                "properties": {
+                    "season": {"type": "integer"},
+                    "round": {"type": "integer"},
+                    "session_type": {"type": "string"},
+                    "n_events": {"type": "integer"},
+                    "available": {"type": "boolean"},
+                    "source_provider": {"type": ["string", "null"]},
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "timestamp": {"type": ["string", "null"]},
+                                "category": {"type": ["string", "null"]},
+                                "message": {"type": ["string", "null"]},
+                                "lap": {"type": ["integer", "null"]},
+                            },
+                            "required": ["timestamp", "category", "message", "lap"],
+                        },
+                    },
+                },
+                "required": ["season", "round", "session_type", "n_events", "available",
+                             "source_provider", "events"],
+            },
+            ["Messages are preserved verbatim from the source; flag/scope detail is inside the message text."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        season = int(kwargs["season"])
+        round_num = int(kwargs["round"])
+        session_type = str(kwargs.get("session_type", "RACE")).upper()
+        rows = self._queries.get_race_control(season, round_num, session_type)
+        providers = sorted({r.get("source_provider") for r in rows if r.get("source_provider")})
+        return {
+            "season": season,
+            "round": round_num,
+            "session_type": session_type,
+            "n_events": len(rows),
+            "available": len(rows) > 0,
+            "source_provider": providers[0] if len(providers) == 1 else ("|".join(providers) if providers else None),
+            "events": [
+                {
+                    "timestamp": r.get("timestamp"),
+                    "category": r.get("category"),
+                    "message": r.get("message"),
+                    "lap": r.get("lap"),
+                }
+                for r in rows
+            ],
+        }
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -513,6 +730,9 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         GetHistoricalQualifyingTool(queries),
         GetHistoricalPitStopsTool(queries),
         GetHistoricalFastestLapsTool(queries),
+        GetHistoricalStintsTool(queries),
+        GetHistoricalWeatherTool(queries),
+        GetHistoricalRaceControlTool(queries),
         SearchHistoricalCatalogTool(queries),
     ):
         registry.register(tool)
