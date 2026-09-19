@@ -12,7 +12,9 @@ import sys
 from typing import Any
 
 from racewise.data.fastf1_adapter import FastF1Adapter
+from racewise.data.historical.canonical_queries import CanonicalQueries
 from racewise.tools.contract import ToolError
+from racewise.tools.historical import build_full_registry
 from racewise.tools.implementations import SessionContext, build_default_registry
 
 
@@ -46,7 +48,11 @@ def _tool_envelope(name: str, arguments: dict[str, Any], registry: Any) -> dict[
 def serve() -> None:  # pragma: no cover - exercised via subprocess in integration tests
     cache_dir = os.environ.get("FASTF1_CACHE_DIR")
     context = SessionContext(FastF1Adapter(cache_dir=cache_dir), 2023, "Bahrain")
-    registry = build_default_registry(context)
+    try:
+        queries = CanonicalQueries()
+        registry = build_full_registry(context, queries)
+    except Exception:  # noqa: BLE001 - canonical store optional at MCP startup
+        registry = build_default_registry(context)
     for raw in sys.stdin:
         raw = raw.strip()
         if not raw:
@@ -68,7 +74,11 @@ def serve() -> None:  # pragma: no cover - exercised via subprocess in integrati
             elif method == "notifications/initialized":
                 continue
             elif method == "tools/list":
-                result = {"tools": registry.descriptions()}
+                tools = registry.descriptions()
+                for t in tools:
+                    if "parameters" in t:
+                        t["inputSchema"] = t.pop("parameters")
+                result = {"tools": tools}
             elif method == "tools/call":
                 params = request.get("params") or {}
                 result = {
