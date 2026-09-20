@@ -192,3 +192,29 @@ class TestMCPHistoricalVisibility:
         assert len(results_env["output_hash"]) == 64
         pits_env = json.loads(responses[3]["result"]["content"][0]["text"])
         assert pits_env["ok"] and pits_env["output"]["n_stops"] == 50
+
+    def test_telemetry_tools_via_mcp(self):
+        """Phase 6C: bounded telemetry tools live over the real server."""
+        responses = _exchange([
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+             "params": {"name": "get_historical_telemetry_summary",
+                        "arguments": {"season": 2023, "round": 1, "session_type": "RACE"}}},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+             "params": {"name": "get_historical_lap_telemetry",
+                        "arguments": {"season": 2023, "round": 1, "session_type": "RACE",
+                                      "driver_key": "max-verstappen", "lap_number": 57}}},
+            {"jsonrpc": "2.0", "id": 4, "method": "tools/call",
+             "params": {"name": "compare_historical_telemetry_lap",
+                        "arguments": {"season": 1950, "round": 6,
+                                      "driver_a": "giuseppe-farina", "driver_b": "luigi-fagioli",
+                                      "lap_number": 1}}},
+        ])
+        summary = json.loads(responses[1]["result"]["content"][0]["text"])
+        assert summary["ok"] and summary["output"]["available"] is True
+        assert summary["output"]["source_provider"] == "fastf1"
+        laps = json.loads(responses[2]["result"]["content"][0]["text"])
+        assert laps["ok"] and laps["output"]["available"] is True
+        assert len(laps["output"]["samples"]) <= 2000  # hard output cap
+        neg = json.loads(responses[3]["result"]["content"][0]["text"])
+        assert neg["output"]["verdict"] == "INSUFFICIENT_EVIDENCE"  # 1950 negative control
