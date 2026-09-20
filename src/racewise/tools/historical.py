@@ -1174,6 +1174,78 @@ class FuseLapEvidenceTool(Tool):
         )
 
 
+class FuseStintEvidenceTool(Tool):
+    """Phase 6G stint-level evidence fusion: how the lap-delta explanation
+    evolved across one stint - trajectory, trend, hypothesis evolution,
+    residual trajectory, context transitions and change-point analysis."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "fuse_historical_stint_evidence",
+            "Fuse evidence across one stint (canonical stint identity) for a driver pair: "
+            "deterministic common-lap selection with exclusion reasons, per-lap Phase 6F "
+            "fusions preserved as a temporal sequence, OLS performance trend with a "
+            "minimum-observation rule, telemetry metric trends, hypothesis evolution "
+            "(CONSISTENTLY_SUPPORTED / MOSTLY_SUPPORTED / INTERMITTENTLY_SUPPORTED / "
+            "CONTRADICTED_OVER_TIME / NOT_SUPPORTED / INSUFFICIENT_EVIDENCE), residual "
+            "trajectory with cumulative conservation, context transitions, bounded "
+            "change-point analysis, and an evidence-bounded conclusion. Consistency over "
+            "time is not causation. UNAVAILABLE when stint identity is missing; "
+            "INSUFFICIENT_EVIDENCE below 2 common clean laps.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_a": {"type": "string", "description": "Reference driver key, e.g. max-verstappen"},
+                "driver_b": {"type": "string", "description": "Comparison driver key"},
+                "stint_number": {"type": "integer", "minimum": 1},
+                "max_laps": {"type": "integer", "minimum": 2, "maximum": 16,
+                             "description": "Bounded evenly spaced sample across the stint (default 10)"},
+            },
+            ["season", "round", "driver_a", "driver_b", "stint_number"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Temporal summaries are descriptive facts about evidence status over laps, "
+                "not confidence scores and not causal claims.",
+                "The cumulative gap covers the selected comparable laps only; semantics are "
+                "stated in the output and must not be overstated as race time lost.",
+                "Bounded: max 16 laps, fixed source set, no raw telemetry dumps.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.stint_evidence import fuse_stint_evidence
+
+        # explicit bound enforcement: the generic payload validator does not
+        # check numeric ranges, so reject unbounded max_laps here
+        max_laps = int(kwargs.get("max_laps", 10))
+        if not 2 <= max_laps <= 16:
+            raise ToolError(
+                "max_laps must be between 2 and 16",
+                code="invalid_input",
+                field="fuse_historical_stint_evidence.max_laps",
+            )
+
+        return fuse_stint_evidence(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver_a=_normalize_driver_key(
+                self._queries, str(kwargs["driver_a"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            driver_b=_normalize_driver_key(
+                self._queries, str(kwargs["driver_b"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            stint_number=int(kwargs["stint_number"]),
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+            max_laps=int(kwargs.get("max_laps", 10)),
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1193,6 +1265,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         AttributeLapLossTool(queries),
         AttributeStintLossTool(queries),
         FuseLapEvidenceTool(queries),
+        FuseStintEvidenceTool(queries),
     ):
         registry.register(tool)
     return registry

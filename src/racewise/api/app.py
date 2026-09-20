@@ -439,6 +439,66 @@ def catalog_evidence_fusion(
     return fuse_lap_evidence(queries, season, round, driver_a, driver_b, int(lap))
 
 
+@app.get("/api/catalog/stint-evidence/{season}/{round}")
+def catalog_stint_evidence(
+    season: int, round: int,
+    driver_a: str = "",
+    driver_b: str = "",
+    stint: Optional[int] = None,
+) -> dict[str, Any]:
+    """Deterministic stint-level evidence fusion for the frontend view (bounded).
+
+    Drivers default to the session's canonical telemetry pair (Phase 6D
+    policy). Stint defaults to the canonical stint with the most telemetry-
+    covered common clean laps - never a fabricated one.
+    """
+    import logging
+
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.stint_evidence import (
+        _select_common_laps,
+        fuse_stint_evidence,
+    )
+
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "status": "UNAVAILABLE",
+            "reason": "no canonical telemetry ingested for this session (bounded policy)",
+        }
+    queries = get_canonical_queries()
+    if not driver_a or not driver_b:
+        pair = queries.get_telemetry_driver_pair(season, round, "RACE")
+        if pair is None:
+            return {"season": season, "round": round, "status": "UNAVAILABLE",
+                    "reason": "no telemetry driver pair"}
+        driver_a, driver_b = pair
+    if stint is not None:
+        return fuse_stint_evidence(queries, season, round, driver_a, driver_b, int(stint))
+    # default stint: most telemetry-covered common clean laps (deterministic)
+    stints = queries.get_stints(season, round, "RACE", driver_a)
+    best: tuple[int, int] | None = None  # (count, stint_number)
+    for s in stints:
+        try:
+            selected, _excluded, _sa, _sb = _select_common_laps(
+                queries, season, round, "RACE", driver_a, driver_b,
+                int(s["stint_number"]), 10)
+        except Exception:  # noqa: BLE001 - selection must not break the default
+            logging.getLogger("racewise").debug("stint selection failed", exc_info=True)
+            continue
+        if best is None or len(selected) > best[0]:
+            best = (len(selected), int(s["stint_number"]))
+    if best is None or best[0] < 2:
+        return {"season": season, "round": round, "status": "INSUFFICIENT_EVIDENCE",
+                "reason": "no canonical stint with >= 2 telemetry-covered common clean laps"}
+    return fuse_stint_evidence(queries, season, round, driver_a, driver_b, best[1])
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

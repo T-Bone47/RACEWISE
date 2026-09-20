@@ -4,6 +4,7 @@ import CatalogExplorer from './CatalogExplorer'
 import TelemetryView from './TelemetryView'
 import AttributionView from './AttributionView'
 import EvidenceFusionView from './EvidenceFusionView'
+import StintEvidenceView from './StintEvidenceView'
 
 interface Session {
   year: number
@@ -335,6 +336,8 @@ export default function App() {
       <AttributionView />
 
       <EvidenceFusionView />
+
+      <StintEvidenceView />
 
       <div className="controls">
         <div className="session-selector">
