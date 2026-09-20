@@ -239,6 +239,95 @@ def cmd_fastf1_canonical(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ingest_seasons(args: argparse.Namespace) -> int:
+    """Resumable multi-season FastF1 ingestion with checkpoints and reports.
+
+    Priority levels: 1=RACE, 2=QUALIFYING, 3=SPRINT/SQ, 4=practice.
+    Level 4 requires explicit opt-in (documented scope decision).
+    """
+    import json
+
+    from racewise.data.historical.scaling import ingest_seasons
+
+    levels = [int(x) for x in (args.levels or "1,2,3").split(",")]
+    seasons = list(range(args.start_year, args.end_year + 1))
+    rounds = [int(x) for x in args.rounds.split(",")] if args.rounds else None
+    summaries = ingest_seasons(
+        seasons,
+        priority_levels=levels,
+        rounds=rounds,
+        resume=not args.force,
+        force=args.force,
+    )
+    for s in summaries:
+        print(json.dumps(s, default=str))
+    total = {
+        "success": sum(x.get("sessions", {}).get("success", 0) for x in summaries),
+        "unavailable": sum(x.get("sessions", {}).get("unavailable", 0) for x in summaries),
+        "failed_validation": sum(x.get("sessions", {}).get("failed_validation", 0) for x in summaries),
+        "failed_provider": sum(x.get("sessions", {}).get("failed_provider", 0) for x in summaries),
+    }
+    print(f"\nTOTAL: {json.dumps(total)}")
+    return 0
+
+
+def cmd_audit_growth(args: argparse.Namespace) -> int:
+    """Audit database growth: per-table rows, DB size, delta vs previous audit."""
+    import json
+    import os
+    import sqlite3
+
+    data_dir = Path(os.environ.get("RACEWISE_DATA_DIR", Path.cwd() / "data"))
+    db_path = data_dir / "canonical" / "canonical.db"
+    audit_path = data_dir / "ingestion_state" / "db_growth_audit.json"
+
+    conn = sqlite3.connect(str(db_path))
+    tables = [
+        r[0]
+        for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'canonical%' ORDER BY name"
+        )
+    ]
+    rows = {t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tables}
+    page_count = conn.execute("PRAGMA page_count").fetchone()[0]
+    page_size = conn.execute("PRAGMA page_size").fetchone()[0]
+    conn.close()
+    size_bytes = page_count * page_size
+
+    previous = {}
+    if audit_path.exists() and not args.reset_baseline:
+        try:
+            previous = json.loads(audit_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            previous = {}
+
+    out = {
+        "audited_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "db_size_bytes": size_bytes,
+        "db_size_mb": round(size_bytes / 1e6, 1),
+        "tables": {},
+    }
+    prev_rows = previous.get("tables", {})
+    for t, n in rows.items():
+        prev_n = prev_rows.get(t, {}).get("rows") if isinstance(prev_rows.get(t), dict) else prev_rows.get(t)
+        out["tables"][t] = {"rows": n, "growth_since_last": n - prev_n if prev_n is not None else None}
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    print(json.dumps(out, indent=2))
+    return 0
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    """Run all data-quality validators and print a machine-readable verdict."""
+    import json
+
+    from racewise.data.historical.validators import validate_canonical_data
+
+    report = validate_canonical_data()
+    print(json.dumps(report, indent=2))
+    return 0 if report["ok"] else 1
+
+
 def cmd_catalog(args: argparse.Namespace) -> int:
     """Manage historical catalog."""
     catalog = get_catalog_manager()
@@ -335,6 +424,21 @@ def main() -> int:
     ff1c_parser.add_argument("--sessions", nargs="+", default=None, help="FastF1 session codes (default R)")
     ff1c_parser.add_argument("--cache-dir", type=str, default=None)
 
+    # Multi-season scaling
+    scale_parser = subparsers.add_parser(
+        "ingest-seasons", help="Resumable multi-season FastF1 ingestion (priority levels 1-4)"
+    )
+    scale_parser.add_argument("--start-year", type=int, required=True)
+    scale_parser.add_argument("--end-year", type=int, required=True)
+    scale_parser.add_argument("--levels", type=str, default="1,2,3", help="Priority levels, e.g. '1' or '1,2'")
+    scale_parser.add_argument("--rounds", type=str, default=None, help="Comma-separated round filter")
+    scale_parser.add_argument("--force", action="store_true", help="Re-ingest even if checkpointed")
+
+    # Audit / validate
+    audit_parser = subparsers.add_parser("audit", help="Database growth audit (rows, size, deltas)")
+    audit_parser.add_argument("--reset-baseline", action="store_true")
+    validate_parser = subparsers.add_parser("validate", help="Run all data-quality validators")
+
     # Catalog
     cat_parser = subparsers.add_parser("catalog", help="Manage historical catalog")
     cat_parser.add_argument("--report", action="store_true")
@@ -361,6 +465,9 @@ def main() -> int:
         "jolpica": cmd_jolpica,
         "fastf1": cmd_fastf1,
         "fastf1-canonical": cmd_fastf1_canonical,
+        "ingest-seasons": cmd_ingest_seasons,
+        "audit": cmd_audit_growth,
+        "validate": cmd_validate,
         "catalog": cmd_catalog,
         "availability": cmd_availability,
         "manifest": cmd_manifest,

@@ -232,7 +232,10 @@ class FastF1Canonicalizer:
             lap_numbers = sorted({int(n) for n in group["LapNumber"].dropna().tolist()})
             if not lap_numbers:
                 continue
-            compounds = sorted({str(c) for c in group["Compound"].dropna().tolist()})
+            compounds = sorted({
+                (str(c) if str(c) != "None" else "UNKNOWN")
+                for c in group["Compound"].dropna().tolist()
+            } - {""})
             compound = "|".join(compounds) if compounds else None
             stint_number = int(stint_number)
             lap_start, lap_end = lap_numbers[0], lap_numbers[-1]
@@ -389,21 +392,37 @@ class FastF1Canonicalizer:
         Verified FastF1 3.8.3 columns: Time, Category, Message, Status, Flag,
         Scope, Sector, RacingNumber, Lap. Canonical table stores
         category/message/lap/timestamp; Flag/Scope/Sector detail is embedded
-        in the message text by the source and preserved verbatim there.
+        in the message text by the source and preserved verbatim there.        The feed repeats some events verbatim at the same timestamp (observed:
+        2018 'RISK OF RAIN ...' twice; 2023 Hungary 'YELLOW FLAG...' re-delivered
+        at the same Time with a different Lap value - the message text carries
+        its own 'TIMED AT' stamp, so the repeat is a stale re-delivery, not a
+        distinct event). Dedup key is therefore (timestamp, category, message):
+        event identity. Lap from the FIRST delivery is kept.
+
+        event_id is content-derived (not index-derived) so identity is stable
+        across runs regardless of dedup decisions - re-ingestion upserts the
+        same rows (true idempotency). Repeated-but-distinct events at different
+        timestamps are never merged.
         """
         if rc_df is None or len(rc_df) == 0:
             return 0
         now = _utcnow_iso()
         rows: list[tuple] = []
+        seen_content: set[tuple] = set()
         for idx, row in enumerate(rc_df.itertuples(index=False)):
             mapping = dict(zip(rc_df.columns, row))
+            timestamp = _to_iso_timestamp(mapping.get("Time"))
             category = _to_str(mapping.get("Category"))
             message = _to_str(mapping.get("Message"))
             lap = _float_or_none(mapping.get("Lap"))
-            event_id = _stable_id(FASTF1_PROVIDER, "rc", session_id, idx)
+            content_key = (timestamp, category, message)
+            if content_key in seen_content:
+                continue  # source re-delivery of the same event, not distinct
+            seen_content.add(content_key)
+            event_id = _stable_id(FASTF1_PROVIDER, "rc", session_id, timestamp, category, message)
             rows.append((
                 event_id, session_id,
-                _to_iso_timestamp(mapping.get("Time")),
+                timestamp,
                 category, message,
                 int(lap) if lap is not None else None,
                 FASTF1_PROVIDER, f"{event_ref}:rc:{idx}", self.source_version,
