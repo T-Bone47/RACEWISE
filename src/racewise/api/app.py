@@ -26,6 +26,7 @@ from racewise.domain.schemas import (
     InvestigationState,
 )
 from racewise.investigation.engine import InvestigationEngine
+from racewise.persistence import get_store
 from racewise.simulator.strategy import simulate_pit_timing
 from racewise.tools.implementations import SessionContext, build_default_registry
 
@@ -38,6 +39,34 @@ app.add_middleware(
 )
 
 _adapter = FastF1Adapter(cache_dir=os.environ.get("FASTF1_CACHE_DIR"))
+_store = get_store()
+
+
+def _init_session_catalog() -> None:
+    """Initialize session catalog with known 2023 sessions if empty."""
+    existing = _store.list_sessions()
+    if existing:
+        return
+
+    known_sessions = [
+        {"year": 2023, "round": 1, "event": "Bahrain", "session_type": "R"},
+        {"year": 2023, "round": 2, "event": "Saudi Arabia", "session_type": "R"},
+        {"year": 2023, "round": 3, "event": "Australia", "session_type": "R"},
+    ]
+    for s in known_sessions:
+        session_key = f"{s['year']}-{s['event'].replace(' ', '')}-{s['session_type']}"
+        _store.upsert_session(
+            session_key=session_key,
+            year=s["year"],
+            round_num=s["round"],
+            event=s["event"],
+            session_type=s["session_type"],
+            data_source="fastf1",
+            availability="AVAILABLE",
+        )
+
+
+_init_session_catalog()
 
 
 @dataclass
@@ -54,6 +83,7 @@ class CreateInvestigationRequest(BaseModel):
     year: int = 2023
     event: str = "Bahrain"
     driver: str = "VER"
+    session_type: str = "R"
 
 
 class CounterfactualRequest(BaseModel):
@@ -64,6 +94,45 @@ class CounterfactualRequest(BaseModel):
 
 
 _INVESTIGATIONS: dict[str, InvestigationRecord] = {}
+
+
+def _persist_engine_state(engine: InvestigationEngine, record: InvestigationRecord) -> None:
+    """Persist the full engine state to the store."""
+    inv_id = engine.investigation_id
+    _store.update_investigation_state(inv_id, engine.state)
+
+    for h in engine.hypotheses:
+        _store.save_hypothesis(inv_id, h)
+
+    for o in engine.observations:
+        _store.save_observation(inv_id, o)
+
+    for e in engine.evidence:
+        _store.save_evidence(inv_id, e)
+
+    for te in engine.tool_executions:
+        _store.save_tool_execution(inv_id, te)
+
+    for cf in engine.counterfactuals:
+        _store.save_counterfactual(inv_id, cf)
+
+    if engine.conclusion:
+        cid = _store.save_conclusion(inv_id, engine.conclusion)
+        _store.set_investigation_conclusion(inv_id, cid)
+
+    for event in engine.event_log:
+        _store.save_event(event)
+
+
+def _load_engine_state(engine: InvestigationEngine, inv_id: str) -> None:
+    """Load engine state from the store."""
+    engine.hypotheses = _store.get_hypotheses(inv_id)
+    engine.observations = _store.get_observations(inv_id)
+    engine.evidence = _store.get_evidence(inv_id)
+    engine.tool_executions = _store.get_tool_executions(inv_id)
+    engine.counterfactuals = _store.get_counterfactuals(inv_id)
+    engine.conclusion = _store.get_conclusion(inv_id)
+    engine.event_log = _store.get_event_log(inv_id)
 
 
 def _deterministic_plan(engine: InvestigationEngine, record: InvestigationRecord) -> None:
@@ -164,31 +233,7 @@ def _deterministic_plan(engine: InvestigationEngine, record: InvestigationRecord
         )
     engine._set_state(InvestigationState.VERIFICATION)
     engine._set_state(InvestigationState.COMPLETED)
-
-
-@app.get("/api/health")
-def health() -> dict[str, Any]:
-    return {"status": "ok", "service": "racewise", "version": "0.1.0", "model_provider": os.environ.get("MODEL_PROVIDER", "union_alpha"), "model_configured": provider_from_env() is not None}
-
-
-@app.get("/api/sessions")
-def list_sessions() -> dict[str, Any]:
-    return {
-        "sessions": [
-            {"year": 2023, "event": "Bahrain", "session_type": "R", "label": "2023 Bahrain Grand Prix - Race"},
-        ]
-    }
-
-
-@app.post("/api/investigations")
-async def create_investigation(req: CreateInvestigationRequest) -> dict[str, Any]:
-    context = SessionContext(_adapter, req.year, req.event)
-    registry = build_default_registry(context)
-    provider = provider_from_env()
-    engine = InvestigationEngine(registry, provider, req.question)
-    record = InvestigationRecord(engine, context, req.year, req.event, req.driver)
-    _INVESTIGATIONS[engine.investigation_id] = record
-    return {"investigation_id": engine.investigation_id, "state": engine.state.value}
+    _persist_engine_state(engine, record)
 
 
 def _run_in_background(record: InvestigationRecord) -> None:
@@ -196,12 +241,193 @@ def _run_in_background(record: InvestigationRecord) -> None:
         _deterministic_plan(record.engine, record)
     except Exception as exc:  # noqa: BLE001
         record.engine._fail(InvestigationState.TOOL_FAILURE, str(exc))
+        _persist_engine_state(record.engine, record)
+
+
+@app.get("/api/health")
+def health() -> dict[str, Any]:
+    return {"status": "ok", "service": "racewise", "version": "0.1.0", "model_provider": os.environ.get("MODEL_PROVIDER", "union_alpha"), "model_configured": provider_from_env() is not None}
+
+
+@app.get("/api/catalog/sessions")
+def catalog_sessions(
+    season: Optional[int] = None,
+    season_from: Optional[int] = None,
+    season_to: Optional[int] = None,
+    country: Optional[str] = None,
+    circuit: Optional[str] = None,
+    session_type: Optional[str] = None,
+    provider: Optional[str] = None,
+    availability: Optional[str] = None,
+    capability: Optional[str] = None,
+    search: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 25,
+) -> dict[str, Any]:
+    """Catalog Explorer: filtered, paginated session catalog (data-derived)."""
+    from racewise.data.historical.catalog_api import get_catalog_api
+
+    try:
+        return get_catalog_api().list_sessions(
+            season=season,
+            season_from=season_from,
+            season_to=season_to,
+            country=country,
+            circuit=circuit,
+            session_type=session_type,
+            provider=provider,
+            availability=availability,
+            capability=capability,
+            search=search,
+            page=page,
+            page_size=page_size,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/catalog/sessions/{season}/{round}/{session_type}")
+def catalog_session_detail(season: int, round: int, session_type: str) -> dict[str, Any]:
+    """Catalog Explorer: full session detail (identity, providers, capabilities)."""
+    from racewise.data.historical.catalog_api import get_catalog_api
+
+    detail = get_catalog_api().session_detail(season, round, session_type)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    return detail
+
+
+@app.get("/api/sessions")
+def list_sessions() -> dict[str, Any]:
+    sessions = _store.list_sessions()
+    return {
+        "sessions": [
+            {
+                "year": s["year"],
+                "event": s["event"],
+                "session_type": s["session_type"],
+                "label": s.get("event_name") or f"{s['year']} {s['event']} Grand Prix - {s['session_type']}",
+                "session_key": s["session_key"],
+                "availability": s["availability"],
+            }
+            for s in sessions
+        ]
+    }
+
+
+@app.get("/api/sessions/{session_key}/drivers")
+def get_session_drivers(session_key: str) -> dict[str, Any]:
+    """Get list of drivers for a session."""
+    drivers = _store.get_session_drivers(session_key)
+    return {"drivers": drivers}
+
+
+@app.post("/api/sessions/sync")
+def sync_sessions() -> dict[str, Any]:
+    """Sync session catalog from FastF1 for known 2023 races."""
+    known_sessions = [
+        {"year": 2023, "round": 1, "event": "Bahrain", "session_type": "R"},
+        {"year": 2023, "round": 2, "event": "Saudi Arabia", "session_type": "R"},
+        {"year": 2023, "round": 3, "event": "Australia", "session_type": "R"},
+        {"year": 2023, "round": 4, "event": "Azerbaijan", "session_type": "R"},
+        {"year": 2023, "round": 5, "event": "Miami", "session_type": "R"},
+        {"year": 2023, "round": 6, "event": "Monaco", "session_type": "R"},
+        {"year": 2023, "round": 7, "event": "Spain", "session_type": "R"},
+        {"year": 2023, "round": 8, "event": "Canada", "session_type": "R"},
+        {"year": 2023, "round": 9, "event": "Austria", "session_type": "R"},
+        {"year": 2023, "round": 10, "event": "Great Britain", "session_type": "R"},
+        {"year": 2023, "round": 11, "event": "Hungary", "session_type": "R"},
+        {"year": 2023, "round": 12, "event": "Belgium", "session_type": "R"},
+        {"year": 2023, "round": 13, "event": "Netherlands", "session_type": "R"},
+        {"year": 2023, "round": 14, "event": "Italy", "session_type": "R"},
+        {"year": 2023, "round": 15, "event": "Singapore", "session_type": "R"},
+        {"year": 2023, "round": 16, "event": "Japan", "session_type": "R"},
+        {"year": 2023, "round": 17, "event": "Qatar", "session_type": "R"},
+        {"year": 2023, "round": 18, "event": "United States", "session_type": "R"},
+        {"year": 2023, "round": 19, "event": "Mexico City", "session_type": "R"},
+        {"year": 2023, "round": 20, "event": "Brazil", "session_type": "R"},
+        {"year": 2023, "round": 21, "event": "Las Vegas", "session_type": "R"},
+        {"year": 2023, "round": 22, "event": "Abu Dhabi", "session_type": "R"},
+    ]
+    synced = 0
+    failed = 0
+    for s in known_sessions:
+        try:
+            session = _adapter.load_session(s["year"], s["event"], s["session_type"])
+            summary = _adapter.session_summary(session)
+            session_key = f"{s['year']}-{s['event'].replace(' ', '')}-{s['session_type']}"
+            _store.upsert_session(
+                session_key=session_key,
+                year=s["year"],
+                event=s["event"],
+                session_type=s["session_type"],
+                event_name=summary.event_name,
+                circuit=summary.circuit,
+                date=summary.date.isoformat() if summary.date else None,
+                total_laps=summary.total_laps,
+                drivers=summary.drivers,
+                data_source="fastf1",
+                availability="AVAILABLE",
+            )
+            synced += 1
+        except Exception as e:
+            session_key = f"{s['year']}-{s['event'].replace(' ', '')}-{s['session_type']}"
+            _store.upsert_session(
+                session_key=session_key,
+                year=s["year"],
+                event=s["event"],
+                session_type=s["session_type"],
+                data_source="fastf1",
+                availability="DATA_UNAVAILABLE",
+                availability_reason=str(e),
+            )
+            failed += 1
+    return {"synced": synced, "failed": failed, "total": len(known_sessions)}
+
+
+@app.post("/api/investigations")
+async def create_investigation(req: CreateInvestigationRequest) -> dict[str, Any]:
+    context = SessionContext(_adapter, req.year, req.event, req.session_type)
+    registry = build_default_registry(context)
+    provider = provider_from_env()
+    engine = InvestigationEngine(registry, provider, req.question)
+
+    # Persist initial investigation
+    inv_id = _store.create_investigation(
+        question=req.question,
+        year=req.year,
+        event=req.event,
+        driver=req.driver,
+        session_type=req.session_type,
+        metadata={"session_type": req.session_type},
+    )
+    # Override the engine's investigation_id to match the stored one
+    engine.investigation_id = inv_id
+    engine._set_state(InvestigationState.CREATED)
+
+    record = InvestigationRecord(engine, context, req.year, req.event, req.driver)
+    _INVESTIGATIONS[inv_id] = record
+
+    return {"investigation_id": inv_id, "state": engine.state.value}
 
 
 @app.get("/api/investigations/{inv_id}/stream")
 async def stream_investigation(inv_id: str) -> StreamingResponse:
     if inv_id not in _INVESTIGATIONS:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+        # Try to load from persistent store
+        if _store.get_investigation(inv_id):
+            # Reconstruct engine from stored state
+            inv_data = _store.get_investigation(inv_id)
+            context = SessionContext(_adapter, inv_data["year"], inv_data["event"], inv_data["session_type"])
+            registry = build_default_registry(context)
+            provider = provider_from_env()
+            engine = InvestigationEngine(registry, provider, inv_data["question"], investigation_id=inv_id)
+            _load_engine_state(engine, inv_id)
+            record = InvestigationRecord(engine, context, inv_data["year"], inv_data["event"], inv_data["driver"])
+            _INVESTIGATIONS[inv_id] = record
+        else:
+            raise HTTPException(status_code=404, detail="Investigation not found")
+
     record = _INVESTIGATIONS[inv_id]
 
     async def event_stream():
@@ -218,7 +444,18 @@ async def stream_investigation(inv_id: str) -> StreamingResponse:
 @app.get("/api/investigations/{inv_id}")
 def get_investigation(inv_id: str) -> dict[str, Any]:
     if inv_id not in _INVESTIGATIONS:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+        if _store.get_investigation(inv_id):
+            inv_data = _store.get_investigation(inv_id)
+            context = SessionContext(_adapter, inv_data["year"], inv_data["event"], inv_data["session_type"])
+            registry = build_default_registry(context)
+            provider = provider_from_env()
+            engine = InvestigationEngine(registry, provider, inv_data["question"], investigation_id=inv_id)
+            _load_engine_state(engine, inv_id)
+            record = InvestigationRecord(engine, context, inv_data["year"], inv_data["event"], inv_data["driver"])
+            _INVESTIGATIONS[inv_id] = record
+        else:
+            raise HTTPException(status_code=404, detail="Investigation not found")
+
     engine = _INVESTIGATIONS[inv_id].engine
     return {
         "investigation_id": engine.investigation_id,
@@ -247,7 +484,18 @@ def get_investigation(inv_id: str) -> dict[str, Any]:
 @app.post("/api/investigations/{inv_id}/counterfactual")
 def run_counterfactual(inv_id: str, req: CounterfactualRequest) -> dict[str, Any]:
     if inv_id not in _INVESTIGATIONS:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+        if _store.get_investigation(inv_id):
+            inv_data = _store.get_investigation(inv_id)
+            context = SessionContext(_adapter, inv_data["year"], inv_data["event"], inv_data["session_type"])
+            registry = build_default_registry(context)
+            provider = provider_from_env()
+            engine = InvestigationEngine(registry, provider, inv_data["question"], investigation_id=inv_id)
+            _load_engine_state(engine, inv_id)
+            record = InvestigationRecord(engine, context, inv_data["year"], inv_data["event"], inv_data["driver"])
+            _INVESTIGATIONS[inv_id] = record
+        else:
+            raise HTTPException(status_code=404, detail="Investigation not found")
+
     record = _INVESTIGATIONS[inv_id]
     stops_out = record.engine.run_tool("get_pit_stops", {"driver": record.driver})
     stops = stops_out.get("stops", []) if "error" not in stops_out else []
@@ -266,4 +514,108 @@ def run_counterfactual(inv_id: str, req: CounterfactualRequest) -> dict[str, Any
             "traffic_assumption_s_per_lap": req.traffic_assumption_s_per_lap,
         }
     )
+    _persist_engine_state(record.engine, record)
     return {"counterfactual": cf.model_dump(), "note": "COUNTERFACTUAL estimate under stated assumptions, not an observed result."}
+
+
+# -- New endpoints for investigation history and export --
+
+@app.get("/api/investigations")
+def list_investigations(limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    """List all persisted investigations."""
+    investigations = _store.list_investigations(limit=limit, offset=offset)
+    return {"investigations": investigations, "limit": limit, "offset": offset}
+
+
+@app.get("/api/investigations/{inv_id}/export")
+def export_investigation(inv_id: str) -> dict[str, Any]:
+    """Export full investigation as JSON."""
+    exported = _store.export_investigation(inv_id)
+    if not exported:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    return exported
+
+
+@app.delete("/api/investigations/{inv_id}")
+def delete_investigation(inv_id: str) -> dict[str, Any]:
+    """Delete an investigation."""
+    if _store.delete_investigation(inv_id):
+        _INVESTIGATIONS.pop(inv_id, None)
+        return {"deleted": True, "investigation_id": inv_id}
+    raise HTTPException(status_code=404, detail="Investigation not found")
+
+
+@app.post("/api/investigations/{inv_id}/replay")
+def replay_investigation(inv_id: str) -> dict[str, Any]:
+    """Replay an investigation from persistent storage and verify hashes."""
+    if not _store.get_investigation(inv_id):
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+    inv_data = _store.get_investigation(inv_id)
+    context = SessionContext(_adapter, inv_data["year"], inv_data["event"], inv_data["session_type"])
+    registry = build_default_registry(context)
+    engine = InvestigationEngine(registry, provider=None, question=inv_data["question"], investigation_id=inv_id)
+
+    event_log = _store.get_event_log(inv_id)
+    replay_result = engine.replay_from_log(registry, event_log, inv_id)
+    return replay_result.model_dump()
+
+
+# -- Evidence Graph endpoints --
+
+class EvidenceRelationshipRequest(BaseModel):
+    source_id: str
+    target_id: str
+    relationship_type: str
+    provenance: Optional[str] = None
+
+
+@app.get("/api/investigations/{inv_id}/evidence-graph")
+def get_evidence_graph(inv_id: str) -> dict[str, Any]:
+    """Get evidence graph for an investigation."""
+    if not _store.get_investigation(inv_id):
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+    evidence = _store.get_evidence(inv_id)
+    relationships = _store.get_evidence_relationships(inv_id)
+    
+    nodes = [
+        {
+            "id": e.id,
+            "type": e.type.value,
+            "label": e.statement[:100] + ("..." if len(e.statement) > 100 else ""),
+            "full_statement": e.statement,
+            "strength": e.strength,
+            "evidence_type": e.type.value,
+        }
+        for e in evidence
+    ]
+    
+    edges = [
+        {
+            "id": r["id"],
+            "source": r["source_id"],
+            "target": r["target_id"],
+            "relationship": r["relationship_type"],
+            "provenance": r.get("provenance"),
+        }
+        for r in relationships
+    ]
+    
+    return {"nodes": nodes, "edges": edges}
+
+
+@app.post("/api/investigations/{inv_id}/evidence-graph")
+def add_evidence_relationship(inv_id: str, req: EvidenceRelationshipRequest) -> dict[str, Any]:
+    """Add a relationship between evidence nodes."""
+    if not _store.get_investigation(inv_id):
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+    rel_id = _store.add_evidence_relationship(
+        investigation_id=inv_id,
+        source_id=req.source_id,
+        target_id=req.target_id,
+        relationship_type=req.relationship_type,
+        provenance=req.provenance,
+    )
+    return {"relationship_id": rel_id, "status": "created"}

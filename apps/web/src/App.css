@@ -182,3 +182,33 @@
     border-right-color: var(--border);
   }
 }
+
+/* ===== Catalog Explorer (Phase 6B) ===== */
+.catalog { margin: 12px 0 24px; }
+.catalog-filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.catalog-filters input { flex: 2; min-width: 220px; }
+.catalog-filters select, .catalog-filters input, .catalog-filters button {
+  padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff;
+}
+.catalog-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.catalog-table th, .catalog-table td { padding: 6px 8px; border-bottom: 1px solid #e5e5e5; text-align: left; }
+.catalog-table th { background: #f7f7f7; font-weight: 600; }
+.catalog-table tr.selected { background: #eef4ff; }
+.race-name { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-cell { text-align: center; }
+.cap-available { color: #2e7d32; font-weight: 700; }
+.cap-partial { color: #f57f17; font-weight: 700; }
+.cap-unavailable { color: #bbb; }
+.catalog-pagination { display: flex; gap: 12px; align-items: center; margin: 10px 0; }
+.catalog-pagination button { padding: 4px 10px; }
+.catalog-loading, .catalog-empty, .catalog-error { padding: 14px; margin: 8px 0; border-radius: 4px; }
+.catalog-loading { background: #f7f7f7; }
+.catalog-empty { background: #fafafa; color: #666; }
+.catalog-error { background: #fdecea; color: #b71c1c; }
+.catalog-detail { border: 1px solid #ddd; border-radius: 6px; padding: 14px; margin-top: 14px; background: #fcfcfc; }
+.detail-meta { color: #555; margin: 4px 0; font-size: 13px; }
+.detail-providers { color: #1565c0; margin-bottom: 8px; font-size: 13px; }
+.capability-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.capability-list li { display: flex; gap: 8px; align-items: baseline; }
+.investigate-btn { margin-top: 10px; padding: 8px 16px; background: #1565c0; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+.investigate-btn:disabled { background: #bbb; cursor: not-allowed; }
