@@ -499,6 +499,41 @@ def catalog_stint_evidence(
     return fuse_stint_evidence(queries, season, round, driver_a, driver_b, best[1])
 
 
+@app.get("/api/catalog/race-gap/{season}/{round}")
+def catalog_race_gap(
+    season: int, round: int,
+    driver_a: str = "",
+    driver_b: str = "",
+) -> dict[str, Any]:
+    """Deterministic race-level gap decomposition for the frontend view (bounded).
+
+    Drivers default to the session's canonical telemetry pair (Phase 6D
+    policy). Read-only, bounded, server-computed.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.race_gap import decompose_race_gap
+
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "status": "UNAVAILABLE",
+            "reason": "no canonical telemetry ingested for this session (bounded policy)",
+        }
+    queries = get_canonical_queries()
+    if not driver_a or not driver_b:
+        pair = queries.get_telemetry_driver_pair(season, round, "RACE")
+        if pair is None:
+            return {"season": season, "round": round, "status": "UNAVAILABLE",
+                    "reason": "no telemetry driver pair"}
+        driver_a, driver_b = pair
+    return decompose_race_gap(queries, season, round, driver_a, driver_b)
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

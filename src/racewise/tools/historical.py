@@ -1246,6 +1246,74 @@ class FuseStintEvidenceTool(Tool):
         )
 
 
+class DecomposeRaceGapTool(Tool):
+    """Phase 6H race-level gap decomposition: chronological timeline, official
+    vs analytical gap, stint segments, gap events, pit/race-control windows,
+    race-level hypothesis evolution and residual accounting."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "decompose_historical_race_gap",
+            "Decompose a race-level performance gap (driver B vs driver A) into a "
+            "deterministic evidence map: official classified gap from canonical results "
+            "(authoritative, never reconstructed from lap sums), cumulative comparable-lap "
+            "gap (a different quantity, never forced to reconcile), chronological lap "
+            "timeline with comparability classification and exclusion reasons, stint "
+            "segments with descriptive gap patterns, bounded Phase 6G stint-evidence "
+            "chaining, pit-window and race-control windows, gap events, race-level "
+            "hypothesis evolution, and residual accounting with itemized unavailable "
+            "intervals. Observed-gap language is not time-lost causation.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_a": {"type": "string", "description": "Reference driver key, e.g. max-verstappen"},
+                "driver_b": {"type": "string", "description": "Comparison driver key"},
+                "max_segments": {"type": "integer", "minimum": 2, "maximum": 24,
+                                 "description": "Bounded stint-evidence chaining (default 12)"},
+            },
+            ["season", "round", "driver_a", "driver_b"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Official final gap and analytical comparable gap are different quantities "
+                "and are never forced to reconcile.",
+                "Non-comparable and unavailable intervals are preserved with reasons.",
+                "Bounded: max_segments caps stint-evidence chaining; no raw telemetry dumps.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.race_gap import decompose_race_gap
+
+        # explicit numeric bound enforcement: the generic payload validator does
+        # not check numeric ranges, so reject unbounded max_segments here
+        max_segments = int(kwargs.get("max_segments", 12))
+        if not 2 <= max_segments <= 24:
+            raise ToolError(
+                "max_segments must be between 2 and 24",
+                code="invalid_input",
+                field="decompose_historical_race_gap.max_segments",
+            )
+
+        return decompose_race_gap(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver_a=_normalize_driver_key(
+                self._queries, str(kwargs["driver_a"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            driver_b=_normalize_driver_key(
+                self._queries, str(kwargs["driver_b"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+            max_segments=max_segments,
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1266,6 +1334,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         AttributeStintLossTool(queries),
         FuseLapEvidenceTool(queries),
         FuseStintEvidenceTool(queries),
+        DecomposeRaceGapTool(queries),
     ):
         registry.register(tool)
     return registry
