@@ -346,6 +346,31 @@ class CanonicalQueries:
         # 3-signal request over 1000 timestamps must never return 3000 rows.
         return rows[:limit]
 
+    def get_telemetry_driver_pair(
+        self, season: int, round_num: int, session_type: str = "RACE",
+    ) -> Optional[tuple[str, str]]:
+        """Deterministic telemetry driver pair for a session (Phase 6E).
+
+        The pair ingested under the bounded policy (top-2 classified at
+        ingestion time), ordered by driver_key for determinism. Returns None
+        when the session has no telemetry.
+        """
+        session = self.resolve_session(season, round_num, session_type)
+        if session is None:
+            return None
+        with self._conn() as conn:
+            rows = conn.execute(
+                """SELECT d.driver_key FROM canonical_telemetry t
+                   JOIN canonical_drivers d ON d.driver_id = t.driver_id
+                   WHERE t.session_id = ?
+                   GROUP BY d.driver_key ORDER BY d.driver_key""",
+                (session["session_id"],),
+            ).fetchall()
+        keys = [r["driver_key"] for r in rows]
+        if len(keys) < 2:
+            return None
+        return keys[0], keys[1]
+
     def telemetry_summary(self, season: int, round_num: int, session_type: str = "RACE") -> dict:
         """Count-derived telemetry availability for a session (no year heuristics)."""
         session = self.resolve_session(season, round_num, session_type)
