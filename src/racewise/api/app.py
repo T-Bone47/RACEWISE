@@ -339,6 +339,56 @@ def catalog_telemetry_comparison(
     )
 
 
+@app.get("/api/catalog/attribution/{season}/{round}")
+def catalog_attribution(
+    season: int, round: int,
+    driver_a: str = "max-verstappen",
+    driver_b: str = "sergio-perez",
+    lap: Optional[int] = None,
+) -> dict[str, Any]:
+    """Deterministic loss attribution for the frontend view (bounded).
+
+    Delegates to attribute_lap_loss (measured delta -> sector/region
+    decomposition + residual + falsification). Lap defaults to the highest
+    shared telemetry lap with a valid comparison - never a fabricated one.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.loss_attribution import attribute_lap_loss
+
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "status": "UNAVAILABLE",
+            "reason": "no canonical telemetry ingested for this session (bounded policy)",
+        }
+    queries = get_canonical_queries()
+    if lap is None:
+        from racewise.data.historical.loss_attribution import (
+            VALID,
+            VALID_CAVEATS,
+        )
+
+        summary = queries.telemetry_summary(season, round, "RACE")
+        if not summary["available"]:
+            return {"season": season, "round": round, "status": "UNAVAILABLE",
+                    "reason": "no telemetry rows"}
+        for candidate in sorted(summary["laps"], reverse=True):
+            att = attribute_lap_loss(queries, season, round, driver_a, driver_b, candidate)
+            if att.get("status") in (VALID, VALID_CAVEATS):
+                return att
+        return {
+            "season": season, "round": round,
+            "status": "INSUFFICIENT_EVIDENCE",
+            "reason": "no telemetry lap yields a clean two-driver comparison",
+        }
+    return attribute_lap_loss(queries, season, round, driver_a, driver_b, int(lap))
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

@@ -999,6 +999,123 @@ class CompareTelemetryLapTool(Tool):
         )
 
 
+class AttributeLapLossTool(Tool):
+    """Deterministic lap-loss attribution: measured delta -> region/sector
+    decomposition with an explicit residual and falsification checks."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "attribute_historical_lap_loss",
+            "Attribute a measured lap-time delta (driver B vs driver A) to lap-time regions "
+            "and canonical sectors: observed delta (fact), per-region speed-trace loss "
+            "estimate, sector deltas summing exactly to the delta, explicit residual with "
+            "reconciliation verdict, per-signal metrics, and falsification checks for "
+            "alternative explanations. Deterministic; UNAVAILABLE/INSUFFICIENT_EVIDENCE "
+            "when telemetry, laps or context are missing - never a guessed attribution.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_a": {"type": "string", "description": "Reference driver key, e.g. max-verstappen"},
+                "driver_b": {"type": "string", "description": "Comparison driver key, e.g. sergio-perez"},
+                "lap_number": {"type": "integer", "minimum": 1},
+                "region_s": {"type": "number", "minimum": 5.0, "maximum": 30.0,
+                             "description": "Attribution region width in seconds (default 15)"},
+                "include_falsification": {"type": "boolean",
+                                          "description": "Attach alternative-explanation checks (default true)"},
+            },
+            ["season", "round", "driver_a", "driver_b", "lap_number"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Region losses are speed-trace estimates (straight-line model), not causal "
+                "contributions; the residual vs the measured delta is reported explicitly.",
+                "Sector deltas are measured facts (canonical sector splits) and sum to the "
+                "observed delta; telemetry estimates inside sectors are model output.",
+                "Bounded: one lap, fixed region grid, no raw-sample dumps.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.loss_attribution import attribute_lap_loss, falsify_attribution
+
+        att = attribute_lap_loss(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver_a=_normalize_driver_key(
+                self._queries, str(kwargs["driver_a"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            driver_b=_normalize_driver_key(
+                self._queries, str(kwargs["driver_b"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            lap_number=int(kwargs["lap_number"]),
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+            region_s=float(kwargs.get("region_s", 15.0)),
+        )
+        if kwargs.get("include_falsification", True) and att.get("status") in (
+            "VALID_COMPARISON", "VALID_WITH_CAVEATS"
+        ):
+            att["falsification"] = falsify_attribution(self._queries, att)
+        return att
+
+
+class AttributeStintLossTool(Tool):
+    """Stint-level attribution: aggregated per-lap attribution across a stint."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "attribute_historical_stint_loss",
+            "Aggregate lap-loss attribution across one stint for two drivers: per-lap "
+            "observed deltas, pace components, residuals, and stint-level statistics "
+            "(mean/median delta, delta trend, unexplained fraction). Bounded sample of "
+            "evenly spaced clean laps (max 6). Deterministic; INSUFFICIENT_EVIDENCE when "
+            "the stint lacks common clean laps or telemetry.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_a": {"type": "string"},
+                "driver_b": {"type": "string"},
+                "stint_number": {"type": "integer", "minimum": 1},
+                "max_laps": {"type": "integer", "minimum": 2, "maximum": 12,
+                             "description": "Bounded sample of stint laps (default 6)"},
+            },
+            ["season", "round", "driver_a", "driver_b", "stint_number"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Aggregates deterministic per-lap attributions; no new model beyond the "
+                "lap-level straight-line region loss.",
+                "Bounded output: max 12 per-lap entries.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.loss_attribution import attribute_stint_loss
+
+        return attribute_stint_loss(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver_a=_normalize_driver_key(
+                self._queries, str(kwargs["driver_a"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            driver_b=_normalize_driver_key(
+                self._queries, str(kwargs["driver_b"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            stint_number=int(kwargs["stint_number"]),
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+            max_laps=int(kwargs.get("max_laps", 6)),
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1015,6 +1132,8 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         GetHistoricalWeatherTool(queries),
         GetHistoricalRaceControlTool(queries),
         SearchHistoricalCatalogTool(queries),
+        AttributeLapLossTool(queries),
+        AttributeStintLossTool(queries),
     ):
         registry.register(tool)
     return registry
