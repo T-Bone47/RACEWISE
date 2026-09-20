@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from racewise.data.historical.canonical_queries import CanonicalQueries
+from racewise.data.historical.telemetry_analysis import compare_telemetry_lap
 from racewise.tools.contract import Tool, ToolError, ToolRegistry, ToolSpec
 from racewise.tools.implementations import build_default_registry
 
@@ -721,11 +722,291 @@ class GetHistoricalRaceControlTool(Tool):
         }
 
 
+
+_DRIVER_ALIASES = {
+    # Historical 3-letter codes collide across eras; telemetry driver identity
+    # is season-scoped. Accept either a driver_key slug or a code and resolve
+    # through the canonical store (never guess).
+}
+
+
+def _normalize_driver_key(
+    queries: CanonicalQueries,
+    raw: str,
+    season: int | None = None,
+    round_num: int | None = None,
+    session_type: str | None = None,
+) -> str:
+    """Resolve a driver reference (slug or code) to a canonical driver_key.
+
+    Slugs are unambiguous and resolve directly. Three-letter codes collide
+    across eras (190 codes are shared by multiple drivers historically), so a
+    code is only accepted when it resolves to exactly one participant of the
+    requested session - season-scoped identity, never a global guess.
+    """
+    key = str(raw).strip()
+    if not key:
+        raise ToolError("driver reference is empty", code="invalid_input", field="driver_key")
+    slug = key.lower().replace(" ", "-")
+    with queries._conn() as conn:
+        row = conn.execute(
+            "SELECT driver_key FROM canonical_drivers WHERE driver_key = ? LIMIT 1", (slug,)
+        ).fetchone()
+        if row:
+            return row[0]
+        if season is None:
+            return slug
+        session = queries.resolve_session(int(season), int(round_num), session_type or "RACE")
+        if session is None:
+            return slug
+        matches = conn.execute(
+            """
+            SELECT DISTINCT d.driver_key
+            FROM canonical_results r
+            JOIN canonical_drivers d ON d.driver_id = r.driver_id
+            WHERE r.session_id = ? AND UPPER(d.code) = UPPER(?)
+            """,
+            (session["session_id"], key),
+        ).fetchall()
+    if len(matches) == 1:
+        return matches[0][0]
+    return slug
+
+
+class GetTelemetrySummaryTool(Tool):
+    """Count-derived telemetry availability for a session (bounded output)."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "get_historical_telemetry_summary",
+            "Telemetry availability for a session, derived from actual canonical_telemetry "
+            "row counts (FastF1 provider, bounded ingestion only). Returns sample count, "
+            "driver count, and the ingested lap numbers. available=false means no telemetry "
+            "rows exist - never assume telemetry by season.",
+            {"season": SEASON_PARAM, "round": ROUND_PARAM, "session_type": SESSION_TYPE_PARAM},
+            ["season", "round"],
+            {
+                "type": "object",
+                "properties": {
+                    "season": {"type": "integer"},
+                    "round": {"type": "integer"},
+                    "session_type": {"type": "string"},
+                    "available": {"type": "boolean"},
+                    "sample_count": {"type": "integer"},
+                    "drivers": {"type": "integer"},
+                    "laps": {"type": "array", "items": {"type": "integer"}},
+                    "source_provider": {"type": ["string", "null"]},
+                },
+                "required": ["season", "round", "session_type", "available", "sample_count",
+                             "drivers", "laps", "source_provider"],
+            },
+            [
+                "Telemetry is ingested for a bounded benchmark set only; absence means "
+                "UNAVAILABLE, not zero laps driven.",
+                _AVAILABILITY_NOTE,
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        season = int(kwargs["season"])
+        round_num = int(kwargs["round"])
+        session_type = str(kwargs.get("session_type", "RACE")).upper()
+        summary = self._queries.telemetry_summary(season, round_num, session_type)
+        return {
+            "season": season,
+            "round": round_num,
+            "session_type": session_type,
+            "available": bool(summary["available"]),
+            "sample_count": int(summary["sample_count"]),
+            "drivers": int(summary["drivers"]),
+            "laps": [int(l) for l in summary["laps"]],
+            "source_provider": "fastf1" if summary["available"] else None,
+        }
+
+
+class GetLapTelemetryTool(Tool):
+    """Bounded telemetry samples for one driver-lap (hard output cap)."""
+
+    _SIGNALS = ("speed", "throttle", "brake", "gear", "rpm", "drs")
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "get_historical_lap_telemetry",
+            "Return bounded telemetry samples for one driver-lap (default signals: speed, "
+            "throttle, brake; optional gear/rpm/drs). lap_time_s is lap-relative seconds, "
+            "time_elapsed_s is session-relative; native FastF1 resolution, no interpolation. "
+            "Requests are hard-capped (max_samples <= 2000); unbounded dumps are rejected.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_key": {"type": "string", "description": "Driver code, e.g. VER"},
+                "lap_number": {"type": "integer", "description": "Lap number within the session"},
+                "signals": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(self._SIGNALS)},
+                    "description": "Optional signal whitelist (default speed/throttle/brake)",
+                },
+                "max_samples": {
+                    "type": "integer",
+                    "minimum": 1, "maximum": 2000,
+                    "description": "Hard output cap; server clamps to 2000",
+                },
+            },
+            ["season", "round", "driver_key", "lap_number"],
+            {
+                "type": "object",
+                "properties": {
+                    "season": {"type": "integer"},
+                    "round": {"type": "integer"},
+                    "session_type": {"type": "string"},
+                    "driver_key": {"type": "string"},
+                    "lap_number": {"type": "integer"},
+                    "available": {"type": "boolean"},
+                    "n_samples": {"type": "integer"},
+                    "truncated": {"type": "boolean"},
+                    "signals": {"type": "array", "items": {"type": "string"}},
+                    "samples": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "lap_time_s": {"type": ["number", "null"]},
+                                "time_elapsed_s": {"type": ["number", "null"]},
+                                "signal": {"type": "string"},
+                                "value": {"type": ["number", "boolean"]},
+                                "source_provider": {"type": ["string", "null"]},
+                            },
+                            "required": ["lap_time_s", "signal", "value"],
+                        },
+                    },
+                },
+                "required": ["season", "round", "session_type", "driver_key", "lap_number",
+                             "available", "n_samples", "truncated", "signals", "samples"],
+            },
+            [
+                "UNAVAILABLE (empty samples) means no telemetry rows for this driver-lap; "
+                "identity-unresolved drivers were skipped at ingestion, never guessed.",
+                "Output is hard-bounded to protect agent context; use windows instead of "
+                "requesting full sessions.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        season = int(kwargs["season"])
+        round_num = int(kwargs["round"])
+        session_type = str(kwargs.get("session_type", "RACE")).upper()
+        season = int(kwargs["season"])
+        round_num = int(kwargs["round"])
+        session_type = str(kwargs.get("session_type", "RACE")).upper()
+        driver_key = _normalize_driver_key(
+            self._queries, str(kwargs["driver_key"]), season, round_num, session_type
+        )
+        lap_number = int(kwargs["lap_number"])
+        signals = kwargs.get("signals")
+        if signals is not None:
+            signals = [str(s).lower() for s in signals]
+            bad = [s for s in signals if s not in self._SIGNALS]
+            if bad:
+                raise ToolError(
+                    f"unknown telemetry signals: {bad}", code="invalid_input",
+                    field="signals",
+                )
+        max_samples = min(int(kwargs.get("max_samples", 2000)), 2000)
+        try:
+            rows = self._queries.get_lap_telemetry(
+                season, round_num, driver_key, lap_number,
+                session_type=session_type, signals=signals, max_samples=max_samples,
+            )
+        except ValueError as exc:  # query-layer bound enforcement
+            raise ToolError(str(exc), code="invalid_input") from exc
+        requested = signals or ["speed", "throttle", "brake"]
+        return {
+            "season": season, "round": round_num, "session_type": session_type,
+            "driver_key": driver_key, "lap_number": lap_number,
+            "available": len(rows) > 0,
+            "n_samples": len(rows),
+            "truncated": len(rows) >= min(max_samples, 2000),
+            "signals": requested,
+            "samples": [
+                {
+                    "lap_time_s": r.get("lap_time_s"),
+                    "time_elapsed_s": r.get("time_elapsed_s"),
+                    "signal": r["signal"],
+                    "value": r["value"],
+                    "source_provider": r.get("source_provider"),
+                }
+                for r in rows
+            ],
+        }
+
+
+class CompareTelemetryLapTool(Tool):
+    """Deterministic two-driver lap telemetry comparison (windowed time-loss)."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "compare_historical_telemetry_lap",
+            "Compare two drivers over one lap using canonical telemetry: per-window speed "
+            "delta with an estimated straight-line time loss, plus throttle/brake association "
+            "in the highest-loss window. Deterministic; returns INSUFFICIENT_EVIDENCE when "
+            "telemetry is missing for either driver-lap. The numbers come from SQL over "
+            "canonical_telemetry, not from narration.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_a": {"type": "string", "description": "Reference driver code, e.g. VER"},
+                "driver_b": {"type": "string", "description": "Comparison driver code, e.g. PER"},
+                "lap_number": {"type": "integer"},
+                "window_s": {
+                    "type": "number", "minimum": 1.0, "maximum": 30.0,
+                    "description": "Window width in seconds (default 5)",
+                },
+            },
+            ["season", "round", "driver_a", "driver_b", "lap_number"],
+            {
+                "type": "object",
+                "additionalProperties": True,
+                "required": ["verdict"],
+            },
+            [
+                "The time-loss figure is a straight-line estimate (1 - v_B/v_A per window); "
+                "treat as an approximation, never as measured reality.",
+                "Throttle/brake deltas are associations, not proven causation.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        return compare_telemetry_lap(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver_a=_normalize_driver_key(
+                self._queries, str(kwargs["driver_a"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            driver_b=_normalize_driver_key(
+                self._queries, str(kwargs["driver_b"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            lap_number=int(kwargs["lap_number"]),
+            window_s=float(kwargs.get("window_s", 5.0)),
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
     for tool in (
         GetHistoricalSessionTool(queries),
+        GetTelemetrySummaryTool(queries),
+        GetLapTelemetryTool(queries),
+        CompareTelemetryLapTool(queries),
         GetHistoricalResultsTool(queries),
         GetHistoricalQualifyingTool(queries),
         GetHistoricalPitStopsTool(queries),

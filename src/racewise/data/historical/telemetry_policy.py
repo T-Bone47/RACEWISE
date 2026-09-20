@@ -28,10 +28,17 @@ class TelemetrySessionStatus(str, Enum):
     EXCLUDED = "EXCLUDED"                  # explicitly opted out for this session
 
 
-# Signals a bounded Phase 6C table would carry (documented intent).
+# Signals a bounded Phase 6C table carries (verified against FastF1 3.8.3
+# car_data channels: Speed, RPM, nGear, Throttle, Brake[bool], DRS).
+# Positional channels (x/y/distance) are NOT ingested: they require
+# position data, are high-volume, and no Phase 6C consumer needs them.
 PLANNED_SIGNALS: tuple[str, ...] = (
-    "speed", "throttle", "brake", "gear", "rpm", "drs", "x", "y", "distance", "time",
+    "speed", "throttle", "brake", "gear", "rpm", "drs",
 )
+
+# Verified native resolution (2023 Bahrain R, VER lap 21): ~3.8 Hz,
+# ~370 samples/channel/lap. 6 signals x 370 = ~2,220 rows per driver-lap.
+SAMPLES_PER_DRIVER_LAP = 2_220
 
 # Projected volume guard: full car-per-lap telemetry for one race session is
 # on the order of 10^6-10^7 samples. Phase 6C must activate with per-session
@@ -41,12 +48,19 @@ PROJECTED_SAMPLES_PER_SESSION = 2_000_000
 
 @dataclass
 class TelemetryPolicy:
-    """Configuration for future telemetry ingestion. Default OFF."""
+    """Configuration for bounded telemetry ingestion. Default OFF.
+
+    Phase 6C bounded scope: when enabled, telemetry is ingested for the
+    top-two classified finishers of the session (deterministic, from actual
+    canonical results) over up to ``max_laps_per_driver`` clean timed laps
+    each, evenly spaced across the driver's race. Every bound is enforced in
+    the ingestion path.
+    """
 
     enabled: bool = False
-    session_codes: tuple[str, ...] = ("R", "Q")
-    max_drivers_per_session: Optional[int] = None      # None = all
-    max_laps_per_driver: Optional[int] = None          # None = all laps
+    session_codes: tuple[str, ...] = ("R",)
+    max_drivers_per_session: Optional[int] = 2
+    max_laps_per_driver: Optional[int] = 12
     max_samples_per_session: int = PROJECTED_SAMPLES_PER_SESSION
     signals: tuple[str, ...] = PLANNED_SIGNALS
 

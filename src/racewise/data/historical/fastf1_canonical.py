@@ -36,6 +36,7 @@ from racewise.data.historical.f1db_canonical import (
     _to_int,
     _to_str,
 )
+from racewise.data.historical.telemetry_policy import TelemetryPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -440,6 +441,184 @@ class FastF1Canonicalizer:
         )
         return len(rows)
 
+    # -- telemetry (Phase 6C, bounded) -----------------------------------------
+
+    # Verified FastF1 3.8.3 car_data channel -> canonical signal name.
+    # Brake is boolean in the source (True = braking) -> 1/0. nGear and DRS
+    # are integer codes (DRS 8/10/12/14 = enabled states, per FastF1 docs).
+    # All channels share one time index -> one wide row per sample.
+    TELEMETRY_CHANNEL_MAP: dict[str, str] = {
+        "Speed": "speed",
+        "Throttle": "throttle",
+        "Brake": "brake",
+        "nGear": "gear",
+        "RPM": "rpm",
+        "DRS": "drs",
+    }
+
+    def _top_classified_driver_ids(self, season: int, round_num: int, limit: int) -> list[str]:
+        """Top-N classified finishers from canonical results (deterministic)."""
+        with self.store._conn() as conn:
+            rows = conn.execute(
+                """SELECT r.driver_id FROM canonical_results r
+                   JOIN canonical_sessions s ON s.session_id = r.session_id
+                   JOIN canonical_races ra ON ra.race_id = s.race_id
+                   WHERE ra.season = ? AND ra.round = ? AND s.session_type = 'RACE'
+                     AND r.position IS NOT NULL
+                   ORDER BY r.position LIMIT ?""",
+                (season, round_num, limit),
+            ).fetchall()
+        return [r["driver_id"] for r in rows]
+
+    def _select_telemetry_laps(self, laps_df: pd.DataFrame, max_laps: int) -> list[int]:
+        """Evenly spaced clean timed lap positions (deterministic selection)."""
+        candidates = [
+            i for i, row in enumerate(laps_df.itertuples(index=False))
+            if getattr(row, "LapTime", None) is not None
+            and not pd.isna(getattr(row, "LapTime", None))
+            and not pd.isna(getattr(row, "Stint", pd.NA))
+        ]
+        if not candidates or max_laps is None:
+            return candidates
+        if len(candidates) <= max_laps:
+            return candidates
+        step = (len(candidates) - 1) / (max_laps - 1)
+        picked = {int(round(i * step)) for i in range(max_laps)}
+        return [candidates[j] for j in sorted(picked)]
+
+    def ingest_telemetry(
+        self,
+        ff1_session: Any,
+        session_id: str,
+        season: int,
+        round_num: int,
+        policy: TelemetryPolicy,
+    ) -> dict[str, Any]:
+        """Ingest bounded car-data telemetry for selected drivers and laps.
+
+        Scope is policy-gated (default OFF): top-N classified finishers x up to
+        max_laps_per_driver clean laps x the six verified car-data signals.
+        Time model: session-relative seconds (source SessionTime, same
+        convention as weather elapsed_s) plus lap-relative seconds
+        (documented calculation: SessionTime - LapStartTime). No absolute
+        timestamps are invented; no distance channel (positional data
+        deferred until a consumer requires it).
+
+        Identity: sha1(provider, session, driver, lap, signal, time in ms) -
+        deterministic and idempotent under upsert.
+        """
+        stats: dict[str, Any] = {
+            "drivers": 0, "laps": 0, "samples": 0,
+            "skipped_identity": 0, "truncated_to_cap": False,
+        }
+        if ff1_session.laps is None or len(ff1_session.laps) == 0:
+            return stats
+        # Opt-in path: car data is not loaded by the default adapter call
+        # (telemetry=False). Loading here keeps the default OFF everywhere else.
+        ff1_session.load(laps=True, telemetry=True, weather=False, messages=False)
+
+        # Canonical driver_ids in scope -> FastF1 codes via season-scoped resolver.
+        target_ids = self._top_classified_driver_ids(
+            season, round_num, policy.max_drivers_per_session or 2
+        )
+        if not target_ids:
+            return stats
+        id_by_code: dict[str, str] = {}
+        for code in ff1_session.laps["Driver"].dropna().unique():
+            driver_id = self.resolve_driver(str(code), season)
+            if driver_id in target_ids:
+                id_by_code[str(code)] = driver_id
+        if not id_by_code:
+            stats["skipped_identity"] = len(target_ids)
+            return stats
+
+        now = _utcnow_iso()
+        rows: list[tuple] = []
+        cap = policy.max_samples_per_session
+        signals = set(policy.signals)
+        for code, driver_id in sorted(id_by_code.items()):
+            driver_laps = ff1_session.laps.pick_drivers(code)
+            if driver_laps is None or len(driver_laps) == 0:
+                continue
+            picked = self._select_telemetry_laps(driver_laps, policy.max_laps_per_driver)
+            stats["drivers"] += 1
+            for lap_idx in picked:
+                lap = driver_laps.iloc[lap_idx]
+                lap_number = int(lap["LapNumber"])
+                lap_start = lap["LapStartTime"]
+                try:
+                    cd = lap.get_car_data()
+                except Exception as exc:  # noqa: BLE001 - per-lap isolation
+                    logger.warning(f"telemetry: lap {lap_number} car_data failed: {exc}")
+                    continue
+                if cd is None or len(cd) == 0:
+                    continue
+                stats["laps"] += 1
+                for t_row in cd.itertuples(index=False):
+                    st = getattr(t_row, "SessionTime", None)
+                    if st is None or pd.isna(st):
+                        continue
+                    elapsed_s = round(st.total_seconds(), 4)
+                    try:
+                        lap_rel_s = round((st - lap_start).total_seconds(), 4)
+                    except Exception:  # noqa: BLE001 - LapStartTime may be NaT
+                        continue
+                    values: dict[str, Optional[float]] = {}
+                    for channel, signal in self.TELEMETRY_CHANNEL_MAP.items():
+                        if signal not in signals:
+                            continue
+                        raw = getattr(t_row, channel, None)
+                        if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+                            values[signal] = None
+                            continue
+                        values[signal] = float(bool(raw)) if channel == "Brake" else float(raw)
+                    if all(v is None for v in values.values()):
+                        continue
+                    telemetry_id = _stable_id(
+                        FASTF1_PROVIDER, "tel", session_id, driver_id,
+                        lap_number, round(elapsed_s, 3),
+                    )
+                    rows.append((
+                        telemetry_id, session_id, driver_id, lap_number,
+                        elapsed_s, lap_rel_s,
+                        values.get("speed"), values.get("throttle"),
+                        int(values["brake"]) if values.get("brake") is not None else None,
+                        int(values["gear"]) if values.get("gear") is not None else None,
+                        values.get("rpm"),
+                        int(values["drs"]) if values.get("drs") is not None else None,
+                        FASTF1_PROVIDER,
+                        f"{season}-R{round_num}:{code}:L{lap_number}",
+                        self.source_version, now, now,
+                    ))
+                if len(rows) > cap:
+                    rows = rows[:cap]
+                    stats["truncated_to_cap"] = True
+                    break
+            if stats["truncated_to_cap"]:
+                break
+
+        if rows:
+            self.store.execute_batch(
+                """INSERT INTO canonical_telemetry (telemetry_id, session_id, driver_id,
+                   lap_number, time_elapsed_s, lap_time_s, speed_kmh, throttle_pct,
+                   brake, gear, rpm, drs,
+                   source_provider, source_id, source_version, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(telemetry_id) DO UPDATE SET
+                     speed_kmh = excluded.speed_kmh, throttle_pct = excluded.throttle_pct,
+                     brake = excluded.brake, gear = excluded.gear, rpm = excluded.rpm,
+                     drs = excluded.drs, lap_time_s = excluded.lap_time_s,
+                     source_version = excluded.source_version, updated_at = excluded.updated_at""",
+                rows,
+            )
+        stats["samples"] = len(rows)
+        logger.info(
+            f"Telemetry ingested for {season}-R{round_num}: drivers={stats['drivers']} "
+            f"laps={stats['laps']} samples={stats['samples']} "
+            f"truncated={stats['truncated_to_cap']}"
+        )
+        return stats
+
     # -- session driver --------------------------------------------------------
 
     def ingest_session(
@@ -448,8 +627,13 @@ class FastF1Canonicalizer:
         round_num: int,
         session_code: str,
         session: "fastf1.sessions.Session",
+        telemetry_policy: Optional[TelemetryPolicy] = None,
     ) -> dict[str, Any]:
-        """Ingest one loaded FastF1 session into the canonical store."""
+        """Ingest one loaded FastF1 session into the canonical store.
+
+        Telemetry is policy-gated and OFF by default: pass an *enabled*
+        TelemetryPolicy to opt in (Phase 6C bounded scope).
+        """
         resolved = self.resolve_session(year, round_num, session_code)
         if resolved is None:
             return {"attached": False, "stints": 0, "weather": 0, "race_control": 0, "lap_rows": 0}
@@ -460,6 +644,9 @@ class FastF1Canonicalizer:
         n_stints = self.ingest_stints(session.laps, session_id, season, event_ref)
         n_weather = self.ingest_weather(getattr(session, "weather_data", None), session_id, event_ref)
         n_rc = self.ingest_race_control(getattr(session, "race_control_messages", None), session_id, event_ref)
+        telemetry: dict[str, Any] = {}
+        if telemetry_policy is not None and telemetry_policy.enabled:
+            telemetry = self.ingest_telemetry(session, session_id, year, round_num, telemetry_policy)
         with self.store._conn() as conn:
             n_laps = conn.execute(
                 "SELECT COUNT(*) FROM canonical_lap_times WHERE session_id = ? AND source_provider = 'fastf1'",
@@ -478,5 +665,6 @@ class FastF1Canonicalizer:
             "weather": n_weather,
             "race_control": n_rc,
             "lap_rows": n_laps,
+            "telemetry": telemetry,
             "seconds": round(elapsed, 2),
         }

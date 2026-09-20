@@ -141,6 +141,7 @@ class FastF1SeasonIngester:
         cache_dir: Optional[str] = None,
         state_dir: Optional[str] = None,
         validator: Any = None,
+        telemetry_policy: Any = None,
     ) -> None:
         from racewise.data.fastf1_adapter import FastF1Adapter
         from racewise.data.historical.validators import CanonicalDataValidator
@@ -148,6 +149,7 @@ class FastF1SeasonIngester:
         self.adapter = FastF1Adapter(cache_dir=cache_dir)
         self.canon = canonicalizer
         self.validator = validator or CanonicalDataValidator()
+        self.telemetry_policy = telemetry_policy
         self.state_dir = Path(state_dir) if state_dir else Path.cwd() / "data" / "ingestion_state"
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.checkpoint_file = self.state_dir / "fastf1_scaling_checkpoints.json"
@@ -323,7 +325,8 @@ class FastF1SeasonIngester:
         t1 = time.perf_counter()
         try:
             result = self.canon.ingest_session(
-                target["season"], target["round_number"], target["session_code"], session
+                target["season"], target["round_number"], target["session_code"], session,
+                telemetry_policy=self.telemetry_policy,
             )
         except Exception as e:
             outcome.canonicalize_seconds = time.perf_counter() - t1
@@ -342,6 +345,8 @@ class FastF1SeasonIngester:
             "weather": result.get("weather", 0),
             "race_control": result.get("race_control", 0),
             "lap_rows": result.get("lap_rows", 0),
+            **({"telemetry_samples": result["telemetry"]["samples"]}
+               if result.get("telemetry") else {}),
         }
         # Validation gate: a session with rows must not violate store invariants.
         problems = self._validate_after()
@@ -370,14 +375,19 @@ def ingest_seasons(
     rounds: Optional[list[int]] = None,
     resume: bool = True,
     force: bool = False,
+    telemetry_policy: Any = None,
 ) -> list[dict]:
-    """Ingest multiple seasons; returns per-season summaries (never raises)."""
+    """Ingest multiple seasons; returns per-season summaries (never raises).
+
+    telemetry_policy: optional TelemetryPolicy. Default None = telemetry OFF;
+    an *enabled* policy opts the run into bounded telemetry ingestion.
+    """
     from racewise.data.historical.f1db_canonical import CanonicalStore
     from racewise.data.historical.fastf1_canonical import FastF1Canonicalizer
 
     store = CanonicalStore()
     canon = FastF1Canonicalizer(store)
-    ingester = FastF1SeasonIngester(canon)
+    ingester = FastF1SeasonIngester(canon, telemetry_policy=telemetry_policy)
     summaries = []
     for season in seasons:
         try:

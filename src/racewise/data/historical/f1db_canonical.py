@@ -427,6 +427,44 @@ class CanonicalStore:
                 )
             """)
 
+            # Telemetry (Phase 6C): bounded WIDE-format car-data samples.
+            # One row per (driver, lap, sample); all six FastF1 car channels
+            # share a single time index (verified 3.8.3), so a wide row is
+            # ~6x smaller than one-row-per-signal and still fully provenanced.
+            # Signals: speed_kmh, throttle_pct, brake (bool -> 1/0), gear, rpm,
+            # drs (source int codes). Time is session-relative seconds (same
+            # convention as weather elapsed_s) plus lap-relative seconds
+            # (documented calc: SessionTime - LapStartTime). No distance
+            # channel: requires positional data, deferred until a consumer
+            # needs it. Adding a new channel = ALTER TABLE (documented policy;
+            # the bounded consumer set is deliberately fixed in Phase 6C).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS canonical_telemetry (
+                    telemetry_id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    driver_id TEXT NOT NULL,
+                    lap_number INTEGER NOT NULL,
+                    time_elapsed_s REAL NOT NULL,
+                    lap_time_s REAL NOT NULL,
+                    speed_kmh REAL,
+                    throttle_pct REAL,
+                    brake INTEGER,
+                    gear INTEGER,
+                    rpm REAL,
+                    drs INTEGER,
+                    source_provider TEXT NOT NULL,
+                    source_id TEXT,
+                    source_version TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (session_id) REFERENCES canonical_sessions(session_id),
+                    FOREIGN KEY (driver_id) REFERENCES canonical_drivers(driver_id)
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON canonical_telemetry(session_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_telemetry_session_driver_lap ON canonical_telemetry(session_id, driver_id, lap_number)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_telemetry_signal ON canonical_telemetry(session_id, lap_number)")
+
             # Create indexes
             conn.execute("CREATE INDEX IF NOT EXISTS idx_canonical_results_session ON canonical_results(session_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_canonical_results_driver ON canonical_results(driver_id)")
@@ -1138,6 +1176,7 @@ class F1DBCanonicalizer:
             conn.execute("CREATE TEMP TABLE _cat_stints AS SELECT session_id, COUNT(*) AS n FROM canonical_stints GROUP BY session_id")
             conn.execute("CREATE TEMP TABLE _cat_weather AS SELECT session_id, COUNT(*) AS n FROM canonical_weather GROUP BY session_id")
             conn.execute("CREATE TEMP TABLE _cat_rc AS SELECT session_id, COUNT(*) AS n FROM canonical_race_control GROUP BY session_id")
+            conn.execute("CREATE TEMP TABLE _cat_tel AS SELECT session_id, COUNT(*) AS n FROM canonical_telemetry GROUP BY session_id")
             conn.execute(
                 """
                 INSERT INTO canonical_session_catalog (
@@ -1160,7 +1199,7 @@ class F1DBCanonicalizer:
                     COALESCE(stints.n, 0),
                     COALESCE(weather.n, 0),
                     COALESCE(rc.n, 0),
-                    0,
+                    CASE WHEN COALESCE(tel.n, 0) > 0 THEN 1 ELSE 0 END,
                     CASE WHEN COALESCE(res.n, 0) > 0 THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END,
                     CASE WHEN COALESCE(qual.n, 0) > 0 THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END,
                     CASE WHEN COALESCE(pits.n, 0) > 0 THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END,
@@ -1168,7 +1207,7 @@ class F1DBCanonicalizer:
                     CASE WHEN COALESCE(stints.n, 0) > 0 THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END,
                     CASE WHEN COALESCE(weather.n, 0) > 0 THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END,
                     CASE WHEN COALESCE(rc.n, 0) > 0 THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END,
-                    'UNAVAILABLE',
+                    CASE WHEN COALESCE(tel.n, 0) > 0 THEN 'AVAILABLE' ELSE 'UNAVAILABLE' END,
                     ?
                 FROM canonical_sessions s
                 JOIN canonical_races r ON r.race_id = s.race_id
@@ -1179,6 +1218,7 @@ class F1DBCanonicalizer:
                 LEFT JOIN _cat_stints stints ON stints.session_id = s.session_id
                 LEFT JOIN _cat_weather weather ON weather.session_id = s.session_id
                 LEFT JOIN _cat_rc rc ON rc.session_id = s.session_id
+                LEFT JOIN _cat_tel tel ON tel.session_id = s.session_id
                 """,
                 (now,),
             )

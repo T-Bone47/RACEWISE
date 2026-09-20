@@ -113,7 +113,8 @@ class CanonicalQueries:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT res.*, d.full_name AS driver_name, d.code AS driver_code, c.name AS constructor_name
+                SELECT res.*, d.full_name AS driver_name, d.code AS driver_code,
+                       d.driver_key AS driver_key, c.name AS constructor_name
                 FROM canonical_results res
                 JOIN canonical_drivers d ON d.driver_id = res.driver_id
                 LEFT JOIN canonical_constructors c ON c.constructor_id = res.constructor_id
@@ -271,6 +272,104 @@ class CanonicalQueries:
                 (session["session_id"],),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    # -- telemetry (Phase 6C, bounded) -----------------------------------------
+
+    TELEMETRY_SIGNALS = ("speed", "throttle", "brake", "gear", "rpm", "drs")
+    MAX_TELEMETRY_SAMPLES = 2_000  # hard bound per query, protects agent context
+
+    # Canonical signal -> wide-format column (all channels share one time index).
+    TELEMETRY_COLUMNS = {
+        "speed": "speed_kmh",
+        "throttle": "throttle_pct",
+        "brake": "brake",
+        "gear": "gear",
+        "rpm": "rpm",
+        "drs": "drs",
+    }
+
+    def get_lap_telemetry(
+        self,
+        season: int,
+        round_num: int,
+        driver_key: str,
+        lap_number: int,
+        session_type: str = "RACE",
+        signals: Optional[list[str]] = None,
+        max_samples: int = MAX_TELEMETRY_SAMPLES,
+    ) -> list[dict]:
+        """Bounded telemetry samples for one driver-lap.
+
+        Hard-bounded: signal whitelist, per-query sample cap. lap_time_s is
+        lap-relative seconds (source SessionTime - LapStartTime, documented
+        calculation); time_elapsed_s is session-relative. Returns [] when the
+        session or driver-lap has no telemetry rows (UNAVAILABLE, never zero).
+        """
+        if signals:
+            bad = [s for s in signals if s not in self.TELEMETRY_SIGNALS]
+            if bad:
+                raise ValueError(f"unknown telemetry signals: {bad}")
+        session = self.resolve_session(season, round_num, session_type)
+        if session is None:
+            return []
+        limit = min(int(max_samples), self.MAX_TELEMETRY_SAMPLES)
+        cols = [self.TELEMETRY_COLUMNS[s] for s in (signals or self.TELEMETRY_SIGNALS)]
+        wanted = signals or list(self.TELEMETRY_SIGNALS)
+        select = ", ".join(cols)
+        sql = f"""
+            SELECT t.lap_number, t.time_elapsed_s, t.lap_time_s, {select},
+                   t.source_provider, t.source_version, d.driver_key
+            FROM canonical_telemetry t
+            JOIN canonical_drivers d ON d.driver_id = t.driver_id
+            WHERE t.session_id = ? AND d.driver_key = ? AND t.lap_number = ?
+        """
+        params: list[Any] = [session["session_id"], driver_key, int(lap_number)]
+        sql += " ORDER BY t.lap_time_s LIMIT ?"
+        params.append(limit + 1)
+        with self._conn() as conn:
+            raw_rows = [dict(r) for r in conn.execute(sql, params).fetchall()]
+        if len(raw_rows) > limit:
+            raw_rows = raw_rows[:limit]
+        rows: list[dict] = []
+        for r in raw_rows:
+            for signal in wanted:
+                v = r.get(self.TELEMETRY_COLUMNS[signal])
+                if v is None:
+                    continue
+                rows.append({
+                    "lap_number": r["lap_number"], "time_elapsed_s": r["time_elapsed_s"],
+                    "lap_time_s": r["lap_time_s"], "signal": signal, "value": v,
+                    "source_provider": r["source_provider"], "source_version": r["source_version"],
+                    "driver_key": r["driver_key"],
+                })
+        # The cap bounds OUTPUT samples (signal-expanded), not raw rows: a
+        # 3-signal request over 1000 timestamps must never return 3000 rows.
+        return rows[:limit]
+
+    def telemetry_summary(self, season: int, round_num: int, session_type: str = "RACE") -> dict:
+        """Count-derived telemetry availability for a session (no year heuristics)."""
+        session = self.resolve_session(season, round_num, session_type)
+        if session is None:
+            return {"available": False, "sample_count": 0, "drivers": 0, "laps": []}
+        with self._conn() as conn:
+            n = conn.execute(
+                "SELECT COUNT(*) FROM canonical_telemetry WHERE session_id = ?",
+                (session["session_id"],),
+            ).fetchone()[0]
+            drivers = conn.execute(
+                "SELECT COUNT(DISTINCT driver_id) FROM canonical_telemetry WHERE session_id = ?",
+                (session["session_id"],),
+            ).fetchone()[0]
+            laps = [r[0] for r in conn.execute(
+                "SELECT DISTINCT lap_number FROM canonical_telemetry WHERE session_id = ? ORDER BY lap_number",
+                (session["session_id"],),
+            ).fetchall()]
+        return {
+            "available": n > 0,
+            "sample_count": n,
+            "drivers": drivers,
+            "laps": laps,
+        }
 
 
 @lru_cache(maxsize=4)

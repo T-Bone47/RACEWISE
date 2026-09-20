@@ -199,6 +199,15 @@ def cmd_fastf1_canonical(args: argparse.Namespace) -> int:
     adapter = FastF1Adapter(cache_dir=cache_dir)
     store = CanonicalStore()
     canon = FastF1Canonicalizer(store)
+    telemetry_policy = None
+    if getattr(args, "telemetry", False):
+        from racewise.data.historical.telemetry_policy import TelemetryPolicy
+        telemetry_policy = TelemetryPolicy(enabled=True)
+        problems = telemetry_policy.validate()
+        if problems:
+            print("Invalid telemetry policy:", problems)
+            return 1
+    args.telemetry_policy = telemetry_policy
 
     totals = {"stints": 0, "weather": 0, "race_control": 0, "lap_rows": 0, "sessions": 0, "skipped": 0}
     t_start = time.perf_counter()
@@ -212,7 +221,8 @@ def cmd_fastf1_canonical(args: argparse.Namespace) -> int:
             totals["skipped"] += 1
             continue
         load_seconds += time.perf_counter() - t0
-        res = canon.ingest_session(year, round_num, code, session)
+        res = canon.ingest_session(year, round_num, code, session,
+                                   telemetry_policy=getattr(args, "telemetry_policy", None))
         if not res.get("attached"):
             totals["skipped"] += 1
             print(f"{year} R{round_num} {code}: no canonical session (F1DB does not represent it); skipped")
@@ -252,12 +262,21 @@ def cmd_ingest_seasons(args: argparse.Namespace) -> int:
     levels = [int(x) for x in (args.levels or "1,2,3").split(",")]
     seasons = list(range(args.start_year, args.end_year + 1))
     rounds = [int(x) for x in args.rounds.split(",")] if args.rounds else None
+    telemetry_policy = None
+    if getattr(args, "telemetry", False):
+        from racewise.data.historical.telemetry_policy import TelemetryPolicy
+        telemetry_policy = TelemetryPolicy(enabled=True)
+        problems = telemetry_policy.validate()
+        if problems:
+            print("Invalid telemetry policy:", problems)
+            return 1
     summaries = ingest_seasons(
         seasons,
         priority_levels=levels,
         rounds=rounds,
         resume=not args.force,
         force=args.force,
+        telemetry_policy=telemetry_policy,
     )
     for s in summaries:
         print(json.dumps(s, default=str))
@@ -423,6 +442,8 @@ def main() -> int:
     ff1c_parser.add_argument("--round", type=int, action="append")
     ff1c_parser.add_argument("--sessions", nargs="+", default=None, help="FastF1 session codes (default R)")
     ff1c_parser.add_argument("--cache-dir", type=str, default=None)
+    ff1c_parser.add_argument("--telemetry", action="store_true",
+                             help="Opt in to bounded telemetry ingestion (default OFF)")
 
     # Multi-season scaling
     scale_parser = subparsers.add_parser(
@@ -433,6 +454,8 @@ def main() -> int:
     scale_parser.add_argument("--levels", type=str, default="1,2,3", help="Priority levels, e.g. '1' or '1,2'")
     scale_parser.add_argument("--rounds", type=str, default=None, help="Comma-separated round filter")
     scale_parser.add_argument("--force", action="store_true", help="Re-ingest even if checkpointed")
+    scale_parser.add_argument("--telemetry", action="store_true",
+                              help="Opt in to bounded telemetry ingestion (default OFF)")
 
     # Audit / validate
     audit_parser = subparsers.add_parser("audit", help="Database growth audit (rows, size, deltas)")
