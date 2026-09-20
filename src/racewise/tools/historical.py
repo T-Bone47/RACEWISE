@@ -1116,6 +1116,64 @@ class AttributeStintLossTool(Tool):
         )
 
 
+class FuseLapEvidenceTool(Tool):
+    """Phase 6F evidence fusion: combine independent canonical evidence
+    sources (sectors, telemetry metrics, stints, weather, race control,
+    pit stops) into formal hypothesis verdicts for a measured lap delta."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "fuse_historical_lap_evidence",
+            "Fuse independent canonical evidence sources for a measured lap-time delta "
+            "(driver B vs driver A): measured observation, authoritative sector "
+            "decomposition, per-source evidence items with SUPPORTS/CONTRADICTS/"
+            "DOES_NOT_TEST relationships, formally evaluated hypotheses (SUPPORTED/"
+            "PARTIALLY_SUPPORTED/NOT_SUPPORTED/CONTRADICTED/NOT_TESTABLE/"
+            "INSUFFICIENT_EVIDENCE), the preserved unexplained residual, and an "
+            "evidence-bounded conclusion. No single confidence score; consistency is "
+            "never reported as causation. Deterministic; UNAVAILABLE when laps or "
+            "telemetry are missing.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_a": {"type": "string", "description": "Reference driver key, e.g. max-verstappen"},
+                "driver_b": {"type": "string", "description": "Comparison driver key, e.g. sergio-perez"},
+                "lap_number": {"type": "integer", "minimum": 1},
+            },
+            ["season", "round", "driver_a", "driver_b", "lap_number"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Consistency is not causation: SUPPORTED hypotheses describe evidence "
+                "agreement, not proven cause.",
+                "The unexplained residual is reported explicitly and never assigned to "
+                "a hypothesis.",
+                "Bounded: one lap, fixed source set, no raw telemetry dumps.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.evidence_fusion import fuse_lap_evidence
+
+        return fuse_lap_evidence(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver_a=_normalize_driver_key(
+                self._queries, str(kwargs["driver_a"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            driver_b=_normalize_driver_key(
+                self._queries, str(kwargs["driver_b"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            lap_number=int(kwargs["lap_number"]),
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1134,6 +1192,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         SearchHistoricalCatalogTool(queries),
         AttributeLapLossTool(queries),
         AttributeStintLossTool(queries),
+        FuseLapEvidenceTool(queries),
     ):
         registry.register(tool)
     return registry

@@ -389,6 +389,56 @@ def catalog_attribution(
     return attribute_lap_loss(queries, season, round, driver_a, driver_b, int(lap))
 
 
+@app.get("/api/catalog/evidence-fusion/{season}/{round}")
+def catalog_evidence_fusion(
+    season: int, round: int,
+    driver_a: str = "max-verstappen",
+    driver_b: str = "sergio-perez",
+    lap: Optional[int] = None,
+) -> dict[str, Any]:
+    """Deterministic multi-source evidence fusion for the frontend view (bounded).
+
+    Delegates to fuse_lap_evidence: measured observation -> independent
+    evidence items -> formal hypothesis verdicts -> preserved residual ->
+    evidence-bounded conclusion. Lap defaults to the highest shared telemetry
+    lap that yields a valid comparison - never a fabricated one.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.evidence_fusion import fuse_lap_evidence
+    from racewise.data.historical.loss_attribution import (
+        VALID,
+        VALID_CAVEATS,
+    )
+
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "status": "UNAVAILABLE",
+            "reason": "no canonical telemetry ingested for this session (bounded policy)",
+        }
+    queries = get_canonical_queries()
+    if lap is None:
+        summary = queries.telemetry_summary(season, round, "RACE")
+        if not summary["available"]:
+            return {"season": season, "round": round, "status": "UNAVAILABLE",
+                    "reason": "no telemetry rows"}
+        for candidate in sorted(summary["laps"], reverse=True):
+            fused = fuse_lap_evidence(queries, season, round, driver_a, driver_b, candidate)
+            if fused.get("status") in (VALID, VALID_CAVEATS):
+                return fused
+        return {
+            "season": season, "round": round,
+            "status": "INSUFFICIENT_EVIDENCE",
+            "reason": "no telemetry lap yields a clean two-driver comparison",
+        }
+    return fuse_lap_evidence(queries, season, round, driver_a, driver_b, int(lap))
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()
