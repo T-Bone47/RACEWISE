@@ -212,3 +212,15 @@
 .capability-list li { display: flex; gap: 8px; align-items: baseline; }
 .investigate-btn { margin-top: 10px; padding: 8px 16px; background: #1565c0; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
 .investigate-btn:disabled { background: #bbb; cursor: not-allowed; }
+
+/* ===== Telemetry View (Phase 6C) ===== */
+.telemetry-view { margin-top: 24px; }
+.tv-headline { margin: 10px 0; font-size: 15px; }
+.tv-assoc { margin: 8px 0; padding: 8px 10px; background: #f4f6f8; border-left: 3px solid #1565c0; font-size: 13px; }
+.tv-assoc div { margin: 2px 0; }
+.tv-cell { display: inline-block; min-width: 56px; }
+.tv-bar { height: 8px; background: #2e7d32; border-radius: 2px; margin-top: 3px; }
+.tv-bar-neg { background: #c62828; }
+.tv-assumptions { margin-top: 14px; }
+.tv-assumptions h4 { margin: 6px 0; }
+.tv-assumptions ul { margin: 4px 0 8px 18px; font-size: 12.5px; color: #555; }

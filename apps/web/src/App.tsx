@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import CatalogExplorer from './CatalogExplorer'
+import TelemetryView from './TelemetryView'
 
 interface Session {
   year: number
@@ -326,6 +327,8 @@ export default function App() {
           }
         }}
       />
+
+      <TelemetryView />
 
       <div className="controls">
         <div className="session-selector">

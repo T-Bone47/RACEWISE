@@ -175,11 +175,23 @@ class CatalogAPI:
     # -- helpers --------------------------------------------------------------
 
     def _telemetry_capability(self, row: sqlite3.Row) -> dict:
-        """Telemetry stays NOT_INGESTED (Phase 6B); honest, never assumed."""
+        """Count-derived telemetry capability (Phase 6C): never year-based.
+
+        The availability rebuild writes telemetry_count/telemetry_availability
+        from actual canonical_telemetry rows; this maps them to the policy
+        vocabulary without ever assuming availability.
+        """
+        count = row["telemetry_available"] if "telemetry_available" in row.keys() else 0
+        if count and count > 0:
+            return {
+                "status": TelemetrySessionStatus.INGESTED.value,
+                "available": True,
+                "count": count,
+            }
         return {
             "status": TelemetrySessionStatus.NOT_INGESTED.value,
             "available": False,
-            "note": "Deferred to a bounded Phase 6C policy; no telemetry rows exist.",
+            "note": "No telemetry rows ingested (bounded Phase 6C policy; opt-in only).",
         }
 
     def _session_source_versions(self, _unused: Any, row: sqlite3.Row) -> Optional[str]:

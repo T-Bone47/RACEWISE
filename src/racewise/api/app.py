@@ -297,6 +297,48 @@ def catalog_session_detail(season: int, round: int, session_type: str) -> dict[s
     return detail
 
 
+@app.get("/api/catalog/telemetry-comparison/{season}/{round}")
+def catalog_telemetry_comparison(
+    season: int, round: int,
+    driver_a: str = "max-verstappen",
+    driver_b: str = "sergio-perez",
+    lap: Optional[int] = None,
+) -> dict[str, Any]:
+    """Bounded deterministic telemetry comparison for the frontend view.
+
+    Delegates entirely to compare_telemetry_lap (signal whitelist, sample
+    caps). Returns INSUFFICIENT_EVIDENCE when the session/lap has no
+    telemetry - the UI must render that state, never a synthetic series.
+    """
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.telemetry_analysis import compare_telemetry_lap
+
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "verdict": "INSUFFICIENT_EVIDENCE",
+            "reason": "no canonical telemetry ingested for this session (bounded Phase 6C policy)",
+        }
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+
+    if lap is None:
+        summary = get_canonical_queries().telemetry_summary(season, round, "RACE")
+        if not summary["available"]:
+            return {
+                "season": season, "round": round,
+                "verdict": "INSUFFICIENT_EVIDENCE", "reason": "no telemetry rows",
+            }
+        lap = max(summary["laps"])
+    return compare_telemetry_lap(
+        get_canonical_queries(), season, round, driver_a, driver_b,
+        lap_number=int(lap), session_type="RACE",
+    )
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

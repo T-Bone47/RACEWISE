@@ -459,6 +459,162 @@ class EngineeringBenchmarks:
             "provenance": {"providers": ["f1db", "fastf1"], "engine_version": ENGINEERING_VERSION},
         }
 
+    # -- Q6: telemetry pace explanation (Phase 6C) ------------------------------
+
+    def q6_telemetry_pace_explanation(
+        self, driver_a: str, driver_b: str, lap_number: Optional[int] = None,
+    ) -> dict[str, Any]:
+        """Telemetry benchmark: where on the lap does B lose time to A?
+
+        Delegates all arithmetic to the deterministic telemetry analysis
+        (compare_telemetry_lap). Requires canonical telemetry rows: returns
+        INSUFFICIENT_EVIDENCE when telemetry is not ingested for the session
+        or the lap is missing - never a synthetic series.
+        """
+        from racewise.data.historical.telemetry_analysis import compare_telemetry_lap
+
+        summary = self.queries.telemetry_summary(self.season, self.round_num, "RACE")
+        out: dict[str, Any] = {
+            "question": (
+                f"In which windows of the lap does {driver_b} lose time to {driver_a}, "
+                "and is the loss associated with throttle lift or braking?"
+            ),
+            "drivers": [driver_a, driver_b],
+            "telemetry_available": summary["available"],
+            "provenance": {"provider": "fastf1", "table": "canonical_telemetry"},
+        }
+        if not summary["available"]:
+            out.update({
+                "verdict": "INSUFFICIENT_EVIDENCE",
+                "reason": "no canonical telemetry ingested for this session",
+            })
+            return out
+        laps_with_telemetry = set(summary["laps"])
+        if lap_number is None:
+            # deterministic choice: the sampled lap with the most telemetry rows
+            lap_number = max(laps_with_telemetry)
+        if lap_number not in laps_with_telemetry:
+            out.update({
+                "verdict": "INSUFFICIENT_EVIDENCE",
+                "reason": f"lap {lap_number} has no telemetry for this session (sampled laps: {sorted(laps_with_telemetry)[:6]}...)",
+            })
+            return out
+        result = compare_telemetry_lap(
+            self.queries, self.season, self.round_num,
+            driver_a, driver_b, int(lap_number), session_type="RACE",
+        )
+        if result.get("verdict") != "PASS":
+            return {**out, **result}
+        out.update({
+            "verdict": "PASS",
+            "lap_number": lap_number,
+            "analysis": result,
+            "interpretation": (
+                f"Lap {lap_number}: estimated {result['total_est_time_loss_s']}s lost by {driver_b} to "
+                f"{driver_a}; largest loss window starts at {result['max_loss_window']['t_start_s']}s "
+                f"(speed delta {result['max_loss_window']['speed_delta_kmh']} km/h)."
+                + (f" {result['throttle_association']}." if result.get("throttle_association") else "")
+                + (f" {result['brake_association']}." if result.get("brake_association") else "")
+            ),
+        })
+        return out
+
+    # -- telemetry deep investigation (Phase 6C) ---------------------------------
+
+    def telemetry_investigation_2023_bahrain(self) -> dict[str, Any]:
+        """Full telemetry-backed investigation for 2023 Bahrain.
+
+        Extends deep_2023_bahrain with the telemetry layer: per-window pace
+        loss between VER and PER on a telemetry-sampled lap, plus active
+        falsification of the throttle hypothesis (brake/traffic/tyre-age
+        contradictors). All numbers come from compare_telemetry_lap and
+        canonical tables - never narrated.
+        """
+        summary = self.queries.telemetry_summary(self.season, self.round_num, "RACE")
+        if not summary["available"]:
+            return {
+                "investigation": "telemetry_2023_bahrain_modern",
+                "verdict": "INSUFFICIENT_EVIDENCE",
+                "reason": "no canonical telemetry for this session",
+                "status": "INSUFFICIENT_EVIDENCE",
+            }
+        laps = sorted(summary["laps"])
+        lap = max(laps)  # deterministic: last telemetry-sampled lap
+        q6 = self.q6_telemetry_pace_explanation("max-verstappen", "sergio-perez", lap_number=lap)
+        if q6.get("verdict") != "PASS":
+            return {
+                "investigation": "telemetry_2023_bahrain_modern",
+                "verdict": "INSUFFICIENT_EVIDENCE",
+                "reason": q6.get("reason", "telemetry comparison unavailable"),
+                "status": "INSUFFICIENT_EVIDENCE",
+            }
+        analysis = q6["analysis"]
+        worst = analysis["max_loss_window"]
+        # falsification: is the loss window also where B braked more? If the
+        # throttle association vanishes under the brake evidence, the
+        # "throttle application" hypothesis is weakened, not confirmed.
+        falsification = {
+            "hypothesis": (
+                f"PER's lap-{lap} pace deficit vs VER is primarily caused by "
+                "throttle-application differences in the loss windows."
+            ),
+            "supporting": [
+                evidence for evidence in (
+                    analysis.get("throttle_association"),
+                ) if evidence
+            ],
+            "contradicting": [
+                evidence for evidence in (
+                    analysis.get("brake_association"),
+                    ("loss is distributed across " + str(analysis["n_windows"]) + " windows, "
+                     "not concentrated in one corner sequence - points to cumulative "
+                     "pace, not a single driver error")
+                    if analysis["n_windows"] > 3 else None,
+                ) if evidence
+            ],
+            "outcome": (
+                "MIXED: throttle association present but brake evidence and "
+                "window distribution must be reported alongside it - no single-cause claim."
+                if analysis.get("brake_association") or analysis["n_windows"] > 3
+                else "SUPPORTED: throttle association dominates without brake contradictors"
+            ),
+        }
+        return {
+            "investigation": "telemetry_2023_bahrain_modern",
+            "question": (
+                "What does per-sample telemetry add to the explanation of the VER vs PER "
+                "race-pace deficit in the 2023 Bahrain Grand Prix?"
+            ),
+            "evidence_scope": {
+                "telemetry_samples": summary["sample_count"],
+                "telemetry_drivers": summary["drivers"],
+                "telemetry_laps": laps,
+                "lap_analyzed": lap,
+            },
+            "analysis": analysis,
+            "falsification": falsification,
+            "telemetry_value_statement": (
+                "Telemetry contributes evidence lap aggregates cannot: the loss is located "
+                "in specific time windows and associated with throttle/brake behaviour, "
+                "which lap times, stints and positions cannot localise."
+            ),
+            "conclusion": (
+                f"Lap {lap}: PER loses an estimated {analysis['total_est_time_loss_s']}s to VER "
+                f"across {analysis['n_windows']} windows; the largest window "
+                f"({worst['t_start_s']}-{worst['t_end_s']}s) shows "
+                f"{worst['speed_delta_kmh']} km/h mean-speed delta"
+                + (f" with {analysis['throttle_association']}" if analysis.get("throttle_association") else "")
+                + ". Straight-line time-loss approximation; documented assumptions apply."
+            ),
+            "status": "PASS",
+            "provenance": {
+                "providers": ["fastf1"],
+                "table": "canonical_telemetry",
+                "analysis_version": analysis["version"],
+                "engine_version": ENGINEERING_VERSION,
+            },
+        }
+
     def _counterfactual(self) -> dict[str, Any]:
         """Deterministic simulate_pit_timing via the FastF1-adapter Lap objects."""
         from racewise.simulator.strategy import simulate_pit_timing
@@ -502,5 +658,107 @@ def run_engineering_benchmarks(db_path: Optional[str] = None) -> dict[str, Any]:
         "q3_pit_windows": bench.q3_pit_windows(),
         "q4_weather_pace": bench.q4_weather_pace_correlation(),
         "q5_traffic_vs_degradation": bench.q5_traffic_vs_degradation("max-verstappen", 2),
+        "q6_telemetry_pace": bench.q6_telemetry_pace_explanation("max-verstappen", "sergio-perez"),
+        "telemetry_investigation": bench.telemetry_investigation_2023_bahrain(),
         "deep_2023_bahrain": bench.deep_2023_bahrain(),
     }
+
+
+# Phase 6C: benchmark matrix across modern seasons. Races chosen for provider
+# coverage, drivers derived from actual canonical results (winner + runner-up)
+# - never hardcoded.
+BENCHMARK_MATRIX: tuple[tuple[int, int], ...] = (
+    (2018, 1),   # Australian GP
+    (2020, 1),   # Austrian GP (first round of the pandemic season)
+    (2021, 10),  # British GP
+    (2022, 1),   # Bahrain GP
+    (2024, 1),   # Bahrain GP
+    (2025, 1),   # Australian GP
+)
+
+
+def _top_two_finishers(queries: CanonicalQueries, season: int, round_num: int) -> tuple[Optional[str], Optional[str]]:
+    """Winner and runner-up from canonical classification (data-derived)."""
+    try:
+        results = queries.get_results(season, round_num, "RACE")
+    except Exception:  # noqa: BLE001
+        return None, None
+    classified = sorted(
+        (r for r in results if r.get("position") is not None and r.get("driver_key")),
+        key=lambda r: int(r["position"]),
+    )
+    if len(classified) < 2:
+        return None, None
+    return classified[0]["driver_key"], classified[1]["driver_key"]
+
+
+def _winner_longest_stint(bench: EngineeringBenchmarks, driver_key: str) -> Optional[int]:
+    """Longest clean stint (>= 5 laps) of the selected driver, for Q5."""
+    laps = bench._race_laps(driver_key)
+    stints: dict[int, int] = {}
+    for r in laps:
+        if r.get("time_s") is None or r.get("is_pit_in_lap") or r.get("is_pit_out_lap") or r.get("deleted"):
+            continue
+        st = r.get("stint")
+        if st is not None:
+            stints[st] = stints.get(st, 0) + 1
+    viable = [s for s, n in stints.items() if n >= 5]
+    if not viable:
+        return None
+    return max(viable, key=lambda s: stints[s])
+
+
+def run_benchmark_matrix(db_path: Optional[str] = None,
+                         matrix: tuple[tuple[int, int], ...] = BENCHMARK_MATRIX) -> dict[str, Any]:
+    """Run applicable benchmark questions across representative modern seasons.
+
+    Drivers are derived from actual canonical results per session. Every
+    question honestly returns INSUFFICIENT_EVIDENCE when its required inputs
+    (common compound stints, weather observations, positions, etc.) are absent
+    for that session - never a synthetic answer.
+    """
+    queries = CanonicalQueries(db_path)
+    out: dict[str, Any] = {}
+    for season, round_num in matrix:
+        driver_a, driver_b = _top_two_finishers(queries, season, round_num)
+        entry: dict[str, Any] = {
+            "season": season,
+            "round": round_num,
+            "driver_a": driver_a,
+            "driver_b": driver_b,
+        }
+        if driver_a is None or driver_b is None:
+            entry["status"] = "INSUFFICIENT_EVIDENCE"
+            entry["reason"] = "fewer than two classified finishers resolvable in canonical results"
+            out[f"{season}_R{round_num}"] = entry
+            continue
+        bench = EngineeringBenchmarks(queries, season=season, round_num=round_num)
+        q1 = bench.q1_degradation_comparison(driver_a, driver_b)
+        q2 = bench.q2_strategy_vs_pace(driver_a, driver_b)
+        q3 = bench.q3_pit_windows()
+        q4 = bench.q4_weather_pace_correlation(driver_a)
+        stint = _winner_longest_stint(bench, driver_a)
+        q5 = bench.q5_traffic_vs_degradation(driver_a, stint) if stint else {
+            "verdict": "INSUFFICIENT_EVIDENCE", "reason": "no clean stint >= 5 laps for winner"
+        }
+        # Q6 requires telemetry: honest INSUFFICIENT_EVIDENCE where absent.
+        q6 = bench.q6_telemetry_pace_explanation(driver_a, driver_b)
+        results = {"q1": q1, "q2": q2, "q3": q3, "q4": q4, "q5": q5, "q6": q6}
+        verdicts = [v.get("verdict", "PASS") for v in results.values() if isinstance(v, dict)]
+        entry.update({
+            "questions": {k: {"verdict": v.get("verdict"), "headline": _headline(v)}
+                          for k, v in results.items()},
+            "status": "PASS" if all(v == "PASS" for v in verdicts) else
+                      ("INSUFFICIENT_EVIDENCE" if all(v == "INSUFFICIENT_EVIDENCE" for v in verdicts) else "PARTIAL"),
+        })
+        out[f"{season}_R{round_num}"] = entry
+    return out
+
+
+def _headline(q: dict[str, Any]) -> Any:
+    """One deterministic headline number per question for compact reporting."""
+    for key in ("degradation_delta_s_per_lap", "overall_clean_race_pace_gap_s",
+                "n_stops", "mean_track_temp_c", "outlier_laps_over_1s"):
+        if key in q:
+            return {key: q[key]}
+    return None
