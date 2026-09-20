@@ -211,16 +211,20 @@ class TestTelemetryAnalysis:
 @requires_db
 class TestLiveTelemetryStore:
     def test_bounded_session_set_and_availability(self):
+        """Telemetry scope is bounded and deliberate: 5 sessions (6C pilot set)
+        plus every 2022-2025 RACE session (6D scaled set) - never unbounded."""
         conn = sqlite3.connect(str(DB_PATH))
         sessions = conn.execute(
-            """SELECT r.season, r.round FROM canonical_telemetry t
+            """SELECT r.season, r.round, s.session_type FROM canonical_telemetry t
                JOIN canonical_sessions s ON s.session_id = t.session_id
                JOIN canonical_races r ON r.race_id = s.race_id
                GROUP BY t.session_id"""
         ).fetchall()
         conn.close()
-        assert len(sessions) == 5, "bounded Phase 6C scope must stay 5 sessions"
+        assert len(sessions) == 93, "telemetry scope must be exactly the 6C+6D bounded set"
         assert all(2021 <= s[0] <= 2025 for s in sessions)
+        # only RACE sessions plus the 2021 pilot RACE - no practice sessions
+        assert all(s[2] == "RACE" for s in sessions)
 
     def test_catalog_telemetry_capability_is_count_derived(self):
         from racewise.data.historical.catalog_api import CatalogAPI
