@@ -6,6 +6,7 @@ import AttributionView from './AttributionView'
 import EvidenceFusionView from './EvidenceFusionView'
 import StintEvidenceView from './StintEvidenceView'
 import RaceGapView from './RaceGapView'
+import CounterfactualView from './CounterfactualView'
 
 interface Session {
   year: number
@@ -341,6 +342,8 @@ export default function App() {
       <StintEvidenceView />
 
       <RaceGapView />
+
+      <CounterfactualView />
 
       <div className="controls">
         <div className="session-selector">

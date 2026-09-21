@@ -244,3 +244,16 @@
 .ef-untestable { background: rgba(110, 118, 129, 0.25); color: #8b949e; }
 .ef-chain { list-style: none; padding-left: 0; }
 .ef-chain li { padding: 4px 0; border-bottom: 1px dashed rgba(110, 118, 129, 0.25); }
+
+/* ===== Counterfactual (Phase 6I) ===== */
+.cf-intervention {
+  background: var(--bg-soft, #f6f7f9);
+  border-left: 3px solid var(--accent, #4a7dbd);
+  padding: 8px 12px;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.cf-gates { list-style: none; padding-left: 0; font-size: 13px; }
+.cf-gates li { padding: 2px 0; }
+.rg-ok { color: #2e7d32; }
+.rg-warn { color: #9a7b00; }

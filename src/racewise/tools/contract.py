@@ -160,6 +160,11 @@ def validate_payload(
             raise ToolError(f"Parameter '{path}' must have type '{expected}'", code=code, field=path)
     if type(value) is float and not math.isfinite(value):
         raise ToolError(f"Parameter '{path}' must be finite", code=code, field=path)
+    enum = schema.get("enum")
+    if enum is not None and value not in enum:
+        raise ToolError(
+            f"Parameter '{path}' must be one of {enum}", code=code, field=path
+        )
     if type(value) is dict:
         properties = schema.get("properties", {})
         extra_schema = schema.get("additionalProperties")

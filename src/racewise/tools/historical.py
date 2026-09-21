@@ -1314,6 +1314,92 @@ class DecomposeRaceGapTool(Tool):
         )
 
 
+class SimulateTelemetryCounterfactualTool(Tool):
+    """Phase 6I validated telemetry counterfactual: apply a bounded speed-profile
+    intervention and run the deterministic fixed-distance lap-time model, with
+    six validation gates including exact baseline reproduction."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "simulate_historical_telemetry_counterfactual",
+            "Simulate a validated telemetry counterfactual for one lap: extract the "
+            "deterministic speed profile (Phase 6E alignment), apply a bounded "
+            "intervention (REMOVE_DEFICIT / BLEND_WITH_REFERENCE vs a reference driver, "
+            "or reference-free SCALE_SIGNAL), and integrate the fixed-distance segment "
+            "lap-time model. Validation gates include exact baseline reproduction "
+            "(model baseline == measured grid duration) and identity-parameter delta == 0. "
+            "Only speed has a lap-time model in this codebase: interventions on throttle, "
+            "brake, gear, rpm or drs return UNSUPPORTED - no physics is invented. The "
+            "result measures MODEL SENSITIVITY to the intervention; it is not a historical "
+            "fact, not a prediction, and not a causal proof.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver": {"type": "string", "description": "Target driver key, e.g. sergio-perez"},
+                "reference_driver": {"type": "string", "description": "Reference driver key (required for REMOVE_DEFICIT and BLEND_WITH_REFERENCE)"},
+                "lap_number": {"type": "integer", "minimum": 1},
+                "signal": {"type": "string", "enum": ["speed", "throttle", "brake", "gear", "rpm", "drs"]},
+                "intervention_type": {"type": "string", "enum": ["REMOVE_DEFICIT", "BLEND_WITH_REFERENCE", "SCALE_SIGNAL"]},
+                "fraction": {"type": "number", "description": "Intervention parameter; bounds depend on type (REMOVE_DEFICIT/BLEND [0,1], SCALE [-0.10, 0.10])"},
+                "segment_s": {"type": "number", "description": "Segment width for the lap-time model in seconds (2-30, default 6)"},
+            },
+            ["season", "round", "driver", "lap_number", "signal", "intervention_type", "fraction"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "The counterfactual result is model sensitivity under the specified "
+                "deterministic intervention - never causality, history, or a prediction.",
+                "Non-speed signals return UNSUPPORTED; out-of-bounds fractions raise errors.",
+                "Bounded: single lap, fixed signal set, no raw telemetry dumps.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.counterfactual import simulate_telemetry_counterfactual
+
+        # explicit numeric bound enforcement: the generic payload validator
+        # does not check numeric ranges, so re-validate here
+        fraction = float(kwargs["fraction"])
+        if fraction != fraction or fraction in (float("inf"), float("-inf")) or abs(fraction) > 1.0:
+            raise ToolError(
+                "fraction must be finite and within [-1.0, 1.0]",
+                code="invalid_input",
+                field="simulate_historical_telemetry_counterfactual.fraction",
+            )
+        segment_s = float(kwargs.get("segment_s", 6.0))
+        if not 2.0 <= segment_s <= 30.0:
+            raise ToolError(
+                "segment_s must be between 2 and 30",
+                code="invalid_input",
+                field="simulate_historical_telemetry_counterfactual.segment_s",
+            )
+
+        return simulate_telemetry_counterfactual(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver=_normalize_driver_key(
+                self._queries, str(kwargs["driver"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            lap_number=int(kwargs["lap_number"]),
+            signal=str(kwargs["signal"]),
+            intervention_type=str(kwargs["intervention_type"]),
+            fraction=fraction,
+            reference_driver=(
+                _normalize_driver_key(
+                    self._queries, str(kwargs["reference_driver"]),
+                    int(kwargs["season"]), int(kwargs["round"]),
+                    str(kwargs.get("session_type", "RACE")).upper(),
+                )
+                if kwargs.get("reference_driver") else None
+            ),
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+            segment_s=segment_s,
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1335,6 +1421,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         FuseLapEvidenceTool(queries),
         FuseStintEvidenceTool(queries),
         DecomposeRaceGapTool(queries),
+        SimulateTelemetryCounterfactualTool(queries),
     ):
         registry.register(tool)
     return registry

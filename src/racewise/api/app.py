@@ -499,6 +499,67 @@ def catalog_stint_evidence(
     return fuse_stint_evidence(queries, season, round, driver_a, driver_b, best[1])
 
 
+@app.get("/api/catalog/counterfactual/{season}/{round}")
+def catalog_counterfactual(
+    season: int, round: int,
+    driver: str = "",
+    reference_driver: str = "",
+    lap: Optional[int] = None,
+    fraction: float = 0.5,
+) -> dict[str, Any]:
+    """Validated telemetry counterfactual for the frontend view (bounded).
+
+    Deterministic REMOVE_DEFICIT speed intervention against the session's
+    canonical telemetry pair. Lap defaults to the first telemetry lap with a
+    VALID counterfactual result - never a fabricated one. All validation,
+    transformation and simulation happen server-side; the frontend renders.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.counterfactual import (
+        MAX_FRACTION_ABS,
+        VALID,
+        simulate_telemetry_counterfactual,
+    )
+
+    if not 0.0 <= abs(fraction) <= MAX_FRACTION_ABS or fraction != fraction:
+        raise HTTPException(status_code=422, detail="fraction out of bounds")
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "status": "UNAVAILABLE",
+            "reason": "no canonical telemetry ingested for this session (bounded policy)",
+        }
+    queries = get_canonical_queries()
+    if not driver or not reference_driver:
+        pair = queries.get_telemetry_driver_pair(season, round, "RACE")
+        if pair is None:
+            return {"season": season, "round": round, "status": "UNAVAILABLE",
+                    "reason": "no telemetry driver pair"}
+        driver = driver or pair[1]        # target: the pair's second driver
+        reference_driver = reference_driver or pair[0]
+    if lap is not None:
+        return simulate_telemetry_counterfactual(
+            queries, season, round, driver, int(lap), "speed",
+            "REMOVE_DEFICIT", float(fraction), reference_driver=reference_driver)
+    summary = queries.telemetry_summary(season, round, "RACE")
+    if not summary["available"]:
+        return {"season": season, "round": round, "status": "UNAVAILABLE",
+                "reason": "no telemetry rows"}
+    for candidate in summary["laps"]:  # chronological; first VALID wins
+        res = simulate_telemetry_counterfactual(
+            queries, season, round, driver, int(candidate), "speed",
+            "REMOVE_DEFICIT", float(fraction), reference_driver=reference_driver)
+        if res.get("status") == VALID:
+            return res
+    return {"season": season, "round": round, "status": "INSUFFICIENT_EVIDENCE",
+            "reason": "no telemetry lap yields a VALID counterfactual"}
+
+
 @app.get("/api/catalog/race-gap/{season}/{round}")
 def catalog_race_gap(
     season: int, round: int,
