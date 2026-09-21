@@ -547,8 +547,11 @@ def fuse_stint_evidence(
         "hypothesis_evolution": hypotheses,
         "conclusion": conclusion,
         "counterfactual_gate": (
-            "telemetry-profile counterfactuals remain UNSUPPORTED: the deterministic "
-            "simulator does not accept telemetry-profile inputs (Phase 6E/6F limitation preserved)"
+            "strategy-simulator counterfactuals remain UNSUPPORTED: simulate_pit_timing "
+            "does not accept telemetry-profile inputs (6E/6F limitation preserved). "
+            "Bounded speed-profile lap counterfactuals are available via "
+            "simulate_telemetry_counterfactual (Phase 6I), a model-sensitivity analysis, "
+            "not history or causality"
         ),
         "methodology_version": STINT_EVIDENCE_VERSION,
         "provenance": {

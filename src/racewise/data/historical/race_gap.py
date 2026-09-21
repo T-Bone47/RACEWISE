@@ -419,8 +419,11 @@ def decompose_race_gap(
         "hypothesis_evolution": race_hypotheses,
         "residual_accounting": residual,
         "counterfactual_gate": (
-            "telemetry-profile counterfactuals remain UNSUPPORTED: the deterministic "
-            "simulator does not accept telemetry-profile inputs (Phase 6E/6F/6G limitation preserved)"),
+            "strategy-simulator counterfactuals remain UNSUPPORTED: simulate_pit_timing "
+            "does not accept telemetry-profile inputs (6E/6F/6G limitation preserved). "
+            "Bounded speed-profile lap/stint counterfactuals are available via "
+            "simulate_telemetry_counterfactual (Phase 6I), a model-sensitivity analysis, "
+            "not history or causality"),
         "conclusion": conclusion,
         "methodology_version": RACE_GAP_VERSION,
         "provenance": {
