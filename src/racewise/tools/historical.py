@@ -1314,6 +1314,120 @@ class DecomposeRaceGapTool(Tool):
         )
 
 
+class AnalyzePerformanceEnvelopeTool(Tool):
+    """Phase 6J measured performance envelope & bounded scenario sensitivity:
+    the driver's own measured speed band over clean comparable laps, swept
+    through the Phase 6I validated lap-time model."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "analyze_historical_performance_envelope",
+            "Build the MEASURED performance envelope for a driver (per grid point "
+            "min/max/median of their own clean comparable laps - not an ideal lap "
+            "or theoretical maximum) and run a bounded, typed scenario sweep "
+            "(OBSERVED / DEFICIT_REDUCTION / REFERENCE_BLEND / ENVELOPE_LOWER_BOUND / "
+            "ENVELOPE_UPPER_BOUND) through the Phase 6I validated fixed-distance "
+            "lap-time model. Reports the sweep deltas, a descriptive finite-difference "
+            "response classification (MONOTONIC / NON_MONOTONIC / FLAT / "
+            "INSUFFICIENT_DATA), regional model sensitivity, and - for stint scope - "
+            "a per-lap sensitivity trend to interpret alongside canonical degradation "
+            "evidence. Scenario results cover only the sampled measured laps; no "
+            "race-wide extrapolation. Every delta is model sensitivity, not history, "
+            "not prediction, not causality.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver": {"type": "string", "description": "Target driver key, e.g. sergio-perez"},
+                "reference_driver": {"type": "string", "description": "Reference driver key (required for DEFICIT_REDUCTION, REFERENCE_BLEND and stint scope)"},
+                "scenario_type": {"type": "string", "enum": list(
+                    ("OBSERVED", "DEFICIT_REDUCTION", "REFERENCE_BLEND",
+                     "ENVELOPE_LOWER_BOUND", "ENVELOPE_UPPER_BOUND"))},
+                "parameter": {"type": "number", "description": "Anchor parameter within bounds (sweep covers the full range)"},
+                "lap_number": {"type": "integer", "minimum": 1, "description": "Anchor lap; defaults to the first clean telemetry-covered lap"},
+                "stint_number": {"type": "integer", "minimum": 1, "description": "Stint scope via Phase 6G common-lap selection (requires reference_driver)"},
+                "max_scenarios": {"type": "integer", "minimum": 2, "maximum": 11,
+                                  "description": "Bounded sweep size (default 5, cap 11)"},
+                "max_laps": {"type": "integer", "minimum": 2, "maximum": 12,
+                             "description": "Bounded envelope sample (default 6, cap 12)"},
+                "segment_s": {"type": "number", "description": "Lap-time model segment width in seconds (2-30, default 6)"},
+            },
+            ["season", "round", "driver", "scenario_type"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "The envelope is measured driver variability - never an ideal lap, "
+                "theoretical maximum, or prediction.",
+                "Scenario deltas are model sensitivities under specified interventions; "
+                "they do not establish historical causality.",
+                "Bounded: max 11 scenarios, max 12 laps, typed scenarios only; "
+                "race-wide extrapolation is not offered.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.performance_envelope import analyze_performance_envelope
+
+        # explicit numeric bound enforcement: the generic payload validator
+        # does not check numeric ranges, so re-validate here
+        max_scenarios = int(kwargs.get("max_scenarios", 5))
+        if not 2 <= max_scenarios <= 11:
+            raise ToolError(
+                "max_scenarios must be between 2 and 11",
+                code="invalid_input",
+                field="analyze_historical_performance_envelope.max_scenarios",
+            )
+        max_laps = int(kwargs.get("max_laps", 6))
+        if not 2 <= max_laps <= 12:
+            raise ToolError(
+                "max_laps must be between 2 and 12",
+                code="invalid_input",
+                field="analyze_historical_performance_envelope.max_laps",
+            )
+        segment_s = float(kwargs.get("segment_s", 6.0))
+        if not 2.0 <= segment_s <= 30.0:
+            raise ToolError(
+                "segment_s must be between 2 and 30",
+                code="invalid_input",
+                field="analyze_historical_performance_envelope.segment_s",
+            )
+        parameter = kwargs.get("parameter")
+        if parameter is not None:
+            parameter = float(parameter)
+            if parameter != parameter or abs(parameter) > 1.0:
+                raise ToolError(
+                    "parameter must be finite and within [-1.0, 1.0]",
+                    code="invalid_input",
+                    field="analyze_historical_performance_envelope.parameter",
+                )
+
+        return analyze_performance_envelope(
+            self._queries,
+            season=int(kwargs["season"]),
+            round_num=int(kwargs["round"]),
+            driver=_normalize_driver_key(
+                self._queries, str(kwargs["driver"]),
+                int(kwargs["season"]), int(kwargs["round"]),
+                str(kwargs.get("session_type", "RACE")).upper(),
+            ),
+            scenario_type=str(kwargs["scenario_type"]),
+            parameter=parameter,
+            reference_driver=(
+                _normalize_driver_key(
+                    self._queries, str(kwargs["reference_driver"]),
+                    int(kwargs["season"]), int(kwargs["round"]),
+                    str(kwargs.get("session_type", "RACE")).upper(),
+                )
+                if kwargs.get("reference_driver") else None
+            ),
+            lap_number=int(kwargs["lap_number"]) if kwargs.get("lap_number") else None,
+            session_type=str(kwargs.get("session_type", "RACE")).upper(),
+            max_scenarios=max_scenarios,
+            max_laps=max_laps,
+            segment_s=segment_s,
+            stint_number=int(kwargs["stint_number"]) if kwargs.get("stint_number") else None,
+        )
+
+
 class SimulateTelemetryCounterfactualTool(Tool):
     """Phase 6I validated telemetry counterfactual: apply a bounded speed-profile
     intervention and run the deterministic fixed-distance lap-time model, with
@@ -1422,6 +1536,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         FuseStintEvidenceTool(queries),
         DecomposeRaceGapTool(queries),
         SimulateTelemetryCounterfactualTool(queries),
+        AnalyzePerformanceEnvelopeTool(queries),
     ):
         registry.register(tool)
     return registry

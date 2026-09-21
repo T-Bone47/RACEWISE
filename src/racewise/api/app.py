@@ -560,6 +560,62 @@ def catalog_counterfactual(
             "reason": "no telemetry lap yields a VALID counterfactual"}
 
 
+@app.get("/api/catalog/performance-envelope/{season}/{round}")
+def catalog_performance_envelope(
+    season: int, round: int,
+    driver: str = "",
+    reference_driver: str = "",
+    scenario_type: str = "DEFICIT_REDUCTION",
+    parameter: Optional[float] = None,
+    stint: Optional[int] = None,
+) -> dict[str, Any]:
+    """Measured performance envelope + bounded scenario sweep (bounded).
+
+    Drivers default to the session's canonical telemetry pair. The anchor lap
+    defaults to the first clean telemetry-covered lap - never fabricated.
+    All extraction, envelope construction, simulation and sensitivity happen
+    server-side; the frontend renders only.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.performance_envelope import (
+        SCENARIO_TYPES,
+        analyze_performance_envelope,
+    )
+
+    if scenario_type not in SCENARIO_TYPES:
+        raise HTTPException(status_code=422, detail="unknown scenario_type")
+    if parameter is not None and (parameter != parameter or abs(parameter) > 1.0):
+        raise HTTPException(status_code=422, detail="parameter out of bounds")
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "status": "UNAVAILABLE",
+            "reason": "no canonical telemetry ingested for this session (bounded policy)",
+        }
+    queries = get_canonical_queries()
+    if not driver or (not reference_driver and (scenario_type in ("DEFICIT_REDUCTION", "REFERENCE_BLEND") or stint is not None)):
+        pair = queries.get_telemetry_driver_pair(season, round, "RACE")
+        if pair is None:
+            return {"season": season, "round": round, "status": "UNAVAILABLE",
+                    "reason": "no telemetry driver pair"}
+        driver = driver or pair[1]
+        if not reference_driver:
+            reference_driver = pair[0]
+    return analyze_performance_envelope(
+        queries, season, round, driver,
+        scenario_type=scenario_type,
+        parameter=parameter,
+        reference_driver=reference_driver or None,
+        session_type="RACE",
+        stint_number=stint,
+    )
+
+
 @app.get("/api/catalog/race-gap/{season}/{round}")
 def catalog_race_gap(
     season: int, round: int,
