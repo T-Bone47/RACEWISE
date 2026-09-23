@@ -651,6 +651,60 @@ def catalog_race_gap(
     return decompose_race_gap(queries, season, round, driver_a, driver_b)
 
 
+@app.get("/api/catalog/performance-regimes/{season}/{round}")
+def catalog_performance_regimes(
+    season: int, round: int,
+    driver_a: str = "",
+    driver_b: str = "",
+    max_regimes: int = 8,
+    start_lap: Optional[int] = None,
+    end_lap: Optional[int] = None,
+) -> dict[str, Any]:
+    """Performance regime & change-point analysis for the frontend view (bounded).
+
+    Drivers default to the session's canonical telemetry pair (Phase 6D
+    policy). Segmentation, context alignment, evidence fusion and sensitivity
+    all happen server-side; the frontend renders only. Regime transitions are
+    temporal associations - never causal claims.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+    from racewise.data.historical.performance_regimes import analyze_performance_regimes
+
+    if not 2 <= int(max_regimes) <= 12:
+        raise HTTPException(status_code=422, detail="max_regimes out of bounds [2, 12]")
+    if start_lap is not None and start_lap < 1:
+        raise HTTPException(status_code=422, detail="start_lap must be >= 1")
+    if end_lap is not None and end_lap < 1:
+        raise HTTPException(status_code=422, detail="end_lap must be >= 1")
+    if start_lap is not None and end_lap is not None and start_lap > end_lap:
+        raise HTTPException(status_code=422, detail="start_lap must be <= end_lap")
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, "RACE")
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    if not detail["capabilities"].get("telemetry", {}).get("available"):
+        return {
+            "season": season, "round": round,
+            "status": "UNAVAILABLE",
+            "reason": "no canonical telemetry ingested for this session (bounded policy)",
+        }
+    queries = get_canonical_queries()
+    if not driver_a or not driver_b:
+        pair = queries.get_telemetry_driver_pair(season, round, "RACE")
+        if pair is None:
+            return {"season": season, "round": round, "status": "UNAVAILABLE",
+                    "reason": "no telemetry driver pair"}
+        driver_a, driver_b = pair
+    if driver_a == driver_b:
+        raise HTTPException(status_code=422, detail="driver_a and driver_b must be distinct")
+    return analyze_performance_regimes(
+        queries, season, round, driver_a, driver_b,
+        max_regimes=int(max_regimes),
+        start_lap=start_lap, end_lap=end_lap,
+    )
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

@@ -1514,6 +1514,114 @@ class SimulateTelemetryCounterfactualTool(Tool):
         )
 
 
+class AnalyzePerformanceRegimesTool(Tool):
+    """Phase 6K performance regime & change-point intelligence: deterministic
+    temporal segmentation of a race's comparable-lap delta series."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "analyze_historical_performance_regimes",
+            "Detect performance regimes in a race for a driver pair: deterministic "
+            "top-down OLS slope segmentation of the comparable-lap delta series "
+            "(documented thresholds, MIN_REGIME_LAPS=3, SSE-improvement gate, "
+            "deterministic merging) with every rejected candidate logged. Each "
+            "regime carries gap pattern, speed-profile distance where paired "
+            "telemetry exists, Phase 6F hypothesis evolution, residual accounting "
+            "(reported, never assigned) and Phase 6J model sensitivity. Change "
+            "points align temporally with context transitions (stint, pit, "
+            "race-control, weather, compound, telemetry) as ASSOCIATIONS - never "
+            "causality. Regimes are analytical, not canonical stints; telemetry "
+            "gaps are preserved as explicit unavailable intervals.",
+            {
+                "season": SEASON_PARAM, "round": ROUND_PARAM,
+                "session_type": SESSION_TYPE_PARAM,
+                "driver_a": {"type": "string", "description": "Driver A key, e.g. max-verstappen"},
+                "driver_b": {"type": "string", "description": "Driver B key (distinct from A)"},
+                "max_regimes": {"type": "integer", "minimum": 2, "maximum": 12,
+                                "description": "Bounded regime count (default 8, cap 12)"},
+                "min_regime_laps": {"type": "integer", "description": "Fixed at 3 (documented deterministic threshold)"},
+                "start_lap": {"type": "integer", "minimum": 1, "description": "Analysis window start"},
+                "end_lap": {"type": "integer", "minimum": 1, "description": "Analysis window end (>= start_lap)"},
+            },
+            ["season", "round", "driver_a", "driver_b"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Regime detection identifies measured temporal structure; it does "
+                "not establish causality.",
+                "A transition temporally aligned with a context change is an "
+                "association, not a causal claim.",
+                "Bounded: max 12 regimes, fixed MIN_REGIME_LAPS=3, no confidence "
+                "scores - states are DETECTED / NOT_DETECTED / INSUFFICIENT_EVIDENCE.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.performance_regimes import analyze_performance_regimes
+
+        # explicit numeric bound enforcement: the generic payload validator
+        # does not check numeric ranges, so re-validate here
+        max_regimes = int(kwargs.get("max_regimes", 8))
+        if not 2 <= max_regimes <= 12:
+            raise ToolError(
+                "max_regimes must be between 2 and 12",
+                code="invalid_input",
+                field="analyze_historical_performance_regimes.max_regimes",
+            )
+        min_regime_laps = int(kwargs.get("min_regime_laps", 3))
+        if min_regime_laps != 3:
+            raise ToolError(
+                "min_regime_laps is fixed at 3 (documented deterministic threshold)",
+                code="invalid_input",
+                field="analyze_historical_performance_regimes.min_regime_laps",
+            )
+        start_lap = int(kwargs["start_lap"]) if kwargs.get("start_lap") is not None else None
+        end_lap = int(kwargs["end_lap"]) if kwargs.get("end_lap") is not None else None
+        if start_lap is not None and start_lap < 1:
+            raise ToolError(
+                "start_lap must be >= 1",
+                code="invalid_input",
+                field="analyze_historical_performance_regimes.start_lap",
+            )
+        if end_lap is not None and end_lap < 1:
+            raise ToolError(
+                "end_lap must be >= 1",
+                code="invalid_input",
+                field="analyze_historical_performance_regimes.end_lap",
+            )
+        if start_lap is not None and end_lap is not None and start_lap > end_lap:
+            raise ToolError(
+                "start_lap must be <= end_lap",
+                code="invalid_input",
+                field="analyze_historical_performance_regimes.start_lap",
+            )
+
+        season = int(kwargs["season"])
+        round_num = int(kwargs["round"])
+        session_type = str(kwargs.get("session_type", "RACE")).upper()
+        driver_a = _normalize_driver_key(
+            self._queries, str(kwargs["driver_a"]), season, round_num, session_type)
+        driver_b = _normalize_driver_key(
+            self._queries, str(kwargs["driver_b"]), season, round_num, session_type)
+        if driver_a == driver_b:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="analyze_historical_performance_regimes.driver_b",
+            )
+        return analyze_performance_regimes(
+            self._queries,
+            season=season,
+            round_num=round_num,
+            driver_a=driver_a,
+            driver_b=driver_b,
+            max_regimes=max_regimes,
+            min_regime_laps=min_regime_laps,
+            start_lap=start_lap,
+            end_lap=end_lap,
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1537,6 +1645,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         DecomposeRaceGapTool(queries),
         SimulateTelemetryCounterfactualTool(queries),
         AnalyzePerformanceEnvelopeTool(queries),
+        AnalyzePerformanceRegimesTool(queries),
     ):
         registry.register(tool)
     return registry

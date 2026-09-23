@@ -257,3 +257,7 @@
 .cf-gates li { padding: 2px 0; }
 .rg-ok { color: #2e7d32; }
 .rg-warn { color: #9a7b00; }
+
+/* ===== Performance Regime View (Phase 6K) ===== */
+.rg-widening { color: #b3402a; }
+.rg-narrowing { color: #2e7d32; }

@@ -8,6 +8,7 @@ import StintEvidenceView from './StintEvidenceView'
 import RaceGapView from './RaceGapView'
 import CounterfactualView from './CounterfactualView'
 import PerformanceEnvelopeView from './PerformanceEnvelopeView'
+import PerformanceRegimeView from './PerformanceRegimeView'
 
 interface Session {
   year: number
@@ -347,6 +348,8 @@ export default function App() {
       <CounterfactualView />
 
       <PerformanceEnvelopeView />
+
+      <PerformanceRegimeView />
 
       <div className="controls">
         <div className="session-selector">
