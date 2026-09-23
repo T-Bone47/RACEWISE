@@ -425,12 +425,18 @@ def analyze_performance_envelope(
     max_laps: int = DEFAULT_MAX_LAPS,
     segment_s: float = 6.0,
     stint_number: Optional[int] = None,
+    laps: Optional[list[int]] = None,
 ) -> dict[str, Any]:
     """Bounded scenario sweep over the measured envelope (Phase 6I model).
 
     One entry point for lap-level and stint-level analysis. The sweep runs
     typed scenarios through the exact 6I model; every scenario point is a
     deterministic model-sensitivity measurement.
+
+    ``laps`` (Phase 6K integration): an explicit bounded lap set to build
+    the envelope from instead of the default even-space sample. Every lap
+    must belong to the driver's clean comparable telemetry-covered set;
+    invalid requests are rejected, never silently re-sampled.
     """
     base: dict[str, Any] = {
         "analysis": "performance_envelope_scenario",
@@ -515,7 +521,25 @@ def analyze_performance_envelope(
         scope = "stint"
     else:
         clean, excluded, n_covered = _clean_covered_laps(queries, season, round_num, session_type, driver)
-        anchor = int(lap_number) if lap_number is not None else (clean[0] if clean else None)
+        if laps is not None:
+            # Phase 6K integration: exact caller-specified lap set (validated).
+            req = [int(l) for l in laps]
+            if not req or len(req) > MAX_LAPS_CAP:
+                return {**base, "status": "INVALID",
+                        "reason": f"laps must contain 1..{MAX_LAPS_CAP} entries"}
+            if len(set(req)) != len(req):
+                return {**base, "status": "INVALID",
+                        "reason": "laps must not contain duplicates"}
+            outside = [l for l in req if l not in set(clean)]
+            if outside:
+                return {**base, "status": "INVALID",
+                        "reason": "laps outside the driver's clean comparable "
+                                  f"telemetry-covered set: {sorted(outside)}"}
+            sample = list(req)
+            anchor = req[len(req) // 2]
+        else:
+            anchor = int(lap_number) if lap_number is not None else (clean[0] if clean else None)
+            sample = _bounded_sample(clean, max_laps)
         if anchor is None:
             if n_covered == 0:
                 return {**base, "status": UNAVAILABLE,
