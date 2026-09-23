@@ -557,6 +557,8 @@ def _regime_sensitivity(
         "delta_s": at_mid.get("delta_s"),
         "modeled_lap_time_s": at_mid.get("modeled_lap_time_s"),
         "envelope_laps": env.get("envelope_laps") or env.get("anchor_lap"),
+        "band_width_mean_kmh": (env.get("envelope") or {})
+        .get("band_summary", {}).get("mean_band_width_kmh"),
         "note": "model sensitivity under the 6I/6J speed-profile model "
                 f"(DEFICIT_REDUCTION f={SENSITIVITY_FRACTION} vs reference "
                 f"{driver_b}); not historical causation",
@@ -705,6 +707,9 @@ def analyze_performance_regimes(
             "stints_spanned": sorted({t.get("stint") for ln in laps
                                       if (t := timeline_by_lap.get(ln)) is not None
                                       and t.get("stint") is not None}),
+            # comparable-lap delta series (lap, observed delta s) for
+            # regime-shape comparison by downstream phases (6L)
+            "delta_series": [[int(ln), round(v, 4)] for ln, v in seg],
         })
         regimes[-1]["crosses_stint_boundary"] = len(regimes[-1]["stints_spanned"]) > 1
 
