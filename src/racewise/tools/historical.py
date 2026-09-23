@@ -1622,6 +1622,125 @@ class AnalyzePerformanceRegimesTool(Tool):
         )
 
 
+class AnalyzeCrossRacePerformancePatternsTool(Tool):
+    """Phase 6L cross-race performance pattern intelligence: deterministic
+    recurrence detection over Phase 6K regime signatures."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "analyze_cross_race_performance_patterns",
+            "Detect RECURRING performance-regime structures across races for a "
+            "driver pair: Phase 6K regimes are summarized into deterministic "
+            "signatures, grouped by canonical structural keys, refined with "
+            "explicit component-distance matching (slope/duration/residual/" 
+            "envelope/sensitivity, documented thresholds, no clustering, no ML) "
+            "and reported when observed in at least MIN_RECURRING_RACES=2 "
+            "independent races. Every pattern carries occurrence facets, context "
+            "associations, per-hypothesis consistency (6F vocabulary), a "
+            "falsification summary (contradictions preserved), residual pattern "
+            "states (never assigned), Phase 6J/6I model sensitivity comparison "
+            "and full provenance. A recurring pattern is NOT a cause; no "
+            "confidence scores; no rankings.",
+            {
+                "driver_a": {"type": "string", "description": "Driver A key, e.g. max-verstappen"},
+                "driver_b": {"type": "string", "description": "Driver B key (distinct from A)"},
+                "seasons": {"type": "array", "items": {"type": "integer"},
+                            "description": "Bounded season list (default: all telemetry seasons)"},
+                "rounds": {"type": "array", "items": {"type": "integer"},
+                           "description": "Optional round filter within the seasons"},
+                "circuit": {"type": "string",
+                            "description": "Optional circuit-name filter"},
+                "max_races": {"type": "integer", "minimum": 1, "maximum": 20,
+                              "description": "Bounded race corpus (default 8, cap 20)"},
+                "max_patterns": {"type": "integer", "minimum": 1, "maximum": 50,
+                                 "description": "Bounded pattern count (default 20, cap 50)"},
+            },
+            ["driver_a", "driver_b"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "A recurring pattern is an observation of repetition across "
+                "independent race instances; it is not causation and not a "
+                "significance claim.",
+                "Structure states are deterministic threshold classifications, "
+                "not confidence scores; races and drivers are never ranked.",
+                "Bounded: max_races <= 20, max_patterns <= 50; unknown parameters "
+                "are rejected; missing telemetry stays missing.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.performance_patterns import (
+            MAX_PATTERNS, MAX_RACES, analyze_cross_race_performance_patterns,
+        )
+
+        # explicit numeric bound enforcement: the generic payload validator
+        # does not check numeric ranges, so re-validate here
+        max_races = int(kwargs.get("max_races", 8))
+        if not 1 <= max_races <= MAX_RACES:
+            raise ToolError(
+                f"max_races must be between 1 and {MAX_RACES}",
+                code="invalid_input",
+                field="analyze_cross_race_performance_patterns.max_races",
+            )
+        max_patterns = int(kwargs.get("max_patterns", 20))
+        if not 1 <= max_patterns <= MAX_PATTERNS:
+            raise ToolError(
+                f"max_patterns must be between 1 and {MAX_PATTERNS}",
+                code="invalid_input",
+                field="analyze_cross_race_performance_patterns.max_patterns",
+            )
+        seasons = kwargs.get("seasons")
+        if seasons is not None:
+            if not isinstance(seasons, list) or not seasons or \
+                    not all(isinstance(s, int) for s in seasons):
+                raise ToolError(
+                    "seasons must be a non-empty list of integers",
+                    code="invalid_input",
+                    field="analyze_cross_race_performance_patterns.seasons",
+                )
+        rounds = kwargs.get("rounds")
+        if rounds is not None:
+            if not isinstance(rounds, list) or not rounds or \
+                    not all(isinstance(r, int) for r in rounds):
+                raise ToolError(
+                    "rounds must be a non-empty list of integers",
+                    code="invalid_input",
+                    field="analyze_cross_race_performance_patterns.rounds",
+                )
+        circuit = kwargs.get("circuit")
+        if circuit is not None and (not isinstance(circuit, str)
+                                    or not circuit.strip()):
+            raise ToolError(
+                "circuit must be a non-empty string when provided",
+                code="invalid_input",
+                field="analyze_cross_race_performance_patterns.circuit",
+            )
+
+        driver_a = _normalize_driver_key(
+            self._queries, str(kwargs["driver_a"]),
+            seasons[0] if seasons else None)
+        driver_b = _normalize_driver_key(
+            self._queries, str(kwargs["driver_b"]),
+            seasons[0] if seasons else None)
+        if driver_a == driver_b:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="analyze_cross_race_performance_patterns.driver_b",
+            )
+        return analyze_cross_race_performance_patterns(
+            self._queries,
+            driver_a=driver_a,
+            driver_b=driver_b,
+            seasons=seasons,
+            rounds=rounds,
+            circuit=circuit,
+            max_races=max_races,
+            max_patterns=max_patterns,
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1646,6 +1765,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         SimulateTelemetryCounterfactualTool(queries),
         AnalyzePerformanceEnvelopeTool(queries),
         AnalyzePerformanceRegimesTool(queries),
+        AnalyzeCrossRacePerformancePatternsTool(queries),
     ):
         registry.register(tool)
     return registry

@@ -705,6 +705,80 @@ def catalog_performance_regimes(
     )
 
 
+@app.get("/api/catalog/performance-patterns")
+def catalog_performance_patterns(
+    driver_a: str = "",
+    driver_b: str = "",
+    seasons: str = "",
+    max_races: int = 6,
+    max_patterns: int = 20,
+) -> dict[str, Any]:
+    """Cross-race recurring performance patterns for the frontend view (bounded).
+
+    Query-style endpoint (cross-race scope does not fit the per-session
+    {season}/{round} path). seasons is a comma-separated season list, e.g.
+    '2022,2023'. Drivers default to the most recent telemetry season's
+    canonical pair (Phase 6D policy). All segmentation, matching, recurrence
+    and evidence aggregation happen server-side; the frontend renders only.
+    A recurring pattern is NOT a cause; no rankings, no confidence scores.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.performance_patterns import (
+        MAX_PATTERNS, MAX_RACES, analyze_cross_race_performance_patterns,
+    )
+
+    if not 1 <= int(max_races) <= MAX_RACES:
+        raise HTTPException(status_code=422,
+                            detail=f"max_races out of bounds [1, {MAX_RACES}]")
+    if not 1 <= int(max_patterns) <= MAX_PATTERNS:
+        raise HTTPException(status_code=422,
+                            detail=f"max_patterns out of bounds [1, {MAX_PATTERNS}]")
+    season_list: Optional[list[int]] = None
+    if seasons.strip():
+        try:
+            season_list = [int(s) for s in seasons.split(",") if s.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422,
+                                detail="seasons must be comma-separated integers")
+        if not season_list:
+            raise HTTPException(status_code=422, detail="seasons list is empty")
+    queries = get_canonical_queries()
+    if not driver_a or not driver_b:
+        # default pair: canonical telemetry pair of the newest season in the
+        # corpus scope (deterministic, Phase 6D policy extended cross-race)
+        season_for_pair = (max(season_list) if season_list
+                           else max((int(x["season"]) for x in
+                                     get_catalog_api().list_sessions(
+                                         session_type="RACE",
+                                         capability="telemetry",
+                                         page_size=200)["sessions"]),
+                                    default=None))
+        if season_for_pair is None:
+            return {"status": "UNAVAILABLE",
+                    "reason": "no telemetry-capable race sessions in the catalog"}
+        first = min((x["round"] for x in
+                     get_catalog_api().list_sessions(
+                         season=season_for_pair, session_type="RACE",
+                         capability="telemetry", page_size=200)["sessions"]),
+                    default=None)
+        if first is None:
+            return {"status": "UNAVAILABLE",
+                    "reason": f"no telemetry-capable race sessions in {season_for_pair}"}
+        pair = queries.get_telemetry_driver_pair(season_for_pair, first, "RACE")
+        if pair is None:
+            return {"status": "UNAVAILABLE", "reason": "no telemetry driver pair"}
+        driver_a, driver_b = pair
+    if driver_a == driver_b:
+        raise HTTPException(status_code=422,
+                            detail="driver_a and driver_b must be distinct")
+    return analyze_cross_race_performance_patterns(
+        queries, driver_a, driver_b,
+        seasons=season_list,
+        max_races=int(max_races),
+        max_patterns=int(max_patterns),
+    )
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()
