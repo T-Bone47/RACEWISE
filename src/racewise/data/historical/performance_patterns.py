@@ -674,6 +674,23 @@ def _regime_signature(
         "hypotheses_summarized": len(sig["hypothesis_state_summary"]),
         "residual_laps": res.get("laps_fused", 0),
     }
+    # Phase 6M extension (backwards-compatible): per-hypothesis lap-level
+    # counts from the 6G summary, so cross-race evidence analysis can apply
+    # its aggregation rules to the underlying observations without re-running
+    # 6F. regime_lap_statuses are raw per-lap statuses; counts are their
+    # deterministic histogram.
+    sig["hypothesis_counts"] = {
+        h["hypothesis_id"]: {
+            "regime_lap_statuses": list(h.get("regime_lap_statuses", [])),
+            "supported_count": int(h.get("supported_count", 0)),
+            "partially_supported_count": int(h.get("partially_supported_count", 0)),
+            "not_supported_count": int(h.get("not_supported_count", 0)),
+            "contradicted_count": int(h.get("contradicted_count", 0)),
+            "not_testable_count": int(h.get("not_testable_count", 0)),
+            "valid_observations": int(h.get("valid_observations", 0)),
+        }
+        for h in (regime.get("hypothesis_evolution") or [])
+    }
     sig["provenance"] = {
         "source_phase": "6K",
         "regime_index": regime.get("regime_index"),
@@ -741,6 +758,7 @@ def _measured_features(sig: dict[str, Any]) -> dict[str, Any]:
         "pit_overlap": bool(sig["pit_overlap_laps"]),
         "race_control_overlap": bool(sig["race_control_overlap_laps"]),
         "hypothesis_state_summary": sig["hypothesis_state_summary"],
+        "hypothesis_counts": sig.get("hypothesis_counts", {}),
         "normalized_shape": sig["normalized_shape"],
         "pair_inverted_vs_canonical": sig["pair_inverted_vs_canonical"],
     }
