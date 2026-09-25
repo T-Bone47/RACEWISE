@@ -2504,6 +2504,369 @@ class RetrieveEngineeringMemoryTool(Tool):
         )
 
 
+class BuildInvestigationGraphTool(Tool):
+    """Phase 6P: deterministic investigation knowledge graph over one 6N
+    result — provenance-backed nodes/edges, bounded traversal inputs."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "build_investigation_graph",
+            "Build the Phase 6P deterministic investigation graph for one "
+            "structured 6N engineering investigation input: closed node "
+            "vocabulary (INVESTIGATION/QUESTION/DRIVER/RACE/LAP/STINT/REGIME/"
+            "PATTERN/HYPOTHESIS/EVIDENCE/COUNTERFACTUAL/SYNTHESIS/"
+            "DECISION_TRACE/MEMORY/ANALYTICAL_SOURCE/SNAPSHOT/...), closed "
+            "edge vocabulary (INVESTIGATES/TESTS/SUPPORTS/CONTRADICTS/"
+            "DERIVED_FROM/MEASURED_BY/MODELS/GENERATED_MEMORY/REPLAY_OF/...), "
+            "every edge provenance-backed from existing 6N/6O outputs. The "
+            "graph CONNECTS EVIDENCE, never invents knowledge: SUPPORTS "
+            "edges state imported evidence-consistency (not causation), "
+            "CONTRADICTS edges are imported 6N conflicts, MODELLED "
+            "counterfactuals stay separate nodes, memory stays bound to its "
+            "evidence. Derived-on-read; zero storage growth; no ranking, no "
+            "scores.",
+            {
+                **_investigation_spec_properties(),
+                "max_depth": {"type": "integer", "minimum": 1, "maximum": 8,
+                              "description": "Reserved bound echo (graph "
+                                             "build itself is bounded by "
+                                             "the ledger caps)"},
+            },
+            ["question_type", "driver_a", "driver_b", "season", "round"],
+            {"type": "object", "additionalProperties": True,
+             "required": ["graph_version", "nodes", "edges"]},
+            [
+                "Edges are imported analytical relationships, not inferred "
+                "from graph topology; a path is navigation, not a causal "
+                "chain.",
+                "Derived-on-read: no graph database, no persistence, zero "
+                "storage growth.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_graph import (
+            build_investigation_graph,
+        )
+        from racewise.data.historical.investigation_synthesis import (
+            run_engineering_investigation,
+        )
+
+        (question_type, da, db, season, round_num, lap, stint, session_type,
+         pattern_id, hypotheses) = _validated_investigation_kwargs(
+            "build_investigation_graph", kwargs)
+        max_depth = kwargs.get("max_depth")
+        if max_depth is not None and (
+                not isinstance(max_depth, int) or not 1 <= max_depth <= 8):
+            raise ToolError(
+                "max_depth must be an integer in [1, 8]",
+                code="invalid_input",
+                field="build_investigation_graph.max_depth",
+            )
+        da_n = _normalize_driver_key(self._queries, da, season)
+        db_n = _normalize_driver_key(self._queries, db, season)
+        if da_n == db_n:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="build_investigation_graph.driver_b",
+            )
+        inv = run_engineering_investigation(
+            self._queries, question_type=question_type, driver_a=da_n,
+            driver_b=db_n, season=season, round_num=round_num,
+            lap_number=lap, stint_number=stint, session_type=session_type,
+            pattern_id=pattern_id, hypotheses=hypotheses)
+        if inv.get("status") == "INVALID":
+            raise ToolError(
+                f"invalid investigation input: {inv.get('reason')}",
+                code="invalid_input",
+                field="build_investigation_graph",
+            )
+        graph = build_investigation_graph(self._queries, inv)
+        if graph.get("status") == "INVALID":
+            raise ToolError(
+                f"graph build rejected the investigation: "
+                f"{graph.get('reason')}",
+                code="invalid_input",
+                field="build_investigation_graph",
+            )
+        return graph
+
+
+class TraceInvestigationPathTool(Tool):
+    """Phase 6P: ordered provenance path investigation -> target node."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        from racewise.data.historical.investigation_graph import (
+            MAX_DEPTH, graph_vocabulary,
+        )
+
+        node_types = [t for t in graph_vocabulary()["node_types"]
+                      if t != "INVESTIGATION"]
+        self.spec = _spec(
+            "trace_investigation_path",
+            "Trace the ordered provenance path from an investigation to a "
+            "target node in its Phase 6P graph (e.g. investigation -> "
+            "synthesis -> decision_trace -> evidence -> analytical_source "
+            "-> race -> lap). Every hop names its edge type and provenance. "
+            "A path is provenance navigation, not a causal chain.",
+            {
+                **_investigation_spec_properties(),
+                "target_node_type": {"type": "string", "enum": node_types},
+                "target_key": {"type": "string",
+                               "description": "Key inside the target node "
+                                              "type, e.g. an evidence_id "
+                                              "(evidence_001), hypothesis id "
+                                              "(H1_corner_speed) or trace id "
+                                              "(TRACE-001). Resolved against "
+                                              "the investigation's own "
+                                              "graph."},
+                "max_depth": {"type": "integer", "minimum": 1,
+                              "maximum": MAX_DEPTH},
+            },
+            ["question_type", "driver_a", "driver_b", "season", "round",
+             "target_node_type", "target_key"],
+            {"type": "object", "additionalProperties": True,
+             "required": ["status"]},
+            [
+                "Paths are computed over the deterministic graph of this "
+                "exact investigation input; unknown targets end NOT_FOUND, "
+                "never a fabricated path.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_graph import (
+            build_investigation_graph, explain_investigation_path,
+        )
+        from racewise.data.historical.investigation_synthesis import (
+            run_engineering_investigation,
+        )
+
+        (question_type, da, db, season, round_num, lap, stint, session_type,
+         pattern_id, hypotheses) = _validated_investigation_kwargs(
+            "trace_investigation_path", kwargs)
+        target_type = kwargs.get("target_node_type")
+        target_key = kwargs.get("target_key")
+        if not isinstance(target_key, str) or not target_key.strip():
+            raise ToolError(
+                "target_key must be a non-empty string",
+                code="invalid_input",
+                field="trace_investigation_path.target_key",
+            )
+        max_depth = kwargs.get("max_depth")
+        if max_depth is not None and (
+                not isinstance(max_depth, int) or not 1 <= max_depth <= 8):
+            raise ToolError(
+                "max_depth must be an integer in [1, 8]",
+                code="invalid_input",
+                field="trace_investigation_path.max_depth",
+            )
+        da_n = _normalize_driver_key(self._queries, da, season)
+        db_n = _normalize_driver_key(self._queries, db, season)
+        if da_n == db_n:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="trace_investigation_path.driver_b",
+            )
+        inv = run_engineering_investigation(
+            self._queries, question_type=question_type, driver_a=da_n,
+            driver_b=db_n, season=season, round_num=round_num,
+            lap_number=lap, stint_number=stint, session_type=session_type,
+            pattern_id=pattern_id, hypotheses=hypotheses)
+        if inv.get("status") != "VALID":
+            raise ToolError(
+                f"invalid investigation input: {inv.get('reason')}",
+                code="invalid_input",
+                field="trace_investigation_path",
+            )
+        graph = build_investigation_graph(self._queries, inv)
+        prefix = {"QUESTION": "question:", "DRIVER": "driver:",
+                  "DRIVER_PAIR": "driver_pair:", "SEASON": "season:",
+                  "RACE": "race:", "SESSION": "session:", "LAP": "lap:",
+                  "STINT": "stint:", "REGIME": "regime:",
+                  "PATTERN": "pattern:", "HYPOTHESIS": "hypothesis:",
+                  "EVIDENCE": "evidence:",
+                  "COUNTERFACTUAL": "evidence:evidence_cf_",
+                  "SYNTHESIS": "synthesis:",
+                  "DECISION_TRACE": f"decision_trace:{inv['investigation_id']}:",
+                  "MEMORY": "memory:",
+                  "ANALYTICAL_SOURCE": "analytical_source:",
+                  "SNAPSHOT": "snapshot:"}.get(str(target_type), "")
+        target = f"{prefix}{target_key}"
+        path = explain_investigation_path(
+            graph, inv["investigation_id"], target,
+            max_depth=max_depth if max_depth is not None else 8)
+        if path["status"] == "NOT_FOUND" and \
+                str(target_type) == "DECISION_TRACE":
+            # allow the bare trace id (TRACE-001) form
+            path = explain_investigation_path(
+                graph, inv["investigation_id"],
+                f"decision_trace:{inv['investigation_id']}:{target_key}",
+                max_depth=max_depth if max_depth is not None else 8)
+        return path
+
+
+class TraceEvidenceSourceTool(Tool):
+    """Phase 6P: evidence -> analytical source provenance path."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "trace_evidence_source",
+            "Trace one evidence item from a Phase 6N investigation back to "
+            "its analytical source: source tool, source phase, source hash "
+            "and the race/lap/stint/regime/pattern it is measured on. "
+            "Incomplete provenance is reported explicitly (missing_provenance "
+            "list) - never a fabricated path.",
+            {
+                **_investigation_spec_properties(),
+                "evidence_id": {"type": "string",
+                                 "description": "Evidence id inside this "
+                                                "investigation (e.g. "
+                                                "evidence_001 or "
+                                                "evidence_cf_52071511)"},
+            },
+            ["question_type", "driver_a", "driver_b", "season", "round",
+             "evidence_id"],
+            {"type": "object", "additionalProperties": True,
+             "required": ["status"]},
+            [
+                "The evidence must belong to the supplied investigation; "
+                "unknown ids end NOT_FOUND.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_graph import (
+            build_investigation_graph, trace_evidence_to_source,
+        )
+        from racewise.data.historical.investigation_synthesis import (
+            run_engineering_investigation,
+        )
+
+        (question_type, da, db, season, round_num, lap, stint, session_type,
+         pattern_id, hypotheses) = _validated_investigation_kwargs(
+            "trace_evidence_source", kwargs)
+        evidence_id = kwargs.get("evidence_id")
+        if not isinstance(evidence_id, str) or not evidence_id.strip():
+            raise ToolError(
+                "evidence_id must be a non-empty string",
+                code="invalid_input",
+                field="trace_evidence_source.evidence_id",
+            )
+        da_n = _normalize_driver_key(self._queries, da, season)
+        db_n = _normalize_driver_key(self._queries, db, season)
+        if da_n == db_n:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="trace_evidence_source.driver_b",
+            )
+        inv = run_engineering_investigation(
+            self._queries, question_type=question_type, driver_a=da_n,
+            driver_b=db_n, season=season, round_num=round_num,
+            lap_number=lap, stint_number=stint, session_type=session_type,
+            pattern_id=pattern_id, hypotheses=hypotheses)
+        if inv.get("status") != "VALID":
+            raise ToolError(
+                f"invalid investigation input: {inv.get('reason')}",
+                code="invalid_input",
+                field="trace_evidence_source",
+            )
+        ledger_ids = {e["evidence_id"]
+                      for e in inv.get("evidence_ledger") or []}
+        if evidence_id not in ledger_ids:
+            raise ToolError(
+                f"evidence_id {evidence_id!r} is not part of this "
+                "investigation",
+                code="invalid_input",
+                field="trace_evidence_source.evidence_id",
+            )
+        graph = build_investigation_graph(self._queries, inv)
+        return trace_evidence_to_source(graph, evidence_id)
+
+
+class TraceHypothesisEvidenceTool(Tool):
+    """Phase 6P: supporting / contradicting / non-decisive evidence for one
+    hypothesis (descriptive; never ranked)."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        from racewise.data.historical.investigation_synthesis import (
+            HYPOTHESIS_IDS,
+        )
+
+        self.spec = _spec(
+            "trace_hypothesis_evidence",
+            "Trace the evidence state of one canonical hypothesis inside a "
+            "Phase 6N investigation graph: supporting evidence, "
+            "contradicting evidence, non-decisive evidence and related "
+            "MODELLED counterfactuals. States are imported from the 6N "
+            "evaluation (evidence-consistency, not causation); the lists "
+            "are descriptive and never ranked.",
+            {
+                **_investigation_spec_properties(),
+                "hypothesis": {"type": "string",
+                               "enum": list(HYPOTHESIS_IDS)},
+            },
+            ["question_type", "driver_a", "driver_b", "season", "round",
+             "hypothesis"],
+            {"type": "object", "additionalProperties": True,
+             "required": ["status"]},
+            [
+                "SUPPORT != PROOF: a supporting-evidence list is not a "
+                "confirmation, and absence of evidence is not negative "
+                "evidence.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_graph import (
+            build_investigation_graph, trace_hypothesis_evidence,
+        )
+        from racewise.data.historical.investigation_synthesis import (
+            HYPOTHESIS_IDS, run_engineering_investigation,
+        )
+
+        (question_type, da, db, season, round_num, lap, stint, session_type,
+         pattern_id, hypotheses) = _validated_investigation_kwargs(
+            "trace_hypothesis_evidence", kwargs)
+        hypothesis = kwargs.get("hypothesis")
+        if hypothesis not in HYPOTHESIS_IDS:
+            raise ToolError(
+                f"hypothesis must be one of {list(HYPOTHESIS_IDS)}",
+                code="invalid_input",
+                field="trace_hypothesis_evidence.hypothesis",
+            )
+        da_n = _normalize_driver_key(self._queries, da, season)
+        db_n = _normalize_driver_key(self._queries, db, season)
+        if da_n == db_n:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="trace_hypothesis_evidence.driver_b",
+            )
+        inv = run_engineering_investigation(
+            self._queries, question_type=question_type, driver_a=da_n,
+            driver_b=db_n, season=season, round_num=round_num,
+            lap_number=lap, stint_number=stint, session_type=session_type,
+            pattern_id=pattern_id, hypotheses=hypotheses)
+        if inv.get("status") != "VALID":
+            raise ToolError(
+                f"invalid investigation input: {inv.get('reason')}",
+                code="invalid_input",
+                field="trace_hypothesis_evidence",
+            )
+        graph = build_investigation_graph(self._queries, inv)
+        return trace_hypothesis_evidence(
+            graph, str(hypothesis),
+            investigation_id=inv["investigation_id"])
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -2535,6 +2898,10 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         VerifyEngineeringSnapshotTool(queries),
         CompareEngineeringInvestigationsTool(queries),
         RetrieveEngineeringMemoryTool(queries),
+        BuildInvestigationGraphTool(queries),
+        TraceInvestigationPathTool(queries),
+        TraceEvidenceSourceTool(queries),
+        TraceHypothesisEvidenceTool(queries),
     ):
         registry.register(tool)
     return registry

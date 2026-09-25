@@ -272,3 +272,44 @@ button.linklike {
 /* ===== Performance Regime View (Phase 6K) ===== */
 .rg-widening { color: #b3402a; }
 .rg-narrowing { color: #2e7d32; }
+
+/* ===== Investigation Graph (Phase 6P) ===== */
+.gp-graph { margin-top: 8px; }
+.gp-columns { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.gp-node-list { flex: 3 1 460px; max-height: 460px; overflow: auto; }
+.gp-detail { flex: 2 1 320px; }
+.gp-node {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 9px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+/* node-type families: historical facts, modelled work, context, governance */
+.gp-node-evidence { background: rgba(21, 101, 192, 0.14); color: #1565c0; }
+.gp-node-hypothesis { background: rgba(123, 31, 162, 0.14); color: #7b1fa2; }
+.gp-node-counterfactual { background: rgba(230, 126, 0, 0.20); color: #b35c00; border: 1px dashed rgba(179, 92, 0, 0.6); }
+.gp-node-context { background: rgba(110, 118, 129, 0.18); color: #57606a; }
+.gp-node-investigation { background: rgba(46, 160, 67, 0.16); color: #2e7d32; }
+.gp-node-question { background: rgba(46, 160, 67, 0.10); color: #3a6e3c; }
+.gp-node-synthesis { background: rgba(46, 160, 67, 0.12); color: #2e7d32; }
+.gp-node-trace { background: rgba(13, 128, 255, 0.12); color: #0b5cc0; }
+.gp-node-memory { background: rgba(121, 85, 72, 0.16); color: #795548; }
+.gp-node-source { background: rgba(84, 110, 122, 0.16); color: #46565e; }
+.gp-edge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+.gp-edge-supports { background: rgba(46, 160, 67, 0.14); color: #2e7d32; }
+.gp-edge-contradicts { background: rgba(248, 81, 73, 0.16); color: #c62828; }
+.gp-edge-derived { background: rgba(84, 110, 122, 0.14); color: #46565e; }
+.gp-edge-models { background: rgba(230, 126, 0, 0.18); color: #b35c00; }
+.gp-edge-lineage { background: rgba(123, 31, 162, 0.14); color: #7b1fa2; }
+.gp-edge-memory { background: rgba(121, 85, 72, 0.14); color: #795548; }
+.gp-edge-neutral { background: rgba(110, 118, 129, 0.12); color: #57606a; }
+.gp-path { margin: 4px 0 0 18px; padding: 0; }
+.gp-path li { padding: 2px 0; }

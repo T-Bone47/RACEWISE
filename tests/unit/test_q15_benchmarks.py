@@ -91,4 +91,4 @@ class TestQ15NegativeControls:
         mcp = q15_report["mcp"]
         assert mcp["tool_registered"] is True
         assert mcp["bound_oob_rejected"] is True
-        assert mcp["historical_tool_count"] == 27
+        assert mcp["historical_tool_count"] == 31

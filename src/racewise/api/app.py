@@ -1173,6 +1173,257 @@ def catalog_engineering_memory(
     )
 
 
+@app.get("/api/catalog/investigation-graph")
+def catalog_investigation_graph(
+    question_type: str = "",
+    driver_a: str = "",
+    driver_b: str = "",
+    season: int = 0,
+    round: int = 0,
+    lap_number: int = 0,
+    stint_number: int = 0,
+    pattern_id: str = "",
+    hypotheses: str = "",
+    max_depth: int = 4,
+    max_nodes: int = 200,
+    max_edges: int = 800,
+) -> dict[str, Any]:
+    """Phase 6P: deterministic investigation knowledge graph.
+
+    Builds the graph from the structured 6N investigation input (closed
+    node/edge vocabularies, every edge provenance-backed from existing 6N/6O
+    outputs; SUPPORTS/CONTRADICTS are imported analytical relationships, not
+    causality; MODELLED counterfactuals stay separate nodes). Derived-on-read;
+    zero storage growth. Traversal inputs are bounded and rejected (never
+    clamped) beyond the safe caps: max_depth <= 8, max_nodes <= 500,
+    max_edges <= 1500.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_graph import (
+        MAX_EDGES, MAX_NODES, build_investigation_graph,
+    )
+    from racewise.data.historical.investigation_synthesis import (
+        run_engineering_investigation,
+    )
+
+    spec = _investigation_input_from_params(
+        "", question_type, driver_a, driver_b, season, round, lap_number,
+        stint_number, pattern_id, hypotheses)
+    if not 1 <= int(max_depth) <= 8:
+        raise HTTPException(status_code=422,
+                            detail="max_depth out of bounds [1, 8]")
+    if not 1 <= int(max_nodes) <= MAX_NODES:
+        raise HTTPException(status_code=422,
+                            detail=f"max_nodes out of bounds [1, {MAX_NODES}]")
+    if not 1 <= int(max_edges) <= MAX_EDGES:
+        raise HTTPException(status_code=422,
+                            detail=f"max_edges out of bounds [1, {MAX_EDGES}]")
+    queries = get_canonical_queries()
+    inv = run_engineering_investigation(queries, **spec)
+    if inv.get("status") == "INVALID":
+        raise HTTPException(status_code=422,
+                            detail=f"invalid investigation input: {inv.get('reason')}")
+    graph = build_investigation_graph(queries, inv)
+    if graph.get("status") == "INVALID":
+        raise HTTPException(status_code=422,
+                            detail=("graph build rejected the investigation: "
+                                    f"{graph.get('reason')}"))
+    graph["requested_bounds"] = {"max_depth": int(max_depth),
+                                 "max_nodes": int(max_nodes),
+                                 "max_edges": int(max_edges)}
+    return graph
+
+
+@app.get("/api/catalog/investigation-graph/path")
+def catalog_investigation_graph_path(
+    question_type: str = "",
+    driver_a: str = "",
+    driver_b: str = "",
+    season: int = 0,
+    round: int = 0,
+    lap_number: int = 0,
+    stint_number: int = 0,
+    pattern_id: str = "",
+    hypotheses: str = "",
+    target_node_type: str = "",
+    target_key: str = "",
+    max_depth: int = 8,
+) -> dict[str, Any]:
+    """Phase 6P: ordered provenance path investigation -> target node.
+
+    Every hop names its edge type and provenance. A path is provenance
+    navigation, not a causal chain. Unknown targets end NOT_FOUND; unknown
+    investigations end UNAVAILABLE - never a fabricated path.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_graph import (
+        build_investigation_graph, explain_investigation_path,
+    )
+    from racewise.data.historical.investigation_synthesis import (
+        run_engineering_investigation,
+    )
+
+    spec = _investigation_input_from_params(
+        "", question_type, driver_a, driver_b, season, round, lap_number,
+        stint_number, pattern_id, hypotheses)
+    if not 1 <= int(max_depth) <= 8:
+        raise HTTPException(status_code=422,
+                            detail="max_depth out of bounds [1, 8]")
+    if not target_node_type.strip() or not target_key.strip():
+        raise HTTPException(status_code=422,
+                            detail="target_node_type and target_key are required")
+    queries = get_canonical_queries()
+    inv = run_engineering_investigation(queries, **spec)
+    if inv.get("status") == "INVALID":
+        raise HTTPException(status_code=422,
+                            detail=f"invalid investigation input: {inv.get('reason')}")
+    if inv.get("status") != "VALID":
+        return {"status": inv.get("status"), "reason": inv.get("reason")}
+    graph = build_investigation_graph(queries, inv)
+    target = _graph_target_node_id(
+        graph, str(target_node_type), target_key.strip(),
+        inv["investigation_id"])
+    return explain_investigation_path(
+        graph, inv["investigation_id"], target, max_depth=int(max_depth))
+
+
+def _graph_target_node_id(
+    graph: dict[str, Any],
+    target_node_type: str,
+    target_key: str,
+    investigation_id: str,
+) -> str:
+    """Resolve (node type, key) to a node id inside this graph; 422 when the
+    type is not in the closed vocabulary."""
+    from racewise.data.historical.investigation_graph import (
+        NODE_TYPES, graph_vocabulary,
+    )
+
+    prefixes = {t: t + ":" for t in NODE_TYPES}
+    prefixes.update({
+        "QUESTION": "question:",
+        "DRIVER": "driver:",
+        "DRIVER_PAIR": "driver_pair:",
+        "SEASON": "season:",
+        "RACE": "race:",
+        "SESSION": "session:",
+        "LAP": "lap:",
+        "STINT": "stint:",
+        "REGIME": "regime:",
+        "PATTERN": "pattern:",
+        "HYPOTHESIS": "hypothesis:",
+        "EVIDENCE": "evidence:",
+        "COUNTERFACTUAL": "evidence:evidence_cf_",
+        "SYNTHESIS": "synthesis:",
+        "DECISION_TRACE": f"decision_trace:{investigation_id}:",
+        "MEMORY": "memory:",
+        "ANALYTICAL_SOURCE": "analytical_source:",
+        "SNAPSHOT": "snapshot:",
+        "INVESTIGATION": f"investigation:{investigation_id}",
+    })
+    if target_node_type not in graph_vocabulary()["node_types"]:
+        raise HTTPException(
+            status_code=422,
+            detail=(f"target_node_type must be one of "
+                    f"{graph_vocabulary()['node_types']}"))
+    if target_node_type == "INVESTIGATION":
+        return prefixes[target_node_type]
+    return f"{prefixes[target_node_type]}{target_key}"
+
+
+@app.get("/api/catalog/investigation-graph/evidence")
+def catalog_investigation_graph_evidence(
+    question_type: str = "",
+    driver_a: str = "",
+    driver_b: str = "",
+    season: int = 0,
+    round: int = 0,
+    lap_number: int = 0,
+    stint_number: int = 0,
+    pattern_id: str = "",
+    hypotheses: str = "",
+    evidence_id: str = "",
+) -> dict[str, Any]:
+    """Phase 6P: evidence -> analytical source provenance trace.
+
+    source tool / phase / hash plus the race/lap/stint/regime/pattern the
+    evidence is measured on. Missing provenance is reported explicitly, never
+    fabricated.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_graph import (
+        build_investigation_graph, trace_evidence_to_source,
+    )
+    from racewise.data.historical.investigation_synthesis import (
+        run_engineering_investigation,
+    )
+
+    spec = _investigation_input_from_params(
+        "", question_type, driver_a, driver_b, season, round, lap_number,
+        stint_number, pattern_id, hypotheses)
+    if not evidence_id.strip():
+        raise HTTPException(status_code=422, detail="evidence_id is required")
+    queries = get_canonical_queries()
+    inv = run_engineering_investigation(queries, **spec)
+    if inv.get("status") == "INVALID":
+        raise HTTPException(status_code=422,
+                            detail=f"invalid investigation input: {inv.get('reason')}")
+    if inv.get("status") != "VALID":
+        return {"status": inv.get("status"), "reason": inv.get("reason")}
+    ledger_ids = {e["evidence_id"] for e in inv.get("evidence_ledger") or []}
+    if evidence_id not in ledger_ids:
+        raise HTTPException(status_code=422,
+                            detail=(f"evidence_id {evidence_id!r} is not part "
+                                    "of this investigation"))
+    graph = build_investigation_graph(queries, inv)
+    return trace_evidence_to_source(graph, evidence_id.strip())
+
+
+@app.get("/api/catalog/investigation-graph/hypothesis")
+def catalog_investigation_graph_hypothesis(
+    question_type: str = "",
+    driver_a: str = "",
+    driver_b: str = "",
+    season: int = 0,
+    round: int = 0,
+    lap_number: int = 0,
+    stint_number: int = 0,
+    pattern_id: str = "",
+    hypotheses: str = "",
+    hypothesis: str = "",
+) -> dict[str, Any]:
+    """Phase 6P: supporting / contradicting / non-decisive evidence for one
+    hypothesis plus related MODELLED counterfactuals.
+
+    Descriptive lists imported from the 6N evaluation (evidence-consistency,
+    not causation); never ranked, never scored. SUPPORT is not PROOF.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_graph import (
+        build_investigation_graph, trace_hypothesis_evidence,
+    )
+    from racewise.data.historical.investigation_synthesis import (
+        HYPOTHESIS_IDS, run_engineering_investigation,
+    )
+
+    spec = _investigation_input_from_params(
+        "", question_type, driver_a, driver_b, season, round, lap_number,
+        stint_number, pattern_id, hypotheses)
+    if hypothesis not in HYPOTHESIS_IDS:
+        raise HTTPException(status_code=422,
+                            detail=f"hypothesis must be one of {list(HYPOTHESIS_IDS)}")
+    queries = get_canonical_queries()
+    inv = run_engineering_investigation(queries, **spec)
+    if inv.get("status") == "INVALID":
+        raise HTTPException(status_code=422,
+                            detail=f"invalid investigation input: {inv.get('reason')}")
+    if inv.get("status") != "VALID":
+        return {"status": inv.get("status"), "reason": inv.get("reason")}
+    graph = build_investigation_graph(queries, inv)
+    return trace_hypothesis_evidence(
+        graph, hypothesis, investigation_id=inv["investigation_id"])
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

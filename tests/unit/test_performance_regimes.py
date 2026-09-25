@@ -365,7 +365,7 @@ class TestMcpBoundary:
 
         reg = build_historical_registry(CanonicalQueries())
         # 20 pre-6L historical tools + cross-race patterns (Phase 6L)
-        assert len(reg._tools) == 27  # 23 pre-6O historical + 4 memory tools (Phase 6O)
+        assert len(reg._tools) == 31  # 27 pre-6P historical + 4 graph tools (Phase 6P)
 
 
 @requires_db

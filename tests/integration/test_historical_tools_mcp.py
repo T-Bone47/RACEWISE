@@ -319,3 +319,71 @@ class TestMCPInvestigationMemory:
             "investigations": [self.LAP6], "bogus": True})
         assert env["ok"] is False
         assert env["error"]["code"] == "invalid_input"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="canonical DB not ingested")
+class TestMCPInvestigationGraph:
+    """Phase 6P: investigation graph tools over the real MCP server."""
+
+    LAP6 = {"question_type": "LAP_PERFORMANCE",
+            "driver_a": "max-verstappen", "driver_b": "sergio-perez",
+            "season": 2023, "round": 1, "lap_number": 6}
+
+    def test_tools_list_includes_graph_tools(self):
+        responses = _exchange([
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        ])
+        names = {t["name"] for t in responses[1]["result"]["tools"]}
+        assert {"build_investigation_graph",
+                "trace_investigation_path",
+                "trace_evidence_source",
+                "trace_hypothesis_evidence"} <= names
+
+    def _call(self, name: str, arguments: dict) -> dict:
+        responses = _exchange([
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+             "params": {"name": name, "arguments": arguments}},
+        ])
+        return json.loads(responses[1]["result"]["content"][0]["text"])
+
+    def test_graph_build_deterministic_repeat(self):
+        strip = lambda d: {k: v for k, v in d.items() if k != "duration_ms"}
+        first = self._call("build_investigation_graph", self.LAP6)
+        assert first["ok"] is True
+        out = first["output"]
+        assert out["node_count"] > 0 and out["edge_count"] > 0
+        assert out["edge_count"] >= out["node_count"]
+        assert strip(first) == strip(self._call(
+            "build_investigation_graph", self.LAP6))
+
+    def test_graph_path_and_traces(self):
+        path = self._call("trace_investigation_path", {
+            **self.LAP6, "target_node_type": "EVIDENCE",
+            "target_key": "evidence_001"})
+        assert path["output"]["status"] == "OK"
+        assert path["output"]["path"][0]["node_type"] == "INVESTIGATION"
+        assert path["output"]["path"][-1]["node_type"] == "EVIDENCE"
+        src = self._call("trace_evidence_source", {
+            **self.LAP6, "evidence_id": "evidence_001"})
+        assert src["output"]["status"] == "OK"
+        hyp = self._call("trace_hypothesis_evidence", {
+            **self.LAP6, "hypothesis": "H1_corner_speed"})
+        assert hyp["output"]["status"] == "OK"
+        # CONTRADICTS edges come from the imported 6N evaluation, not topology
+        assert "provenance" in hyp["output"]["supporting_evidence"][0]
+
+    def test_graph_negative_controls(self):
+        missing = self._call("trace_evidence_source", {
+            **self.LAP6, "evidence_id": "evidence_999"})
+        assert missing["ok"] is False
+        assert missing["error"]["code"] == "invalid_input"
+        bad_hyp = self._call("trace_hypothesis_evidence", {
+            **self.LAP6, "hypothesis": "H99_free_form"})
+        assert bad_hyp["ok"] is False
+        depth = self._call("build_investigation_graph", {
+            **self.LAP6, "max_depth": 99})
+        assert depth["ok"] is False
+        assert depth["error"]["code"] == "invalid_input"

@@ -226,6 +226,52 @@ interface CompareResult {
   }
 }
 
+/* ============ 6P graph shapes (render-only mirror of the Python contract) ============ */
+
+interface GraphNode {
+  node_id: string
+  node_type: string
+  label: string
+  canonical_reference: Record<string, unknown>
+  metadata: Record<string, unknown>
+  provenance: Record<string, unknown>
+}
+
+interface GraphEdge {
+  edge_id: string
+  source_node: string
+  target_node: string
+  edge_type: string
+  provenance: Record<string, unknown>
+  source_reference: Record<string, unknown>
+}
+
+interface GraphResult {
+  graph_version: string
+  graph_id: string
+  node_count: number
+  edge_count: number
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  output_hash: string
+  epistemic_boundaries: string[]
+}
+
+interface GraphPathStep {
+  step: string
+  node_type: string
+  via_edge_type: string | null
+  via_edge_id: string | null
+  via_provenance: Record<string, unknown> | null
+}
+
+interface GraphPathResult {
+  status: string
+  path?: GraphPathStep[]
+  path_length?: number
+  reason?: string
+}
+
 /* ================= state styling (existing ef-* vocabulary) ================= */
 
 const STATE_CLASS: Record<string, string> = {
@@ -283,6 +329,50 @@ const QUESTION_INPUTS: Record<string, Array<'lap_number' | 'stint_number' | 'pat
   COUNTERFACTUAL_ELIGIBILITY: [],
 }
 
+/* ============ 6P graph node/edge rendering vocabulary (closed) ============ */
+
+const NODE_CLASS: Record<string, string> = {
+  INVESTIGATION: 'gp-node-investigation',
+  QUESTION: 'gp-node-question',
+  DRIVER: 'gp-node-context',
+  DRIVER_PAIR: 'gp-node-context',
+  SEASON: 'gp-node-context',
+  RACE: 'gp-node-context',
+  SESSION: 'gp-node-context',
+  LAP: 'gp-node-context',
+  STINT: 'gp-node-context',
+  REGIME: 'gp-node-context',
+  PATTERN: 'gp-node-context',
+  HYPOTHESIS: 'gp-node-hypothesis',
+  EVIDENCE: 'gp-node-evidence',
+  COUNTERFACTUAL: 'gp-node-counterfactual',
+  SYNTHESIS: 'gp-node-synthesis',
+  DECISION_TRACE: 'gp-node-trace',
+  MEMORY: 'gp-node-memory',
+  ANALYTICAL_SOURCE: 'gp-node-source',
+  SNAPSHOT: 'gp-node-source',
+}
+
+const EDGE_CLASS: Record<string, string> = {
+  SUPPORTS: 'gp-edge-supports',
+  CONTRADICTS: 'gp-edge-contradicts',
+  DERIVED_FROM: 'gp-edge-derived',
+  MEASURED_BY: 'gp-edge-derived',
+  MODELS: 'gp-edge-models',
+  REPLAY_OF: 'gp-edge-lineage',
+  COMPARED_WITH: 'gp-edge-lineage',
+  GENERATED_MEMORY: 'gp-edge-memory',
+  RELATED_TO: 'gp-edge-neutral',
+  TESTS: 'gp-edge-neutral',
+}
+
+const GRAPH_NODE_TYPES = [
+  'EVIDENCE', 'HYPOTHESIS', 'DECISION_TRACE', 'MEMORY', 'COUNTERFACTUAL',
+  'SYNTHESIS', 'ANALYTICAL_SOURCE', 'RACE', 'LAP', 'STINT', 'REGIME',
+  'PATTERN', 'SNAPSHOT', 'QUESTION', 'DRIVER', 'SESSION', 'SEASON',
+  'DRIVER_PAIR', 'INVESTIGATION',
+]
+
 /* ================= component ================= */
 
 export default function InvestigationView() {
@@ -308,6 +398,14 @@ export default function InvestigationView() {
   const [comparison, setComparison] = useState<CompareResult | null>(null)
   const [compareLoading, setCompareLoading] = useState(false)
   const [compareError, setCompareError] = useState<string | null>(null)
+  const [graph, setGraph] = useState<GraphResult | null>(null)
+  const [graphLoading, setGraphLoading] = useState(false)
+  const [graphError, setGraphError] = useState<string | null>(null)
+  const [graphTypeFilter, setGraphTypeFilter] = useState('')
+  const [graphDepth, setGraphDepth] = useState(4)
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
+  const [nodePath, setNodePath] = useState<GraphPathResult | null>(null)
+  const [pathLoading, setPathLoading] = useState(false)
 
   const run = useCallback(async () => {
     setLoading(true)
@@ -425,6 +523,52 @@ export default function InvestigationView() {
       setCompareLoading(false)
     }
   }, [investigationInputParams, compareLap])
+
+  const runGraph = useCallback(async () => {
+    setGraphLoading(true)
+    setGraphError(null)
+    setGraph(null)
+    setSelectedNode(null)
+    setNodePath(null)
+    try {
+      const params = investigationInputParams()
+      params.set('max_depth', String(graphDepth))
+      const resp = await fetch(`/api/catalog/investigation-graph?${params}`)
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => null)
+        throw new Error(detail?.detail || `Graph request failed (${resp.status})`)
+      }
+      setGraph((await resp.json()) as GraphResult)
+    } catch (e) {
+      setGraphError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setGraphLoading(false)
+    }
+  }, [investigationInputParams, graphDepth])
+
+  const openNodePath = useCallback(async (node: GraphNode) => {
+    setSelectedNode(node)
+    setNodePath(null)
+    setPathLoading(true)
+    try {
+      const params = investigationInputParams()
+      const key = node.node_id.includes(':')
+        ? node.node_id.slice(node.node_id.indexOf(':') + 1)
+        : node.node_id
+      params.set('target_node_type', node.node_type)
+      params.set('target_key', key)
+      const resp = await fetch(`/api/catalog/investigation-graph/path?${params}`)
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => null)
+        throw new Error(detail?.detail || `Path request failed (${resp.status})`)
+      }
+      setNodePath((await resp.json()) as GraphPathResult)
+    } catch {
+      setNodePath({ status: 'NOT_FOUND' })
+    } finally {
+      setPathLoading(false)
+    }
+  }, [investigationInputParams])
 
   return (
     <div className="panel">
@@ -900,6 +1044,166 @@ export default function InvestigationView() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* ---------- 6P: INVESTIGATION GRAPH ---------- */}
+          <h3>Investigation graph (Phase 6P)</h3>
+          <p className="muted small">
+            Provenance-backed navigation over this investigation&apos;s evidence:
+            edges are imported analytical relationships (SUPPORTS is
+            evidence-consistency, not causation; CONTRADICTS comes from the
+            preserved 6N conflicts; MODELLED counterfactuals stay separate).
+            Click a node to trace its provenance path from the investigation.
+          </p>
+          <div className="controls">
+            <label>
+              focus type:{' '}
+              <select value={graphTypeFilter}
+                      onChange={(e) => setGraphTypeFilter(e.target.value)}>
+                <option value="">all node types</option>
+                {GRAPH_NODE_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              path depth:{' '}
+              <input type="number" min={1} max={8} value={graphDepth}
+                     onChange={(e) => setGraphDepth(Number(e.target.value))}
+                     style={{ width: 60 }} />
+            </label>
+            <button onClick={runGraph} disabled={loading || graphLoading}>
+              {graphLoading ? 'Building graph…' : 'Build investigation graph'}
+            </button>
+          </div>
+          {graphError && <p className="error">{graphError}</p>}
+          {graph && (
+            <div className="gp-graph">
+              <p className="muted small">
+                graph <code>{graph.graph_id}</code> · {graph.node_count} nodes ·{' '}
+                {graph.edge_count} edges · hash <code>{graph.output_hash}</code>
+              </p>
+              <div className="gp-columns">
+                <div className="gp-node-list">
+                  <table className="catalog-table">
+                    <thead>
+                      <tr>
+                        <th>Node</th>
+                        <th>Type</th>
+                        <th>Label</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {graph.nodes
+                        .filter((n) => !graphTypeFilter || n.node_type === graphTypeFilter)
+                        .map((n) => (
+                          <tr key={n.node_id}
+                              className={selectedNode?.node_id === n.node_id ? 'selected' : ''}
+                              onClick={() => openNodePath(n)}>
+                            <td className="small">
+                              <span className={`gp-node ${NODE_CLASS[n.node_type] || ''}`}>
+                                {n.node_type === 'COUNTERFACTUAL' ? 'MODELLED' : n.node_type}
+                              </span>{' '}
+                              <code>{n.node_id.length > 44 ? `${n.node_id.slice(0, 44)}…` : n.node_id}</code>
+                            </td>
+                            <td className="small">{n.node_type}</td>
+                            <td className="small">{n.label}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="gp-detail">
+                  {selectedNode ? (
+                    <div className="cf-intervention">
+                      <div><strong>node:</strong> <code>{selectedNode.node_id}</code></div>
+                      <div>
+                        <strong>type:</strong>{' '}
+                        <span className={`gp-node ${NODE_CLASS[selectedNode.node_type] || ''}`}>
+                          {selectedNode.node_type === 'COUNTERFACTUAL'
+                            ? 'COUNTERFACTUAL (MODELLED)'
+                            : selectedNode.node_type}
+                        </span>
+                      </div>
+                      <div><strong>label:</strong> {selectedNode.label}</div>
+                      {Object.keys(selectedNode.canonical_reference).length > 0 && (
+                        <div>
+                          <strong>canonical reference:</strong>{' '}
+                          <code className="small">
+                            {JSON.stringify(selectedNode.canonical_reference).slice(0, 220)}
+                          </code>
+                        </div>
+                      )}
+                      {Object.keys(selectedNode.provenance).length > 0 && (
+                        <div>
+                          <strong>provenance:</strong>{' '}
+                          <code className="small">
+                            {JSON.stringify(selectedNode.provenance).slice(0, 220)}
+                          </code>
+                        </div>
+                      )}
+                      <div>
+                        <strong>relationships:</strong>{' '}
+                        <span className="small">
+                          {graph.edges
+                            .filter((e) => e.source_node === selectedNode.node_id
+                                        || e.target_node === selectedNode.node_id)
+                            .slice(0, 12)
+                            .map((e) => {
+                              const other = e.source_node === selectedNode.node_id
+                                ? e.target_node : e.source_node
+                              const dir = e.source_node === selectedNode.node_id ? '→' : '←'
+                              return (
+                                <div key={e.edge_id} className="small">
+                                  <span className={`gp-edge ${EDGE_CLASS[e.edge_type] || 'gp-edge-neutral'}`}>
+                                    {e.edge_type}
+                                  </span>{' '}
+                                  {dir} <code>{other.length > 40 ? `${other.slice(0, 40)}…` : other}</code>
+                                </div>
+                              )
+                            })}
+                        </span>
+                      </div>
+                      <div>
+                        <strong>provenance path from investigation:</strong>
+                        {pathLoading && <span className="muted small"> tracing…</span>}
+                        {nodePath && nodePath.status === 'OK' && nodePath.path && (
+                          <ol className="gp-path small">
+                            {nodePath.path.map((s, i) => (
+                              <li key={i}>
+                                <span className={`gp-node ${NODE_CLASS[s.node_type] || ''}`}>
+                                  {s.node_type}
+                                </span>
+                                {s.via_edge_type && (
+                                  <>
+                                    {' '}via{' '}
+                                    <span className={`gp-edge ${EDGE_CLASS[s.via_edge_type] || 'gp-edge-neutral'}`}>
+                                      {s.via_edge_type}
+                                    </span>
+                                  </>
+                                )}
+                                {' '}
+                                <code>{s.step.length > 46 ? `${s.step.slice(0, 46)}…` : s.step}</code>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                        {nodePath && nodePath.status !== 'OK' && (
+                          <span className="muted small"> {nodePath.reason || nodePath.status}</span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="muted small">click a node to inspect it</p>
+                  )}
+                </div>
+              </div>
+              <ul className="muted small">
+                {graph.epistemic_boundaries.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
