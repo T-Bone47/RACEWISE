@@ -218,3 +218,48 @@ class TestMCPHistoricalVisibility:
         assert len(laps["output"]["samples"]) <= 2000  # hard output cap
         neg = json.loads(responses[3]["result"]["content"][0]["text"])
         assert neg["output"]["verdict"] == "INSUFFICIENT_EVIDENCE"  # 1950 negative control
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="canonical DB not ingested")
+class TestMCPEngineeringInvestigation:
+    """Phase 6N: run_engineering_investigation over the real MCP server."""
+
+    def test_tools_list_includes_investigation(self):
+        responses = _exchange([
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        ])
+        names = {t["name"] for t in responses[1]["result"]["tools"]}
+        assert "run_engineering_investigation" in names
+
+    def _call(self, arguments: dict) -> dict:
+        responses = _exchange([
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+             "params": {"name": "run_engineering_investigation",
+                        "arguments": arguments}},
+        ])
+        return json.loads(responses[1]["result"]["content"][0]["text"])
+
+    def test_investigation_call_and_deterministic_repeat(self):
+        args = {"question_type": "LAP_PERFORMANCE",
+                "driver_a": "max-verstappen", "driver_b": "sergio-perez",
+                "season": 2023, "round": 1, "lap_number": 6}
+        first = self._call(args)
+        assert first["ok"] is True
+        inv = first["output"]
+        assert inv["status"] == "VALID"
+        assert inv["synthesis"]["conclusion_state"]
+        assert inv["output_hash"]
+        # runtime fields are excluded from the wire comparison
+        strip = lambda d: {k: v for k, v in d.items() if k != "duration_ms"}
+        assert strip(first) == strip(self._call(args))
+
+    def test_invalid_input_via_wire(self):
+        env = self._call({"question_type": "RACE_GAP",
+                          "driver_a": "max-verstappen",
+                          "driver_b": "max-verstappen",
+                          "season": 2023, "round": 1})
+        assert env["ok"] is False
+        assert env["error"]["code"] == "invalid_input"

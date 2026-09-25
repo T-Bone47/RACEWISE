@@ -11,6 +11,7 @@ import PerformanceEnvelopeView from './PerformanceEnvelopeView'
 import PerformanceRegimeView from './PerformanceRegimeView'
 import PerformancePatternView from './PerformancePatternView'
 import PatternEvidenceView from './PatternEvidenceView'
+import InvestigationView from './InvestigationView'
 
 interface Session {
   year: number
@@ -356,6 +357,8 @@ export default function App() {
       <PerformancePatternView />
 
       <PatternEvidenceView />
+
+      <InvestigationView />
 
       <div className="controls">
         <div className="session-selector">

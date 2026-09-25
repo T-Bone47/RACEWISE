@@ -1874,6 +1874,197 @@ class AnalyzeCrossRacePatternEvidenceTool(Tool):
         )
 
 
+class RunEngineeringInvestigationTool(Tool):
+    """Phase 6N engineering investigation synthesis & decision trace:
+    deterministic orchestration of the verified 6E-6M analytical chain
+    into one evidence-bound investigation with a falsification gate,
+    bounded 6I counterfactuals and a full decision trace."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        from racewise.data.historical.investigation_synthesis import (
+            HYPOTHESIS_IDS, QUESTION_TYPES,
+        )
+
+        self._queries = queries
+        self.spec = _spec(
+            "run_engineering_investigation",
+            "Run a deterministic engineering investigation over the verified "
+            "6E-6M analytical chain for a structured question (closed "
+            "vocabulary; no free-form logic). Frames the question, plans and "
+            "collects evidence from the existing layers (6E attribution, 6F "
+            "fusion, 6G stints, 6H race gap, 6I counterfactuals, 6K regimes, "
+            "6L patterns, 6M evidence) into an evidence ledger, evaluates "
+            "the six canonical hypotheses with a falsification gate, checks "
+            "bounded counterfactual eligibility before executing anything "
+            "through the exact Phase 6I simulators, and synthesizes an "
+            "evidence-bound conclusion in which every statement carries a "
+            "decision trace referencing evidence IDs. Contradictions are "
+            "preserved and block an established explanation; residuals are "
+            "reported, never assigned; counterfactual results stay MODELLED "
+            "(not history, not prediction); missing evidence stays missing. "
+            "SUPPORT != PROOF. No confidence scores, no ranking, no 'best "
+            "explanation'.",
+            {
+                "question_type": {"type": "string",
+                                  "enum": list(QUESTION_TYPES),
+                                  "description": "Closed question vocabulary"},
+                "driver_a": {"type": "string", "description": "Driver A key, e.g. max-verstappen"},
+                "driver_b": {"type": "string", "description": "Driver B key (distinct from A)"},
+                "season": {"type": "integer", "minimum": 1950, "maximum": 2100,
+                           "description": "Season year"},
+                "round": {"type": "integer", "minimum": 1, "maximum": 99,
+                          "description": "Round number within the season"},
+                "lap_number": {"type": "integer", "minimum": 1,
+                               "description": "Required for LAP_PERFORMANCE / HYPOTHESIS_EVALUATION"},
+                "stint_number": {"type": "integer", "minimum": 1,
+                                 "description": "Required for STINT_PERFORMANCE"},
+                "session_type": {"type": "string", "enum": ["RACE"],
+                                 "description": "Session scope (canonical races)"},
+                "pattern_id": {"type": "string",
+                               "description": "Required for CROSS_RACE_PATTERN (6L pattern id browsed at the same max_races)"},
+                "hypotheses": {"type": "array", "items": {"type": "string",
+                                                            "enum": list(HYPOTHESIS_IDS)},
+                               "description": "Optional hypothesis subset; excluded hypotheses are reported NOT_REQUESTED, never silently removed"},
+                "max_evidence_items": {"type": "integer", "minimum": 1, "maximum": 40,
+                                       "description": "Evidence ledger bound (default 40, cap 40)"},
+                "max_counterfactuals": {"type": "integer", "minimum": 0, "maximum": 2,
+                                        "description": "Counterfactual execution bound (default 2, cap 2)"},
+            },
+            ["question_type", "driver_a", "driver_b", "season", "round"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Every synthesis statement references evidence IDs (decision "
+                "trace); a hypothesis with unresolved contradictions is not "
+                "synthesized as an established explanation.",
+                "Counterfactuals run ONLY when 6I-eligible; race-level "
+                "telemetry extrapolation is structurally ineligible; "
+                "results are MODELLED sensitivity, not historical effect.",
+                "Bounded: max_evidence_items <= 40, max_counterfactuals <= 2; "
+                "unknown parameters rejected; insufficient evidence ends "
+                "INSUFFICIENT_EVIDENCE, never a fabricated explanation.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_synthesis import (
+            HYPOTHESIS_IDS, MAX_COUNTERFACTUALS, MAX_EVIDENCE_ITEMS,
+            QUESTION_TYPES, run_engineering_investigation,
+        )
+
+        # explicit boundary re-validation (generic payload validation does
+        # not check numeric ranges, enum membership or list shapes)
+        question_type = kwargs.get("question_type")
+        if question_type not in QUESTION_TYPES:
+            raise ToolError(
+                f"question_type must be one of {list(QUESTION_TYPES)}",
+                code="invalid_input",
+                field="run_engineering_investigation.question_type",
+            )
+        season = kwargs.get("season")
+        if not isinstance(season, int) or not 1950 <= season <= 2100:
+            raise ToolError(
+                "season must be an integer in [1950, 2100]",
+                code="invalid_input",
+                field="run_engineering_investigation.season",
+            )
+        round_num = kwargs.get("round")
+        if not isinstance(round_num, int) or not 1 <= round_num <= 99:
+            raise ToolError(
+                "round must be an integer in [1, 99]",
+                code="invalid_input",
+                field="run_engineering_investigation.round",
+            )
+        lap = kwargs.get("lap_number")
+        if lap is not None and (not isinstance(lap, int) or lap < 1):
+            raise ToolError(
+                "lap_number must be a positive integer",
+                code="invalid_input",
+                field="run_engineering_investigation.lap_number",
+            )
+        stint = kwargs.get("stint_number")
+        if stint is not None and (not isinstance(stint, int) or stint < 1):
+            raise ToolError(
+                "stint_number must be a positive integer",
+                code="invalid_input",
+                field="run_engineering_investigation.stint_number",
+            )
+        session_type = kwargs.get("session_type", "RACE")
+        if session_type != "RACE":
+            raise ToolError(
+                "session_type must be 'RACE'",
+                code="invalid_input",
+                field="run_engineering_investigation.session_type",
+            )
+        pattern_id = kwargs.get("pattern_id")
+        if pattern_id is not None and (not isinstance(pattern_id, str)
+                                       or not pattern_id.strip()):
+            raise ToolError(
+                "pattern_id must be a non-empty string when provided",
+                code="invalid_input",
+                field="run_engineering_investigation.pattern_id",
+            )
+        hypotheses = kwargs.get("hypotheses")
+        if hypotheses is not None:
+            if not isinstance(hypotheses, list) or not hypotheses or \
+                    not all(isinstance(h, str) for h in hypotheses):
+                raise ToolError(
+                    "hypotheses must be a non-empty list of strings",
+                    code="invalid_input",
+                    field="run_engineering_investigation.hypotheses",
+                )
+            unknown = [h for h in hypotheses if h not in HYPOTHESIS_IDS]
+            if unknown:
+                raise ToolError(
+                    f"unknown hypothesis ids: {unknown}",
+                    code="invalid_input",
+                    field="run_engineering_investigation.hypotheses",
+                )
+        max_evidence_items = int(kwargs.get("max_evidence_items",
+                                            MAX_EVIDENCE_ITEMS))
+        if not 1 <= max_evidence_items <= MAX_EVIDENCE_ITEMS:
+            raise ToolError(
+                f"max_evidence_items must be between 1 and "
+                f"{MAX_EVIDENCE_ITEMS}",
+                code="invalid_input",
+                field="run_engineering_investigation.max_evidence_items",
+            )
+        max_counterfactuals = int(kwargs.get("max_counterfactuals",
+                                             MAX_COUNTERFACTUALS))
+        if not 0 <= max_counterfactuals <= MAX_COUNTERFACTUALS:
+            raise ToolError(
+                f"max_counterfactuals must be between 0 and "
+                f"{MAX_COUNTERFACTUALS}",
+                code="invalid_input",
+                field="run_engineering_investigation.max_counterfactuals",
+            )
+
+        driver_a = _normalize_driver_key(
+            self._queries, str(kwargs["driver_a"]), season)
+        driver_b = _normalize_driver_key(
+            self._queries, str(kwargs["driver_b"]), season)
+        if driver_a == driver_b:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="run_engineering_investigation.driver_b",
+            )
+        return run_engineering_investigation(
+            self._queries,
+            question_type=question_type,
+            driver_a=driver_a,
+            driver_b=driver_b,
+            season=season,
+            round_num=round_num,
+            lap_number=lap,
+            stint_number=stint,
+            session_type=session_type,
+            pattern_id=pattern_id,
+            hypotheses=hypotheses,
+            max_evidence_items=max_evidence_items,
+            max_counterfactuals=max_counterfactuals,
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -1900,6 +2091,7 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         AnalyzePerformanceRegimesTool(queries),
         AnalyzeCrossRacePerformancePatternsTool(queries),
         AnalyzeCrossRacePatternEvidenceTool(queries),
+        RunEngineeringInvestigationTool(queries),
     ):
         registry.register(tool)
     return registry

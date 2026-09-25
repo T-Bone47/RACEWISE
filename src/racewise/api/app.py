@@ -861,6 +861,106 @@ def catalog_performance_pattern_evidence(
     )
 
 
+@app.get("/api/catalog/engineering-investigation")
+def catalog_engineering_investigation(
+    question_type: str = "",
+    driver_a: str = "",
+    driver_b: str = "",
+    season: int = 0,
+    round: int = 0,
+    lap_number: int = 0,
+    stint_number: int = 0,
+    session_type: str = "RACE",
+    pattern_id: str = "",
+    hypotheses: str = "",
+    max_evidence_items: int = 40,
+    max_counterfactuals: int = 2,
+) -> dict[str, Any]:
+    """Deterministic Phase 6N engineering investigation over the 6E-6M chain.
+
+    Query-style endpoint (6L/6M convention). The legacy LLM-driven
+    investigation flow stays untouched at POST /api/investigations; this
+    endpoint is the deterministic orchestration layer and shares no state
+    with it. question_type must be one of the closed 6N vocabulary; drivers
+    default to the canonical telemetry pair (Phase 6D policy) when omitted.
+    Every synthesis statement carries a decision trace to evidence IDs;
+    hypotheses are never ranked; counterfactuals are MODELLED sensitivity,
+    executed only when Phase 6I-eligible. All orchestration happens
+    server-side; the frontend renders only.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_synthesis import (
+        HYPOTHESIS_IDS, MAX_COUNTERFACTUALS, MAX_EVIDENCE_ITEMS,
+        QUESTION_TYPES, run_engineering_investigation,
+    )
+
+    if question_type not in QUESTION_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"question_type must be one of {list(QUESTION_TYPES)}")
+    if not 1950 <= int(season) <= 2100:
+        raise HTTPException(status_code=422,
+                            detail="season out of bounds [1950, 2100]")
+    if not 1 <= int(round) <= 99:
+        raise HTTPException(status_code=422,
+                            detail="round out of bounds [1, 99]")
+    if not 1 <= int(max_evidence_items) <= MAX_EVIDENCE_ITEMS:
+        raise HTTPException(status_code=422,
+                            detail=(f"max_evidence_items out of bounds "
+                                    f"[1, {MAX_EVIDENCE_ITEMS}]"))
+    if not 0 <= int(max_counterfactuals) <= MAX_COUNTERFACTUALS:
+        raise HTTPException(status_code=422,
+                            detail=(f"max_counterfactuals out of bounds "
+                                    f"[0, {MAX_COUNTERFACTUALS}]"))
+    if session_type != "RACE":
+        raise HTTPException(status_code=422,
+                            detail="session_type must be 'RACE'")
+    hyp_list: Optional[list[str]] = None
+    if hypotheses.strip():
+        hyp_list = [h.strip() for h in hypotheses.split(",") if h.strip()]
+        unknown = [h for h in hyp_list if h not in HYPOTHESIS_IDS]
+        if unknown:
+            raise HTTPException(status_code=422,
+                                detail=f"unknown hypothesis ids: {unknown}")
+        if not hyp_list:
+            hyp_list = None
+    queries = get_canonical_queries()
+    if not driver_a or not driver_b:
+        # default pair: canonical telemetry pair of the requested season's
+        # first telemetry-capable round (same Phase 6D-derived policy as the
+        # other /catalog endpoints)
+        first = min((x["round"] for x in
+                     get_catalog_api().list_sessions(
+                         season=int(season), session_type="RACE",
+                         capability="telemetry", page_size=200)["sessions"]),
+                    default=None)
+        if first is None:
+            return {"status": "UNAVAILABLE",
+                    "reason": f"no telemetry-capable race sessions in {season}"}
+        pair = queries.get_telemetry_driver_pair(int(season), first, "RACE")
+        if pair is None:
+            return {"status": "UNAVAILABLE", "reason": "no telemetry driver pair"}
+        driver_a, driver_b = pair
+    if driver_a == driver_b:
+        raise HTTPException(status_code=422,
+                            detail="driver_a and driver_b must be distinct")
+    return run_engineering_investigation(
+        queries,
+        question_type=question_type,
+        driver_a=driver_a,
+        driver_b=driver_b,
+        season=int(season),
+        round_num=int(round),
+        lap_number=int(lap_number) if lap_number else None,
+        stint_number=int(stint_number) if stint_number else None,
+        session_type=session_type,
+        pattern_id=pattern_id if pattern_id.strip() else None,
+        hypotheses=hyp_list,
+        max_evidence_items=int(max_evidence_items),
+        max_counterfactuals=int(max_counterfactuals),
+    )
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

@@ -245,6 +245,17 @@
 .ef-chain { list-style: none; padding-left: 0; }
 .ef-chain li { padding: 4px 0; border-bottom: 1px dashed rgba(110, 118, 129, 0.25); }
 
+/* ===== Engineering Investigation (Phase 6N) ===== */
+button.linklike {
+  background: none;
+  border: none;
+  color: var(--accent, #4a7dbd);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
 /* ===== Counterfactual (Phase 6I) ===== */
 .cf-intervention {
   background: var(--bg-soft, #f6f7f9);
