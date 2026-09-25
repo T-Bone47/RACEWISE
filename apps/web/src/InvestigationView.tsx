@@ -182,6 +182,50 @@ interface InvestigationResult {
   output_hash: string
 }
 
+interface ReplayResult {
+  status: string
+  identical: boolean
+  original_hash: string
+  replay_hash: string | null
+  difference_count: number
+  differences: Array<{ path: string; old_value: unknown; new_value: unknown; category: string }>
+  snapshot?: { snapshot_hash: string; investigation_id: string; output_hash: string }
+}
+
+interface MemoryItem {
+  memory_id: string
+  statement: string
+  evidence_ids: string[]
+  hypothesis_ids: string[]
+  evidence_type: string
+  claim_class: string
+  validity_status: string
+  limitations: string[]
+  scope: Record<string, unknown>
+}
+
+interface MemoryResult {
+  match_count: number
+  matching_memory_items: MemoryItem[]
+  policy: string
+}
+
+interface CompareResult {
+  compatibility: { state: string; differing_scope_keys?: string[] }
+  hypothesis_deltas: Array<{
+    hypothesis_id: string
+    old_state: string | null
+    new_state: string | null
+    state_changed: boolean
+  }>
+  falsification_deltas: Array<{ change_type: string; hypothesis_ids: string[] }>
+  synthesis_delta: {
+    old_conclusion_state: string | null
+    new_conclusion_state: string | null
+    transition: string
+  }
+}
+
 /* ================= state styling (existing ef-* vocabulary) ================= */
 
 const STATE_CLASS: Record<string, string> = {
@@ -254,6 +298,16 @@ export default function InvestigationView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [openTrace, setOpenTrace] = useState<string | null>(null)
+  const [replay, setReplay] = useState<ReplayResult | null>(null)
+  const [replayLoading, setReplayLoading] = useState(false)
+  const [replayError, setReplayError] = useState<string | null>(null)
+  const [memory, setMemory] = useState<MemoryResult | null>(null)
+  const [memoryLoading, setMemoryLoading] = useState(false)
+  const [memoryError, setMemoryError] = useState<string | null>(null)
+  const [compareLap, setCompareLap] = useState(11)
+  const [comparison, setComparison] = useState<CompareResult | null>(null)
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [compareError, setCompareError] = useState<string | null>(null)
 
   const run = useCallback(async () => {
     setLoading(true)
@@ -288,6 +342,89 @@ export default function InvestigationView() {
       setLoading(false)
     }
   }, [questionType, season, round, driverA, driverB, lapNumber, stintNumber, patternId])
+
+  const investigationInputParams = useCallback(() => {
+    const params = new URLSearchParams({
+      question_type: questionType,
+      driver_a: driverA.trim(),
+      driver_b: driverB.trim(),
+      season: String(season),
+      round: String(round),
+    })
+    const inputs = QUESTION_INPUTS[questionType] || []
+    if (inputs.includes('lap_number')) params.set('lap_number', String(lapNumber))
+    if (inputs.includes('stint_number')) params.set('stint_number', String(stintNumber))
+    if (inputs.includes('pattern_id') && patternId.trim()) {
+      params.set('pattern_id', patternId.trim())
+    }
+    return params
+  }, [questionType, season, round, driverA, driverB, lapNumber, stintNumber, patternId])
+
+  const runReplay = useCallback(async () => {
+    setReplayLoading(true)
+    setReplayError(null)
+    setReplay(null)
+    try {
+      const resp = await fetch(
+        `/api/catalog/engineering-investigation/replay?${investigationInputParams()}`)
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => null)
+        throw new Error(detail?.detail || `Replay request failed (${resp.status})`)
+      }
+      setReplay((await resp.json()) as ReplayResult)
+    } catch (e) {
+      setReplayError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setReplayLoading(false)
+    }
+  }, [investigationInputParams])
+
+  const runMemory = useCallback(async () => {
+    setMemoryLoading(true)
+    setMemoryError(null)
+    setMemory(null)
+    try {
+      const params = investigationInputParams()
+      params.set('driver', driverA.trim())
+      const resp = await fetch(`/api/catalog/engineering-memory?${params}`)
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => null)
+        throw new Error(detail?.detail || `Memory request failed (${resp.status})`)
+      }
+      setMemory((await resp.json()) as MemoryResult)
+    } catch (e) {
+      setMemoryError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setMemoryLoading(false)
+    }
+  }, [investigationInputParams, driverA])
+
+  const runCompare = useCallback(async () => {
+    setCompareLoading(true)
+    setCompareError(null)
+    setComparison(null)
+    try {
+      const a = investigationInputParams()
+      const b = new URLSearchParams(a)
+      b.set('b_question_type', a.get('question_type') || '')
+      b.set('b_driver_a', a.get('driver_a') || '')
+      b.set('b_driver_b', a.get('driver_b') || '')
+      b.set('b_season', a.get('season') || '')
+      b.set('b_round', a.get('round') || '')
+      if (b.get('lap_number')) b.set('b_lap_number', compareLap.toString())
+      ;['question_type', 'lap_number'].forEach((k) => b.delete(k))
+      const resp = await fetch(`/api/catalog/engineering-investigation/compare?${b}`)
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => null)
+        throw new Error(detail?.detail || `Compare request failed (${resp.status})`)
+      }
+      setComparison((await resp.json()) as CompareResult)
+    } catch (e) {
+      setCompareError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCompareLoading(false)
+    }
+  }, [investigationInputParams, compareLap])
 
   return (
     <div className="panel">
@@ -639,6 +776,132 @@ export default function InvestigationView() {
               <li key={i}>{b}</li>
             ))}
           </ul>
+
+          {/* ---------- 6O: REPLAY ---------- */}
+          <h3>Replay (Phase 6O)</h3>
+          <button onClick={runReplay} disabled={loading || replayLoading}>
+            {replayLoading ? 'Replaying…' : 'Replay investigation'}
+          </button>
+          {replayError && <p className="error">{replayError}</p>}
+          {replay && (
+            <p className="muted small">
+              snapshot <code>{replay.snapshot?.snapshot_hash}</code> → replay{' '}
+              <code>{replay.replay_hash}</code>:{' '}
+              <Chip state={replay.identical ? 'SUPPORTED' : 'CONTRADICTED'} />{' '}
+              {replay.status}
+              {replay.difference_count > 0 && ` · ${replay.difference_count} difference(s)`}
+            </p>
+          )}
+
+          {/* ---------- 6O: MEMORY ---------- */}
+          <h3>Engineering memory (Phase 6O)</h3>
+          <p className="muted small">
+            Evidence-bound, scope-limited memory derived on-read from this
+            investigation (exact scope matching only; a related prior
+            investigation never transfers its conclusion).
+          </p>
+          <button onClick={runMemory} disabled={loading || memoryLoading}>
+            {memoryLoading ? 'Retrieving…' : 'Retrieve engineering memory'}
+          </button>
+          {memoryError && <p className="error">{memoryError}</p>}
+          {memory && (
+            <table className="catalog-table">
+              <thead>
+                <tr>
+                  <th>Memory ID</th>
+                  <th>Statement</th>
+                  <th>Class</th>
+                  <th>Validity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {memory.matching_memory_items.map((m) => (
+                  <tr key={m.memory_id}>
+                    <td className="small"><code>{m.memory_id.slice(0, 12)}</code></td>
+                    <td className="small">{m.statement}</td>
+                    <td className="small">{m.evidence_type} · {m.claim_class}</td>
+                    <td className="small">{m.validity_status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* ---------- 6O: COMPARE ---------- */}
+          <h3>Compare (Phase 6O)</h3>
+          <p className="muted small">
+            Descriptive deltas only — no ranking, no better/worse. Evidence
+            loss is never resolution; MODELLED counterfactuals stay separate
+            from historical evidence.
+          </p>
+          <div className="controls">
+            <label>
+              B lap:{' '}
+              <input type="number" min={1} value={compareLap}
+                     onChange={(e) => setCompareLap(Number(e.target.value))}
+                     style={{ width: 60 }} />
+            </label>
+            <button onClick={runCompare} disabled={loading || compareLoading}>
+              {compareLoading ? 'Comparing…' : 'Compare with lap B'}
+            </button>
+          </div>
+          {compareError && <p className="error">{compareError}</p>}
+          {comparison && (
+            <div>
+              <p className="muted small">
+                compatibility:{' '}
+                <Chip state={comparison.compatibility.state === 'COMPARABLE' ? 'SUPPORTED'
+                              : comparison.compatibility.state === 'PARTIALLY_COMPARABLE' ? 'PARTIALLY_SUPPORTED'
+                              : 'NOT_SUPPORTED'} />{' '}
+                {comparison.compatibility.state}
+                {(comparison.compatibility.differing_scope_keys?.length ?? 0) > 0 &&
+                  ` (differing: ${comparison.compatibility.differing_scope_keys?.join(', ')})`}{' '}
+                · synthesis: {comparison.synthesis_delta.old_conclusion_state} →{' '}
+                {comparison.synthesis_delta.new_conclusion_state} ({comparison.synthesis_delta.transition})
+              </p>
+              <table className="catalog-table">
+                <thead>
+                  <tr>
+                    <th>Hypothesis</th>
+                    <th>A</th>
+                    <th>B</th>
+                    <th>Changed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparison.hypothesis_deltas.map((d) => (
+                    <tr key={d.hypothesis_id}>
+                      <td className="small">{HYP_LABELS[d.hypothesis_id] || d.hypothesis_id}</td>
+                      <td><Chip state={d.old_state} /></td>
+                      <td><Chip state={d.new_state} /></td>
+                      <td className="small">{d.state_changed ? 'STATE_CHANGED' : 'unchanged'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <table className="catalog-table">
+                <thead>
+                  <tr>
+                    <th>Falsification delta</th>
+                    <th>Hypotheses</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparison.falsification_deltas.map((d, i) => (
+                    <tr key={i}>
+                      <td className="small">{d.change_type}</td>
+                      <td className="small">
+                        {d.hypothesis_ids.map((h: string) => HYP_LABELS[h] || h).join(', ') || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                  {comparison.falsification_deltas.length === 0 && (
+                    <tr><td colSpan={2} className="muted small">no falsification deltas</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

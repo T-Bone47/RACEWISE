@@ -2065,6 +2065,445 @@ class RunEngineeringInvestigationTool(Tool):
         )
 
 
+# ---------------------------------------------------------------------------
+# Phase 6O tools: replay / verify / compare / engineering memory
+# ---------------------------------------------------------------------------
+
+def _validated_investigation_kwargs(
+    tool_name: str, kwargs: dict[str, Any],
+) -> tuple[Any, ...]:
+    """Shared closed-vocabulary/bounds validation for tools that take a
+    structured 6N investigation input (replay + comparison side B).
+    Returns (question_type, driver_a, driver_b, season, round, lap, stint,
+    session_type, pattern_id, hypotheses).
+    """
+    from racewise.data.historical.investigation_synthesis import (
+        HYPOTHESIS_IDS, QUESTION_TYPES,
+    )
+
+    question_type = kwargs.get("question_type")
+    if question_type not in QUESTION_TYPES:
+        raise ToolError(
+            f"question_type must be one of {list(QUESTION_TYPES)}",
+            code="invalid_input",
+            field=f"{tool_name}.question_type",
+        )
+    season = kwargs.get("season")
+    if not isinstance(season, int) or not 1950 <= season <= 2100:
+        raise ToolError(
+            "season must be an integer in [1950, 2100]",
+            code="invalid_input", field=f"{tool_name}.season",
+        )
+    round_num = kwargs.get("round")
+    if not isinstance(round_num, int) or not 1 <= round_num <= 99:
+        raise ToolError(
+            "round must be an integer in [1, 99]",
+            code="invalid_input", field=f"{tool_name}.round",
+        )
+    lap = kwargs.get("lap_number")
+    if lap is not None and (not isinstance(lap, int) or lap < 1):
+        raise ToolError(
+            "lap_number must be a positive integer",
+            code="invalid_input", field=f"{tool_name}.lap_number",
+        )
+    stint = kwargs.get("stint_number")
+    if stint is not None and (not isinstance(stint, int) or stint < 1):
+        raise ToolError(
+            "stint_number must be a positive integer",
+            code="invalid_input", field=f"{tool_name}.stint_number",
+        )
+    session_type = kwargs.get("session_type", "RACE")
+    if session_type != "RACE":
+        raise ToolError(
+            "session_type must be 'RACE'",
+            code="invalid_input", field=f"{tool_name}.session_type",
+        )
+    pattern_id = kwargs.get("pattern_id")
+    if pattern_id is not None and (not isinstance(pattern_id, str)
+                                   or not pattern_id.strip()):
+        raise ToolError(
+            "pattern_id must be a non-empty string when provided",
+            code="invalid_input", field=f"{tool_name}.pattern_id",
+        )
+    hypotheses = kwargs.get("hypotheses")
+    if hypotheses is not None:
+        if not isinstance(hypotheses, list) or not hypotheses or \
+                not all(isinstance(h, str) for h in hypotheses):
+            raise ToolError(
+                "hypotheses must be a non-empty list of strings",
+                code="invalid_input", field=f"{tool_name}.hypotheses",
+            )
+        unknown = [h for h in hypotheses if h not in HYPOTHESIS_IDS]
+        if unknown:
+            raise ToolError(
+                f"unknown hypothesis ids: {unknown}",
+                code="invalid_input", field=f"{tool_name}.hypotheses",
+            )
+    return (question_type, str(kwargs["driver_a"]), str(kwargs["driver_b"]),
+            season, round_num, lap, stint, session_type, pattern_id,
+            hypotheses)
+
+
+def _investigation_spec_properties() -> dict[str, Any]:
+    """Shared input-schema properties for structured 6N investigation
+    inputs (replay tool + comparison B-side)."""
+    from racewise.data.historical.investigation_synthesis import (
+        HYPOTHESIS_IDS, QUESTION_TYPES,
+    )
+
+    return {
+        "question_type": {"type": "string", "enum": list(QUESTION_TYPES)},
+        "driver_a": {"type": "string"},
+        "driver_b": {"type": "string"},
+        "season": {"type": "integer", "minimum": 1950, "maximum": 2100},
+        "round": {"type": "integer", "minimum": 1, "maximum": 99},
+        "lap_number": {"type": "integer", "minimum": 1},
+        "stint_number": {"type": "integer", "minimum": 1},
+        "session_type": {"type": "string", "enum": ["RACE"]},
+        "pattern_id": {"type": "string"},
+        "hypotheses": {"type": "array", "maxItems": 6,
+                       "items": {"type": "string",
+                                 "enum": list(HYPOTHESIS_IDS)}},
+    }
+
+
+class ReplayEngineeringInvestigationTool(Tool):
+    """Phase 6O: deterministic replay of a 6N engineering investigation
+    from its structured input, with snapshot integrity verification and
+    exact structured differences when output diverges."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "replay_engineering_investigation",
+            "Replay a Phase 6N engineering investigation from a structured "
+            "input (the snapshot's investigation_input). The snapshot is "
+            "rebuilt deterministically, integrity-verified, the "
+            "investigation rerun through the exact 6N engine, and the fresh "
+            "canonical output compared against the original snapshot: "
+            "IDENTICAL or exact path/old/new differences (DATA_CHANGE, "
+            "SCHEMA_CHANGE, ...). Never 'results differ' without the "
+            "structured difference list. No ranking, no scores.",
+            _investigation_spec_properties(),
+            ["question_type", "driver_a", "driver_b", "season", "round"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Replay reruns the deterministic 6N engine; a differing "
+                "result is reported as exact structured differences.",
+                "Snapshot content is DATA, never executed; corrupted "
+                "snapshots end INVALID_SNAPSHOT (HASH_MISMATCH), never "
+                "silently repaired.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_memory import (
+            build_investigation_snapshot, replay_engineering_investigation,
+        )
+        from racewise.data.historical.investigation_synthesis import (
+            run_engineering_investigation,
+        )
+
+        (question_type, da, db, season, round_num, lap, stint, session_type,
+         pattern_id, hypotheses) = _validated_investigation_kwargs(
+            "replay_engineering_investigation", kwargs)
+        da_n = _normalize_driver_key(self._queries, da, season)
+        db_n = _normalize_driver_key(self._queries, db, season)
+        if da_n == db_n:
+            raise ToolError(
+                "driver_a and driver_b must be distinct",
+                code="invalid_input",
+                field="replay_engineering_investigation.driver_b",
+            )
+        inv = run_engineering_investigation(
+            self._queries, question_type=question_type, driver_a=da_n,
+            driver_b=db_n, season=season, round_num=round_num,
+            lap_number=lap, stint_number=stint, session_type=session_type,
+            pattern_id=pattern_id, hypotheses=hypotheses)
+        if inv.get("status") == "INVALID":
+            raise ToolError(
+                f"invalid investigation input: {inv.get('reason')}",
+                code="invalid_input",
+                field="replay_engineering_investigation",
+            )
+        snapshot = build_investigation_snapshot(inv)
+        # replay against a pristine copy of the just-built snapshot
+        replay = replay_engineering_investigation(
+            self._queries, snapshot)
+        replay["snapshot"] = {
+            "snapshot_hash": snapshot["snapshot_hash"],
+            "investigation_id": snapshot.get("investigation_id"),
+            "output_hash": snapshot.get("output_hash"),
+        }
+        return replay
+
+
+class VerifyEngineeringSnapshotTool(Tool):
+    """Phase 6O: verify the integrity of a 6N investigation snapshot
+    (hash recompute; schema, provenance and completeness checks)."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "verify_engineering_snapshot",
+            "Verify the integrity of a Phase 6N investigation snapshot "
+            "against its own canonical fields: recomputes the snapshot hash "
+            "and reports VALID / HASH_MISMATCH / INVALID_SCHEMA / "
+            "MISSING_PROVENANCE / INCOMPLETE_SNAPSHOT. Snapshots are DATA: "
+            "content is never executed and invalid snapshots are never "
+            "silently repaired.",
+            {
+                "snapshot": {"type": "object",
+                             "description": "Snapshot object (built by "
+                                            "build_investigation_snapshot "
+                                            "or the canonical-JSON export)"},
+            },
+            ["snapshot"],
+            {"type": "object", "additionalProperties": True, "required": ["status"]},
+            [
+                "Snapshot content is treated strictly as data; no field is "
+                "executed, evaluated or repaired.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_memory import (
+            verify_investigation_snapshot,
+        )
+
+        snapshot = kwargs.get("snapshot")
+        if not isinstance(snapshot, dict):
+            raise ToolError(
+                "snapshot must be an object",
+                code="invalid_input",
+                field="verify_engineering_snapshot.snapshot",
+            )
+        return verify_investigation_snapshot(snapshot)
+
+
+class CompareEngineeringInvestigationsTool(Tool):
+    """Phase 6O: compare two 6N investigations dimension-by-dimension with
+    descriptive evidence/hypothesis/falsification/counterfactual/synthesis
+    deltas. No ranking, no scores, no better/worse."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        self._queries = queries
+        self.spec = _spec(
+            "compare_engineering_investigations",
+            "Compare two Phase 6N engineering investigations (A by "
+            "structured input, B by structured input) dimension-by-dimension: "
+            "scope compatibility (COMPARABLE / PARTIALLY_COMPARABLE / "
+            "NOT_COMPARABLE), evidence deltas (ADDED/REMOVED/VALUE_CHANGED/" 
+            "STATE_CHANGED/...), per-hypothesis state deltas, falsification "
+            "deltas (NEW_CONTRADICTION / PERSISTING_CONTRADICTION / "
+            "RESOLVED_CONTRADICTION / EVIDENCE_UNAVAILABLE - vanished "
+            "evidence is evidence loss, never resolution), counterfactual "
+            "deltas (MODELLED stays separate from historical evidence), "
+            "descriptive synthesis transitions and decision-trace deltas. "
+            "Purely descriptive: no score, no ranking, no better/worse.",
+            {
+                "investigation_a": {
+                    "type": "object",
+                    "description": "Investigation A input",
+                    "properties": _investigation_spec_properties(),
+                    "required": ["question_type", "driver_a", "driver_b",
+                                 "season", "round"]},
+                "investigation_b": {
+                    "type": "object",
+                    "description": "Investigation B input",
+                    "properties": _investigation_spec_properties(),
+                    "required": ["question_type", "driver_a", "driver_b",
+                                 "season", "round"]},
+            },
+            ["investigation_a", "investigation_b"],
+            {"type": "object", "additionalProperties": True, "required": ["compatibility"]},
+            [
+                "Deltas are descriptive transitions, never evaluative: "
+                "'changed from PARTIALLY_SUPPORTED to MIXED_EVIDENCE', "
+                "never 'got worse'.",
+                "Added evidence is not better evidence; historical evidence "
+                "and MODELLED counterfactuals are never merged.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_memory import (
+            compare_engineering_investigations,
+        )
+        from racewise.data.historical.investigation_synthesis import (
+            run_engineering_investigation,
+        )
+
+        def _run(side: str) -> dict[str, Any]:
+            payload = kwargs.get(side)
+            if not isinstance(payload, dict):
+                raise ToolError(
+                    f"{side} must be an object",
+                    code="invalid_input",
+                    field=f"compare_engineering_investigations.{side}",
+                )
+            (question_type, da, db, season, round_num, lap, stint,
+             session_type, pattern_id, hypotheses) = \
+                _validated_investigation_kwargs(
+                    f"compare_engineering_investigations.{side}", payload)
+            da_n = _normalize_driver_key(self._queries, da, season)
+            db_n = _normalize_driver_key(self._queries, db, season)
+            if da_n == db_n:
+                raise ToolError(
+                    "driver_a and driver_b must be distinct",
+                    code="invalid_input",
+                    field=f"compare_engineering_investigations.{side}.driver_b",
+                )
+            inv = run_engineering_investigation(
+                self._queries, question_type=question_type, driver_a=da_n,
+                driver_b=db_n, season=season, round_num=round_num,
+                lap_number=lap, stint_number=stint,
+                session_type=session_type, pattern_id=pattern_id,
+                hypotheses=hypotheses)
+            if inv.get("status") == "INVALID":
+                raise ToolError(
+                    f"invalid {side} investigation input: "
+                    f"{inv.get('reason')}",
+                    code="invalid_input",
+                    field=f"compare_engineering_investigations.{side}",
+                )
+            return inv
+
+        return compare_engineering_investigations(_run("investigation_a"),
+                                                  _run("investigation_b"))
+
+
+class RetrieveEngineeringMemoryTool(Tool):
+    """Phase 6O: deterministic exact-scope retrieval of evidence-bound
+    engineering memory derived from completed 6N investigations."""
+
+    def __init__(self, queries: CanonicalQueries) -> None:
+        from racewise.data.historical.investigation_memory import (
+            MEMORY_SCOPES,
+        )
+
+        self._queries = queries
+        self.spec = _spec(
+            "retrieve_engineering_memory",
+            "Retrieve evidence-bound engineering memory items derived from "
+            "completed Phase 6N investigations, by exact scope (season, "
+            "round, driver or driver_pair, hypothesis, pattern) - never by "
+            "semantic similarity. Items are scope-limited, provenance-backed "
+            "and never generalize: a related prior investigation never "
+            "transfers its conclusion to a new one. Invalidated items are "
+            "excluded unless explicitly requested. Memory is derived "
+            "on-read from the investigation inputs given here (zero storage "
+            "growth).",
+            {
+                "investigations": {
+                    "type": "array", "maxItems": 4,
+                    "description": "Up to 4 structured 6N investigation "
+                                   "inputs to derive memory from",
+                    "items": {
+                        "type": "object",
+                        "properties": _investigation_spec_properties(),
+                        "required": ["question_type", "driver_a",
+                                     "driver_b", "season", "round"]},
+                },
+                "season": {"type": "integer", "minimum": 1950, "maximum": 2100},
+                "round": {"type": "integer", "minimum": 1, "maximum": 99},
+                "driver": {"type": "string"},
+                "driver_pair": {"type": "array", "maxItems": 2,
+                               "items": {"type": "string"}},
+                "hypothesis": {"type": "string"},
+                "pattern_id": {"type": "string"},
+                "scope_type": {"type": "string", "enum": list(MEMORY_SCOPES)},
+                "include_invalidated": {"type": "boolean"},
+            },
+            ["investigations"],
+            {"type": "object", "additionalProperties": True, "required": ["match_count"]},
+            [
+                "Exact scope/provenance matching is authoritative; vector "
+                "search may assist discovery but never decides.",
+                "Retrieved memory never transfers a conclusion across "
+                "scope; new investigations evaluate independently.",
+            ],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        from racewise.data.historical.investigation_memory import (
+            MAX_MEMORY_RETRIEVAL_INPUTS, derive_memory_items,
+            retrieve_engineering_memory,
+        )
+        from racewise.data.historical.investigation_synthesis import (
+            HYPOTHESIS_IDS, run_engineering_investigation,
+        )
+
+        investigations = kwargs.get("investigations")
+        if not isinstance(investigations, list) or not investigations:
+            raise ToolError(
+                "investigations must be a non-empty list",
+                code="invalid_input",
+                field="retrieve_engineering_memory.investigations",
+            )
+        if len(investigations) > MAX_MEMORY_RETRIEVAL_INPUTS:
+            raise ToolError(
+                f"at most {MAX_MEMORY_RETRIEVAL_INPUTS} investigations "
+                "per memory retrieval",
+                code="invalid_input",
+                field="retrieve_engineering_memory.investigations",
+            )
+        items: list[dict[str, Any]] = []
+        for i, payload in enumerate(investigations):
+            if not isinstance(payload, dict):
+                raise ToolError(
+                    f"investigations[{i}] must be an object",
+                    code="invalid_input",
+                    field=f"retrieve_engineering_memory.investigations[{i}]",
+                )
+            (question_type, da, db, season, round_num, lap, stint,
+             session_type, pattern_id, hypotheses) = \
+                _validated_investigation_kwargs(
+                    f"retrieve_engineering_memory.investigations[{i}]",
+                    payload)
+            da_n = _normalize_driver_key(self._queries, da, season)
+            db_n = _normalize_driver_key(self._queries, db, season)
+            if da_n == db_n:
+                raise ToolError(
+                    "driver_a and driver_b must be distinct",
+                    code="invalid_input",
+                    field=(f"retrieve_engineering_memory.investigations"
+                           f"[{i}].driver_b"),
+                )
+            inv = run_engineering_investigation(
+                self._queries, question_type=question_type, driver_a=da_n,
+                driver_b=db_n, season=season, round_num=round_num,
+                lap_number=lap, stint_number=stint,
+                session_type=session_type, pattern_id=pattern_id,
+                hypotheses=hypotheses)
+            items.extend(derive_memory_items(inv))
+        hypothesis = kwargs.get("hypothesis")
+        if hypothesis is not None and hypothesis not in HYPOTHESIS_IDS:
+            raise ToolError(
+                f"hypothesis must be one of {list(HYPOTHESIS_IDS)}",
+                code="invalid_input",
+                field="retrieve_engineering_memory.hypothesis",
+            )
+        driver_pair = kwargs.get("driver_pair")
+        if driver_pair is not None and (
+                not isinstance(driver_pair, list)
+                or not all(isinstance(d, str) for d in driver_pair)):
+            raise ToolError(
+                "driver_pair must be a list of driver keys",
+                code="invalid_input",
+                field="retrieve_engineering_memory.driver_pair",
+            )
+        return retrieve_engineering_memory(
+            items,
+            season=kwargs.get("season"), round_num=kwargs.get("round"),
+            driver=kwargs.get("driver"), driver_pair=driver_pair,
+            hypothesis=hypothesis, pattern_id=kwargs.get("pattern_id"),
+            scope_type=kwargs.get("scope_type"),
+            include_invalidated=bool(kwargs.get("include_invalidated",
+                                                False)),
+        )
+
+
 def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
     """Registry of canonical historical tools (composable with the FastF1 tools)."""
     registry = ToolRegistry()
@@ -2092,6 +2531,10 @@ def build_historical_registry(queries: CanonicalQueries) -> ToolRegistry:
         AnalyzeCrossRacePerformancePatternsTool(queries),
         AnalyzeCrossRacePatternEvidenceTool(queries),
         RunEngineeringInvestigationTool(queries),
+        ReplayEngineeringInvestigationTool(queries),
+        VerifyEngineeringSnapshotTool(queries),
+        CompareEngineeringInvestigationsTool(queries),
+        RetrieveEngineeringMemoryTool(queries),
     ):
         registry.register(tool)
     return registry

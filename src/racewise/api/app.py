@@ -961,6 +961,218 @@ def catalog_engineering_investigation(
     )
 
 
+def _investigation_input_from_params(
+    prefix: str,
+    question_type: str,
+    driver_a: str,
+    driver_b: str,
+    season: int,
+    round_num: int,
+    lap_number: int,
+    stint_number: int,
+    pattern_id: str,
+    hypotheses: str,
+) -> dict[str, Any]:
+    """Shared query-param parsing + validation for 6O endpoints that take
+    a structured 6N investigation input (``prefix`` is 'a' or 'b')."""
+    from racewise.data.historical.investigation_synthesis import (
+        HYPOTHESIS_IDS, QUESTION_TYPES,
+    )
+
+    p = f"{prefix}_"
+    if question_type not in QUESTION_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{p}question_type must be one of {list(QUESTION_TYPES)}")
+    if not 1950 <= int(season) <= 2100:
+        raise HTTPException(status_code=422,
+                            detail=f"{p}season out of bounds [1950, 2100]")
+    if not 1 <= int(round_num) <= 99:
+        raise HTTPException(status_code=422,
+                            detail=f"{p}round out of bounds [1, 99]")
+    hyp_list: Optional[list[str]] = None
+    if hypotheses.strip():
+        hyp_list = [h.strip() for h in hypotheses.split(",") if h.strip()]
+        unknown = [h for h in hyp_list if h not in HYPOTHESIS_IDS]
+        if unknown:
+            raise HTTPException(status_code=422,
+                                detail=f"{p}unknown hypothesis ids: {unknown}")
+        if not hyp_list:
+            hyp_list = None
+    return {
+        "question_type": question_type,
+        "driver_a": driver_a,
+        "driver_b": driver_b,
+        "season": int(season),
+        "round_num": int(round_num),
+        "lap_number": int(lap_number) if lap_number else None,
+        "stint_number": int(stint_number) if stint_number else None,
+        "session_type": "RACE",
+        "pattern_id": pattern_id if pattern_id.strip() else None,
+        "hypotheses": hyp_list,
+    }
+
+
+@app.get("/api/catalog/engineering-investigation/replay")
+def catalog_engineering_investigation_replay(
+    question_type: str = "",
+    driver_a: str = "",
+    driver_b: str = "",
+    season: int = 0,
+    round: int = 0,
+    lap_number: int = 0,
+    stint_number: int = 0,
+    pattern_id: str = "",
+    hypotheses: str = "",
+) -> dict[str, Any]:
+    """Phase 6O: deterministic replay of an engineering investigation.
+
+    Rebuilds the snapshot from the structured input, reruns the exact 6N
+    engine and reports IDENTICAL or the exact structured differences.
+    Snapshots are data, never executed; nothing is persisted (zero storage
+    growth). No ranking, no scores.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_memory import (
+        build_investigation_snapshot, replay_engineering_investigation,
+    )
+    from racewise.data.historical.investigation_synthesis import (
+        run_engineering_investigation,
+    )
+
+    spec = _investigation_input_from_params(
+        "", question_type, driver_a, driver_b, season, round, lap_number,
+        stint_number, pattern_id, hypotheses)
+    queries = get_canonical_queries()
+    inv = run_engineering_investigation(queries, **spec)
+    if inv.get("status") == "INVALID":
+        raise HTTPException(status_code=422,
+                            detail=f"invalid investigation input: {inv.get('reason')}")
+    if inv.get("status") != "VALID":
+        return {"status": inv.get("status"), "reason": inv.get("reason")}
+    snapshot = build_investigation_snapshot(inv)
+    replay = replay_engineering_investigation(queries, snapshot)
+    replay["snapshot"] = {
+        "snapshot_hash": snapshot["snapshot_hash"],
+        "investigation_id": snapshot.get("investigation_id"),
+        "output_hash": snapshot.get("output_hash"),
+    }
+    return replay
+
+
+@app.get("/api/catalog/engineering-investigation/compare")
+def catalog_engineering_investigation_compare(
+    a_question_type: str = "",
+    a_driver_a: str = "",
+    a_driver_b: str = "",
+    a_season: int = 0,
+    a_round: int = 0,
+    a_lap_number: int = 0,
+    a_stint_number: int = 0,
+    a_pattern_id: str = "",
+    a_hypotheses: str = "",
+    b_question_type: str = "",
+    b_driver_a: str = "",
+    b_driver_b: str = "",
+    b_season: int = 0,
+    b_round: int = 0,
+    b_lap_number: int = 0,
+    b_stint_number: int = 0,
+    b_pattern_id: str = "",
+    b_hypotheses: str = "",
+) -> dict[str, Any]:
+    """Phase 6O: dimension-wise comparison of two 6N investigations.
+
+    Descriptive deltas only: scope compatibility, evidence deltas,
+    hypothesis state deltas, falsification deltas (vanished evidence stays
+    evidence loss, never resolution), counterfactual deltas, synthesis
+    transitions and decision-trace deltas. No score, no ranking.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_memory import (
+        compare_engineering_investigations,
+    )
+    from racewise.data.historical.investigation_synthesis import (
+        run_engineering_investigation,
+    )
+
+    queries = get_canonical_queries()
+    sides: list[dict[str, Any]] = []
+    for prefix, args in (("a", (a_question_type, a_driver_a, a_driver_b,
+                               a_season, a_round, a_lap_number,
+                               a_stint_number, a_pattern_id, a_hypotheses)),
+                         ("b", (b_question_type, b_driver_a, b_driver_b,
+                                b_season, b_round, b_lap_number,
+                                b_stint_number, b_pattern_id,
+                                b_hypotheses))):
+        spec = _investigation_input_from_params(prefix, *args)
+        inv = run_engineering_investigation(queries, **spec)
+        if inv.get("status") == "INVALID":
+            raise HTTPException(
+                status_code=422,
+                detail=(f"invalid investigation {prefix}: {inv.get('reason')}"))
+        sides.append(inv)
+    return compare_engineering_investigations(sides[0], sides[1])
+
+
+@app.get("/api/catalog/engineering-memory")
+def catalog_engineering_memory(
+    question_type: str = "",
+    driver_a: str = "",
+    driver_b: str = "",
+    season: int = 0,
+    round: int = 0,
+    lap_number: int = 0,
+    stint_number: int = 0,
+    pattern_id: str = "",
+    hypotheses: str = "",
+    driver: str = "",
+    hypothesis: str = "",
+    include_invalidated: bool = False,
+) -> dict[str, Any]:
+    """Phase 6O: evidence-bound engineering memory by exact scope.
+
+    Memory items are derived on-read from the supplied investigation input
+    (structured, provenance-backed, scope-limited) and retrieved by exact
+    scope matching - never semantic similarity, never generalization: a
+    related prior investigation never transfers its conclusion. Nothing is
+    persisted (zero storage growth).
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.investigation_memory import (
+        derive_memory_items, retrieve_engineering_memory,
+    )
+    from racewise.data.historical.investigation_synthesis import (
+        HYPOTHESIS_IDS, run_engineering_investigation,
+    )
+
+    spec = _investigation_input_from_params(
+        "", question_type, driver_a, driver_b, season, round, lap_number,
+        stint_number, pattern_id, hypotheses)
+    if hypothesis and hypothesis not in HYPOTHESIS_IDS:
+        raise HTTPException(status_code=422,
+                            detail=f"hypothesis must be one of {list(HYPOTHESIS_IDS)}")
+    queries = get_canonical_queries()
+    inv = run_engineering_investigation(queries, **spec)
+    if inv.get("status") == "INVALID":
+        raise HTTPException(status_code=422,
+                            detail=f"invalid investigation input: {inv.get('reason')}")
+    if inv.get("status") != "VALID":
+        return {"status": inv.get("status"), "reason": inv.get("reason"),
+                "matching_memory_items": [], "match_count": 0}
+    items = derive_memory_items(inv)
+    return retrieve_engineering_memory(
+        items,
+        season=int(season) if season else None,
+        round_num=int(round) if round else None,
+        driver=driver if driver.strip() else None,
+        hypothesis=hypothesis if hypothesis.strip() else None,
+        pattern_id=pattern_id if pattern_id.strip() else None,
+        scope_type=None,
+        include_invalidated=bool(include_invalidated),
+    )
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

@@ -263,3 +263,59 @@ class TestMCPEngineeringInvestigation:
                           "season": 2023, "round": 1})
         assert env["ok"] is False
         assert env["error"]["code"] == "invalid_input"
+
+
+@pytest.mark.skipif(not DB_PATH.exists(), reason="canonical DB not ingested")
+class TestMCPInvestigationMemory:
+    """Phase 6O: replay / verify / compare / memory over the real server."""
+
+    LAP6 = {"question_type": "LAP_PERFORMANCE",
+            "driver_a": "max-verstappen", "driver_b": "sergio-perez",
+            "season": 2023, "round": 1, "lap_number": 6}
+
+    def _call(self, name: str, arguments: dict) -> dict:
+        responses = _exchange([
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+             "params": {"name": name, "arguments": arguments}},
+        ])
+        return json.loads(responses[1]["result"]["content"][0]["text"])
+
+    def test_tools_list_includes_memory_tools(self):
+        responses = _exchange([
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        ])
+        names = {t["name"] for t in responses[1]["result"]["tools"]}
+        assert {"replay_engineering_investigation",
+                "verify_engineering_snapshot",
+                "compare_engineering_investigations",
+                "retrieve_engineering_memory"} <= names
+
+    def test_replay_deterministic_repeat(self):
+        strip = lambda d: {k: v for k, v in d.items() if k != "duration_ms"}
+        first = self._call("replay_engineering_investigation", self.LAP6)
+        assert first["ok"] is True
+        assert first["output"]["status"] == "IDENTICAL"
+        assert strip(first) == strip(
+            self._call("replay_engineering_investigation", self.LAP6))
+
+    def test_compare_and_memory_wire(self):
+        cmp1 = self._call("compare_engineering_investigations", {
+            "investigation_a": self.LAP6,
+            "investigation_b": {**self.LAP6, "lap_number": 11}})
+        assert cmp1["output"]["compatibility"]["state"] == \
+            "PARTIALLY_COMPARABLE"
+        mem = self._call("retrieve_engineering_memory", {
+            "investigations": [self.LAP6], "season": 2023, "round": 1})
+        assert mem["output"]["match_count"] > 0
+        scope_miss = self._call("retrieve_engineering_memory", {
+            "investigations": [self.LAP6], "season": 1999})
+        assert scope_miss["output"]["match_count"] == 0
+
+    def test_memory_unknown_param_rejected(self):
+        env = self._call("retrieve_engineering_memory", {
+            "investigations": [self.LAP6], "bogus": True})
+        assert env["ok"] is False
+        assert env["error"]["code"] == "invalid_input"
