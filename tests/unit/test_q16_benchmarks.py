@@ -107,4 +107,4 @@ class TestQ16NegativeControls:
         mcp = q16_report["mcp"]
         assert mcp["tool_registered"] is True
         assert mcp["same_driver_rejected"] is True
-        assert mcp["historical_tool_count"] == 23
+        assert mcp["historical_tool_count"] == 27

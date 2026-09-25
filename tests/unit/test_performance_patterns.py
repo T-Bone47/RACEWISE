@@ -420,7 +420,7 @@ class TestMcpBoundary:
         from racewise.data.historical.canonical_queries import CanonicalQueries
 
         reg = build_historical_registry(CanonicalQueries())
-        assert len(reg._tools) == 23  # 22 pre-6N historical + investigation (Phase 6N)
+        assert len(reg._tools) == 27  # 23 pre-6O historical + 4 memory tools (Phase 6O)
 
 
 @requires_db
