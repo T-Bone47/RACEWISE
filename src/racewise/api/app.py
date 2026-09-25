@@ -779,6 +779,88 @@ def catalog_performance_patterns(
     )
 
 
+@app.get("/api/catalog/performance-pattern-evidence")
+def catalog_performance_pattern_evidence(
+    driver_a: str = "",
+    driver_b: str = "",
+    pattern_id: str = "",
+    seasons: str = "",
+    max_occurrences: int = 8,
+    max_races: int = 8,
+) -> dict[str, Any]:
+    """Cross-race evidence investigation of one recurring pattern (bounded).
+
+    Query-style endpoint (6L convention: cross-race scope does not fit the
+    per-session path). pattern_id is required and must be one of the
+    recurring pattern ids from /api/catalog/performance-patterns browsed at
+    the same max_races (6L pattern ids are corpus-scope-dependent). The six
+    hypotheses are always reported independently and are never ranked;
+    contradictions are preserved; residuals are never assigned; model
+    sensitivity stays a model property. Evidence aggregation happens
+    server-side; the frontend renders only.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.performance_evidence import (
+        MAX_OCCURRENCES, analyze_cross_race_pattern_evidence,
+    )
+    from racewise.data.historical.performance_patterns import MAX_RACES
+
+    if not pattern_id.strip():
+        raise HTTPException(status_code=422, detail="pattern_id is required")
+    if not 1 <= int(max_occurrences) <= MAX_OCCURRENCES:
+        raise HTTPException(status_code=422,
+                            detail=(f"max_occurrences out of bounds "
+                                    f"[1, {MAX_OCCURRENCES}]"))
+    if not 1 <= int(max_races) <= MAX_RACES:
+        raise HTTPException(status_code=422,
+                            detail=f"max_races out of bounds [1, {MAX_RACES}]")
+    season_list: Optional[list[int]] = None
+    if seasons.strip():
+        try:
+            season_list = [int(s) for s in seasons.split(",") if s.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422,
+                                detail="seasons must be comma-separated integers")
+        if not season_list:
+            raise HTTPException(status_code=422, detail="seasons list is empty")
+    queries = get_canonical_queries()
+    if not driver_a or not driver_b:
+        # default pair: canonical telemetry pair of the newest season in the
+        # corpus scope (same Phase 6D-derived policy as /performance-patterns)
+        season_for_pair = (max(season_list) if season_list
+                           else max((int(x["season"]) for x in
+                                     get_catalog_api().list_sessions(
+                                         session_type="RACE",
+                                         capability="telemetry",
+                                         page_size=200)["sessions"]),
+                                    default=None))
+        if season_for_pair is None:
+            return {"status": "UNAVAILABLE",
+                    "reason": "no telemetry-capable race sessions in the catalog"}
+        first = min((x["round"] for x in
+                     get_catalog_api().list_sessions(
+                         season=season_for_pair, session_type="RACE",
+                         capability="telemetry", page_size=200)["sessions"]),
+                    default=None)
+        if first is None:
+            return {"status": "UNAVAILABLE",
+                    "reason": f"no telemetry-capable race sessions in {season_for_pair}"}
+        pair = queries.get_telemetry_driver_pair(season_for_pair, first, "RACE")
+        if pair is None:
+            return {"status": "UNAVAILABLE", "reason": "no telemetry driver pair"}
+        driver_a, driver_b = pair
+    if driver_a == driver_b:
+        raise HTTPException(status_code=422,
+                            detail="driver_a and driver_b must be distinct")
+    return analyze_cross_race_pattern_evidence(
+        queries, driver_a, driver_b,
+        pattern_id=pattern_id,
+        seasons=season_list,
+        max_occurrences=int(max_occurrences),
+        max_races=int(max_races),
+    )
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

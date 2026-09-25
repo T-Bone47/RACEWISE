@@ -103,7 +103,7 @@ class TestQ14Mcp:
     def test_tool_registered_and_rejecting(self, q14_report):
         mcp = q14_report["mcp"]
         assert mcp["tool_registered"] is True
-        assert mcp["historical_tool_count"] == 21
+        assert mcp["historical_tool_count"] == 22  # 21 pre-6M + evidence (Phase 6M)
         assert mcp["registry_status"] == "VALID"
         for label in ("max_races_oob", "max_patterns_oob", "same_driver",
                       "seasons_not_list", "rounds_not_ints", "circuit_empty",

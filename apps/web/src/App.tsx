@@ -10,6 +10,7 @@ import CounterfactualView from './CounterfactualView'
 import PerformanceEnvelopeView from './PerformanceEnvelopeView'
 import PerformanceRegimeView from './PerformanceRegimeView'
 import PerformancePatternView from './PerformancePatternView'
+import PatternEvidenceView from './PatternEvidenceView'
 
 interface Session {
   year: number
@@ -353,6 +354,8 @@ export default function App() {
       <PerformanceRegimeView />
 
       <PerformancePatternView />
+
+      <PatternEvidenceView />
 
       <div className="controls">
         <div className="session-selector">
