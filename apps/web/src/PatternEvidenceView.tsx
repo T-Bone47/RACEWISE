@@ -165,8 +165,26 @@ function StateChip({ state }: { state: string }) {
   )
 }
 
-export default function PatternEvidenceView() {
-  const [patternId, setPatternId] = useState('')
+export default function PatternEvidenceView(preset?: {
+  patternId?: string
+  driverA?: string
+  driverB?: string
+  seasons?: string
+}) {
+  const hashPreset = (() => {
+    // deep-link support: #/patternevidence?pattern_id=…&driver_a=…&driver_b=…&seasons=…
+    const h = window.location.hash.replace(/^#\/patternevidence\??/, '')
+    if (!h) return undefined
+    const p = new URLSearchParams(h)
+    return {
+      patternId: p.get('pattern_id') || undefined,
+      driverA: p.get('driver_a') || undefined,
+      driverB: p.get('driver_b') || undefined,
+      seasons: p.get('seasons') || undefined,
+    }
+  })()
+  const init = hashPreset ?? preset
+  const [patternId, setPatternId] = useState(init?.patternId || '')
   const [maxOccurrences, setMaxOccurrences] = useState(6)
   const [result, setResult] = useState<EvidenceResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -181,6 +199,14 @@ export default function PatternEvidenceView() {
         pattern_id: patternId.trim(),
         max_occurrences: String(maxOccurrences),
       })
+      // scope binding: the pattern corpus is driver-pair and season dependent;
+      // without these the server falls back to a default pair whose corpus
+      // cannot contain the requested pattern
+      if (init?.driverA && init?.driverB) {
+        params.set('driver_a', init.driverA)
+        params.set('driver_b', init.driverB)
+      }
+      if (init?.seasons) params.set('seasons', init.seasons)
       const resp = await fetch(`/api/catalog/performance-pattern-evidence?${params}`)
       if (!resp.ok) {
         const detail = await resp.json().catch(() => null)
@@ -194,7 +220,7 @@ export default function PatternEvidenceView() {
     } finally {
       setLoading(false)
     }
-  }, [patternId, maxOccurrences])
+  }, [patternId, maxOccurrences, init?.driverA, init?.driverB, init?.seasons])
 
   return (
     <div className="panel">

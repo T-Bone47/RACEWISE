@@ -84,6 +84,8 @@ interface PatternsResult {
   non_recurring_group_count?: number
   pattern_count?: number
   patterns?: Pattern[]
+  driver_a?: string
+  driver_b?: string
   output_hash?: string
 }
 
@@ -206,6 +208,19 @@ export default function PerformancePatternView() {
                 Pattern {p.pattern_id.slice(0, 8)} · {p.canonical_signature.trend_classification}{' '}
                 · observed in {p.independent_races} independent races ({p.occurrence_count}{' '}
                 regimes)
+                {' '}
+                <a
+                  className="mono"
+                  href={`#/patternevidence?pattern_id=${encodeURIComponent(p.pattern_id)}` +
+                    (result?.driver_a && result?.driver_b
+                      ? `&driver_a=${encodeURIComponent(result.driver_a)}` +
+                       `&driver_b=${encodeURIComponent(result.driver_b)}`
+                      : '') +
+                    `&seasons=${encodeURIComponent(seasonScope)}`}
+                  style={{ fontSize: '0.8em', marginLeft: 8 }}
+                >
+                  Investigate evidence →
+                </a>
               </h3>
               <p className="muted small">
                 Repeat type: {p.repeat_type} · telemetry: {p.canonical_signature.telemetry_status}{' '}

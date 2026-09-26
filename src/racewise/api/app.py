@@ -828,6 +828,7 @@ def catalog_performance_pattern_evidence(
     if not driver_a or not driver_b:
         # default pair: canonical telemetry pair of the newest season in the
         # corpus scope (same Phase 6D-derived policy as /performance-patterns)
+        from racewise.data.historical.catalog_api import get_catalog_api
         season_for_pair = (max(season_list) if season_list
                            else max((int(x["season"]) for x in
                                      get_catalog_api().list_sessions(

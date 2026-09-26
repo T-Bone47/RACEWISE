@@ -1,0 +1,318 @@
+{
+  "golden_set": "phase_6r_goldens_v1",
+  "captured": "2026-09-27",
+  "note": "canonical inputs and measured hashes; conclusions are structural states, never invented numbers; hashes bind to the canonical data state at capture time",
+  "goldens": [
+    {
+      "golden_id": "G01_LAP",
+      "label": "lap investigation (mixed evidence, graph golden)",
+      "canonical_input": {
+        "question_type": "LAP_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 6
+      },
+      "status": "VALID",
+      "investigation_id": "fcc1bf694daada8e",
+      "output_hash": "e8263d8a0e191839",
+      "prior_id_match": true,
+      "conclusion_state": "MIXED_EVIDENCE",
+      "evidence_items": 12,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "a7a0446765a05e4f",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "a7a0446765a05e4f",
+      "graph": {
+        "nodes": 58,
+        "edges": 185,
+        "graph_id": "b2494a57c6a5268e",
+        "graph_version": "6p_graph_v1",
+        "snapshot_hash": null,
+        "verify_status": "VALID",
+        "replay_status": "IDENTICAL"
+      }
+    },
+    {
+      "golden_id": "G02_STINT",
+      "label": "stint investigation (graph golden)",
+      "canonical_input": {
+        "question_type": "STINT_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "stint_number": 1
+      },
+      "status": "VALID",
+      "investigation_id": "af976923c342cd68",
+      "output_hash": "b3ef97d0e3676f6b",
+      "prior_id_match": true,
+      "conclusion_state": "MIXED_EVIDENCE",
+      "evidence_items": 30,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "c606f27ece508f82",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "c606f27ece508f82",
+      "graph": {
+        "nodes": 97,
+        "edges": 362,
+        "graph_id": "bc2f61a943b5442c",
+        "graph_version": "6p_graph_v1",
+        "snapshot_hash": null,
+        "verify_status": "VALID",
+        "replay_status": "IDENTICAL"
+      }
+    },
+    {
+      "golden_id": "G03_RACE_GAP",
+      "label": "race gap investigation (2024 R14)",
+      "canonical_input": {
+        "question_type": "RACE_GAP",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2024,
+        "round": 14
+      },
+      "status": "VALID",
+      "investigation_id": "5ae38c909a7762b9",
+      "output_hash": "2de8b2a240a47c85",
+      "prior_id_match": true,
+      "conclusion_state": "INSUFFICIENT_EVIDENCE",
+      "evidence_items": 5,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "136f480d8113eaf5",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "136f480d8113eaf5",
+      "graph": {
+        "nodes": 35,
+        "edges": 53,
+        "graph_id": "8a07b6b200cd4739",
+        "graph_version": "6p_graph_v1",
+        "snapshot_hash": null,
+        "verify_status": "VALID",
+        "replay_status": "IDENTICAL"
+      }
+    },
+    {
+      "golden_id": "G04_REGIME",
+      "label": "performance-regime investigation (2022 R4)",
+      "canonical_input": {
+        "question_type": "PERFORMANCE_REGIME",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2022,
+        "round": 4
+      },
+      "status": "VALID",
+      "investigation_id": "b37a22e3dcb94dd6",
+      "output_hash": "0a9c6ea8044b6417",
+      "prior_id_match": true,
+      "conclusion_state": "INSUFFICIENT_EVIDENCE",
+      "evidence_items": 6,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "5ff49761d2a987e8",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "5ff49761d2a987e8",
+      "graph": {
+        "nodes": 41,
+        "edges": 60,
+        "graph_id": "d2b15415d2d6391d",
+        "graph_version": "6p_graph_v1",
+        "snapshot_hash": null,
+        "verify_status": "VALID",
+        "replay_status": "IDENTICAL"
+      }
+    },
+    {
+      "golden_id": "G05_PATTERN",
+      "label": "cross-race pattern investigation",
+      "canonical_input": {
+        "question_type": "CROSS_RACE_PATTERN",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "pattern_id": "3082b650453bb3e8"
+      },
+      "status": "VALID",
+      "investigation_id": "6ecf748133304076",
+      "output_hash": "b5f9915e933daae5",
+      "prior_id_match": true,
+      "conclusion_state": "INSUFFICIENT_EVIDENCE",
+      "evidence_items": 7,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "54b5b60128f40eb1",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "54b5b60128f40eb1"
+    },
+    {
+      "golden_id": "G06_HYPOTHESIS",
+      "label": "hypothesis-subset investigation",
+      "canonical_input": {
+        "question_type": "HYPOTHESIS_EVALUATION",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 6,
+        "hypotheses": [
+          "H1_corner_speed",
+          "H6_drs"
+        ]
+      },
+      "status": "VALID",
+      "investigation_id": "a8e6d76985f94c93",
+      "output_hash": "0d5e5147cddecee7",
+      "prior_id_match": true,
+      "conclusion_state": "MIXED_EVIDENCE",
+      "evidence_items": 12,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "41c8b9284d59bfc0",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "41c8b9284d59bfc0"
+    },
+    {
+      "golden_id": "G07_COUNTERFACTUAL",
+      "label": "counterfactual-eligibility investigation",
+      "canonical_input": {
+        "question_type": "COUNTERFACTUAL_ELIGIBILITY",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 6
+      },
+      "status": "VALID",
+      "investigation_id": "7d839d3ebfb8ea08",
+      "output_hash": "8d52f7435cf57010",
+      "prior_id_match": true,
+      "conclusion_state": "INSUFFICIENT_EVIDENCE",
+      "evidence_items": 1,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "c3c5d404a2db51c2",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "c3c5d404a2db51c2"
+    },
+    {
+      "golden_id": "G08_INSUFFICIENT_LAP",
+      "label": "insufficient-telemetry lap (honest limitation)",
+      "canonical_input": {
+        "question_type": "LAP_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 12
+      },
+      "status": "VALID",
+      "investigation_id": "466f371f5a352ee8",
+      "output_hash": "f2ca1b930aefab5d",
+      "prior_id_match": true,
+      "conclusion_state": "INSUFFICIENT_EVIDENCE",
+      "evidence_items": 0,
+      "provenance_hash": "afd5686f263ee806"
+    },
+    {
+      "golden_id": "G09_HISTORICAL",
+      "label": "1950 historical limitation",
+      "canonical_input": {
+        "question_type": "RACE_GAP",
+        "driver_a": "nino-farina",
+        "driver_b": "juan-manuel-fangio",
+        "season": 1950,
+        "round": 1
+      },
+      "status": "VALID",
+      "investigation_id": "604112ef329fc0d7",
+      "output_hash": "75652fef014d461c",
+      "prior_id_match": true,
+      "conclusion_state": "INSUFFICIENT_EVIDENCE",
+      "evidence_items": 0,
+      "provenance_hash": "afd5686f263ee806",
+      "snapshot_hash": "33ccedce637b9449",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "33ccedce637b9449"
+    },
+    {
+      "golden_id": "G10_UNKNOWN_DRIVER",
+      "label": "unknown driver (UNAVAILABLE)",
+      "canonical_input": {
+        "question_type": "RACE_GAP",
+        "driver_a": "max-verstappen",
+        "driver_b": "kimi-antonelli",
+        "season": 2023,
+        "round": 1
+      },
+      "status": "UNAVAILABLE",
+      "investigation_id": null,
+      "output_hash": "400501353a65c1e0",
+      "prior_id_match": true,
+      "conclusion_state": null,
+      "evidence_items": null,
+      "provenance_hash": "7739b7a102a00651"
+    },
+    {
+      "golden_id": "G11_COMPARE",
+      "label": "investigation comparison LAP6 vs LAP11",
+      "canonical_input": {
+        "question_type": "LAP_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 6
+      },
+      "status": "VALID",
+      "investigation_id": "fcc1bf694daada8e",
+      "output_hash": "e8263d8a0e191839",
+      "prior_id_match": true,
+      "conclusion_state": "MIXED_EVIDENCE",
+      "evidence_items": 12,
+      "provenance_hash": "afd5686f263ee806",
+      "comparison": {
+        "compatibility": {
+          "state": "PARTIALLY_COMPARABLE",
+          "differing_scope_keys": [
+            "lap_number"
+          ]
+        },
+        "synthesis_transition": null,
+        "b_investigation_id": "4d1e8c616333413d",
+        "b_output_hash": "526df9557957cdc9"
+      }
+    },
+    {
+      "golden_id": "G12_MEMORY",
+      "label": "memory derivation from LAP6",
+      "canonical_input": {
+        "question_type": "LAP_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 6
+      },
+      "status": "VALID",
+      "investigation_id": "fcc1bf694daada8e",
+      "output_hash": "e8263d8a0e191839",
+      "prior_id_match": true,
+      "conclusion_state": "MIXED_EVIDENCE",
+      "evidence_items": 12,
+      "provenance_hash": "afd5686f263ee806",
+      "memory": {
+        "derived_items": 7,
+        "exact_scope_matches": 7
+      }
+    }
+  ]
+}
