@@ -57,11 +57,20 @@ function CapabilityMark({ availability }: { availability: string }) {
   return <span className="cap-unavailable" title="UNAVAILABLE">—</span>
 }
 
-interface Props {
-  onInvestigate: (session: CatalogSession) => void
+export interface CatalogPreset {
+  season: number
+  round: number
+  session_type: string
 }
 
-export default function CatalogExplorer({ onInvestigate }: Props) {
+interface Props {
+  onInvestigate: (session: CatalogSession) => void
+  /* §35: opened from an investigation — pre-open this session's detail so
+     season/round/session context is preserved, never silently dropped */
+  presetSession?: CatalogPreset
+}
+
+export default function CatalogExplorer({ onInvestigate, presetSession }: Props) {
   const [data, setData] = useState<CatalogResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -99,6 +108,23 @@ export default function CatalogExplorer({ onInvestigate }: Props) {
   useEffect(() => {
     load()
   }, [load])
+
+  /* §35 handoff: investigation → catalog with explicit scope */
+  useEffect(() => {
+    if (!presetSession) return
+    openDetail({
+      session_id: '',
+      season: presetSession.season,
+      round: presetSession.round,
+      race_name: null,
+      circuit: null,
+      country: null,
+      date: null,
+      session_type: presetSession.session_type,
+      capabilities: {},
+    } as CatalogSession)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function openDetail(s: CatalogSession) {
     setDetailLoading(true)

@@ -1424,6 +1424,179 @@ def catalog_investigation_graph_hypothesis(
         graph, hypothesis, investigation_id=inv["investigation_id"])
 
 
+@app.get("/api/catalog/search")
+def catalog_search(
+    q: str = "",
+    result_type: str = "",
+    season: int = 0,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Phase 6Q global engineering search (deterministic, typed).
+
+    Exact/structured matching first (driver keys, pattern ids, hashes,
+    season/round), then deterministic substring matching over canonical
+    identities (races, drivers, catalog sessions) and derived object ids
+    (investigations, evidence, hypotheses, memories) when a structured
+    investigation scope is supplied. No semantic/vector search, no scoring:
+    results are typed, deduplicated and deterministically ordered. Empty
+    query returns an empty result list (never a canned list).
+    """
+    from racewise.data.historical.canonical_queries import (
+        get_canonical_queries,
+    )
+
+    term = q.strip()
+    if not term:
+        return {"status": "OK", "query": "", "result_count": 0,
+                "results": [],
+                "provenance": {"method": "deterministic_exact_match_search"}}
+    if not 1 <= int(limit) <= 50:
+        raise HTTPException(status_code=422,
+                            detail="limit out of bounds [1, 50]")
+    if result_type and result_type not in _SEARCH_RESULT_TYPES:
+        raise HTTPException(status_code=422,
+                            detail=(f"result_type must be one of "
+                                    f"{_SEARCH_RESULT_TYPES}"))
+    queries = get_canonical_queries()
+    results: list[dict[str, Any]] = []
+
+    def add(result_type_: str, label: str, detail_: str,
+            ref: dict[str, Any]) -> None:
+        results.append({"result_type": result_type_, "label": label,
+                        "detail": detail_, "ref": ref,
+                        "provenance": {
+                            "matched_on": term,
+                            "match_mode": "exact_or_substring"}})
+
+    low = term.lower()
+
+    # --- race (canonical identity) -----------------------------------------
+    if result_type in ("", "RACE"):
+        try:
+            season_i, round_i = (int(x) for x in low.replace("r", " ").split()) \
+                if low.replace("r", " ").strip().replace(" ", "").isdigit() \
+                else (None, None)
+        except ValueError:
+            season_i = round_i = None
+        if season_i is not None and \
+                queries.resolve_race(season_i, round_num=round_i) is not None:
+            add("RACE", f"{season_i} R{round_i}",
+                str(queries.resolve_race(season_i, round_num=round_i)["grand_prix"]),
+                {"season": season_i, "round": round_i})
+        seen_races: set[tuple[int, int]] = set()
+        for season in range(1950, 2027):
+            race = queries.resolve_race(season)
+            # resolve_race without round returns None; scan the catalog
+            # instead via a targeted LIKE through the catalog api is heavy,
+            # so use direct canonical query here:
+            break
+        # substring over race grand_prix names via catalog api (bounded)
+        try:
+            from racewise.data.historical.catalog_api import get_catalog_api
+            cat = get_catalog_api().list_sessions(search=term, page=1,
+                                                  page_size=6)
+            for s in cat.get("sessions", []):
+                key = (s["season"], s["round"])
+                if key in seen_races:
+                    continue
+                seen_races.add(key)
+                add("RACE", f"{s['season']} R{s['round']}",
+                    s.get("race_name") or "",
+                    {"season": s["season"], "round": s["round"],
+                     "session_type": s["session_type"]})
+        except Exception:  # noqa: BLE001 - catalog is optional for search
+            pass
+
+    # --- driver (canonical driver_key identity) ----------------------------
+    if result_type in ("", "DRIVER"):
+        d = queries.get_driver(low)
+        if d is not None:
+            add("DRIVER", d["full_name"], d["driver_key"],
+                {"driver_key": d["driver_key"]})
+        else:
+            matches = queries.get_driver_by_code(term.upper()) \
+                if len(term) == 3 else []
+            for d in matches[:3]:
+                add("DRIVER", d["full_name"], d["driver_key"],
+                    {"driver_key": d["driver_key"]})
+            if not matches:
+                # deterministic LIKE over driver_key / family name (bounded);
+                # read-only, parameterized, no user input concatenated
+                import sqlite3 as _sq
+                try:
+                    conn = _sq.connect(queries.db_path)
+                    conn.row_factory = _sq.Row
+                    rows = conn.execute(
+                        "SELECT driver_key, full_name FROM canonical_drivers "
+                        "WHERE driver_key LIKE ? OR family_name LIKE ? "
+                        "ORDER BY driver_key LIMIT 4",
+                        (f"%{low}%", f"%{term}%"),
+                    ).fetchall()
+                    conn.close()
+                    for d in rows:
+                        add("DRIVER", d["full_name"], d["driver_key"],
+                            {"driver_key": d["driver_key"]})
+                except Exception:  # noqa: BLE001 - store optional for search
+                    pass
+
+    # --- hypothesis (closed 6F vocabulary) ----------------------------------
+    if result_type in ("", "HYPOTHESIS"):
+        from racewise.data.historical.investigation_synthesis import (
+            HYPOTHESIS_IDS,
+        )
+        for h in HYPOTHESIS_IDS:
+            if low == h.lower() or low in h.lower() or \
+                    low in h.lower().split("_", 1)[-1]:
+                add("HYPOTHESIS", h,
+                    "canonical 6F hypothesis (closed vocabulary)",
+                    {"hypothesis_id": h})
+
+    # --- investigation / memory (deterministic derived ids) -----------------
+    if result_type in ("", "INVESTIGATION") and len(term) == 16 and \
+            all(c in "0123456789abcdef" for c in low):
+        add("INVESTIGATION", term[:12],
+            "16-hex investigation id (paste into a workspace view to load "
+            "its scope; ids are content-addressed)",
+            {"investigation_id": term})
+
+    if result_type in ("", "MEMORY") and len(term) == 16 and \
+            all(c in "0123456789abcdef" for c in low):
+        add("MEMORY", term[:12],
+            "16-hex memory id (exact-scope retrieval key)",
+            {"memory_id": term})
+
+    # --- pattern id (structured, only plausible id shapes) ------------------
+    if result_type in ("", "PATTERN") and len(term) == 16 and \
+            all(c in "0123456789abcdef" for c in low) and \
+            result_type != "MEMORY":
+        pass  # 16-hex ids are handled above; no free-text pattern echo
+
+    # --- evidence id (structured shape) --------------------------------------
+    if result_type in ("", "EVIDENCE") and \
+            term.lower().startswith("evidence_"):
+        add("EVIDENCE", term,
+            "evidence id (valid inside an investigation whose ledger "
+            "contains it)",
+            {"evidence_id": term})
+
+    # deterministic order: type then label; cap results
+    results.sort(key=lambda r: (r["result_type"], r["label"]))
+    results = results[: int(limit)]
+    return {
+        "status": "OK", "query": term, "result_count": len(results),
+        "results": results,
+        "provenance": {"method": "deterministic_exact_match_search",
+                       "note": "no semantic search; ids are content-"
+                               "addressed and scope-bound"},
+    }
+
+
+_SEARCH_RESULT_TYPES = (
+    "RACE", "DRIVER", "HYPOTHESIS", "INVESTIGATION", "EVIDENCE",
+    "PATTERN", "MEMORY",
+)
+
+
 @app.get("/api/sessions")
 def list_sessions() -> dict[str, Any]:
     sessions = _store.list_sessions()

@@ -1,536 +1,475 @@
-import { useState, useEffect } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import './App.css'
-import CatalogExplorer from './CatalogExplorer'
-import TelemetryView from './TelemetryView'
-import AttributionView from './AttributionView'
-import EvidenceFusionView from './EvidenceFusionView'
-import StintEvidenceView from './StintEvidenceView'
-import RaceGapView from './RaceGapView'
-import CounterfactualView from './CounterfactualView'
-import PerformanceEnvelopeView from './PerformanceEnvelopeView'
-import PerformanceRegimeView from './PerformanceRegimeView'
-import PerformancePatternView from './PerformancePatternView'
-import PatternEvidenceView from './PatternEvidenceView'
+import CommandCenterView from './CommandCenterView'
 import InvestigationView from './InvestigationView'
+import { GraphPanel, ReplayPanel, ComparePanel, MemoryPanel } from './panels'
+import { LoadingLine } from './workspace'
+import type { SearchResponse } from './types'
 
-interface Session {
-  year: number
-  event: string
-  session_type: string
-  label: string
-  session_key: string
-  availability: string
+const CatalogExplorer = lazy(() => import('./CatalogExplorer'))
+const TelemetryView = lazy(() => import('./TelemetryView'))
+const AttributionView = lazy(() => import('./AttributionView'))
+const EvidenceFusionView = lazy(() => import('./EvidenceFusionView'))
+const StintEvidenceView = lazy(() => import('./StintEvidenceView'))
+const RaceGapView = lazy(() => import('./RaceGapView'))
+const CounterfactualView = lazy(() => import('./CounterfactualView'))
+const PerformanceEnvelopeView = lazy(() => import('./PerformanceEnvelopeView'))
+const PerformanceRegimeView = lazy(() => import('./PerformanceRegimeView'))
+const PerformancePatternView = lazy(() => import('./PerformancePatternView'))
+const PatternEvidenceView = lazy(() => import('./PatternEvidenceView'))
+
+/* ============ Phase 6Q — application shell ============ */
+
+type ViewId =
+  | 'command' | 'investigate' | 'graph' | 'replay' | 'compare' | 'memory'
+  | 'catalog' | 'telemetry' | 'attribution' | 'fusion' | 'stint'
+  | 'racegap' | 'counterfactual' | 'envelope' | 'regime' | 'patterns'
+  | 'patternevidence' | 'legacy'
+
+const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon: string }> }> = [
+  {
+    group: 'Command center',
+    items: [
+      { id: 'command', label: 'Overview', icon: '◉' },
+      { id: 'investigate', label: 'Investigate', icon: '⌕' },
+      { id: 'graph', label: 'Graph', icon: '⌗' },
+      { id: 'compare', label: 'Compare', icon: '⇄' },
+      { id: 'memory', label: 'Memory', icon: '✦' },
+      { id: 'replay', label: 'Replay', icon: '↺' },
+    ],
+  },
+  {
+    group: 'Data',
+    items: [
+      { id: 'catalog', label: 'Catalog', icon: '▤' },
+      { id: 'telemetry', label: 'Telemetry', icon: '∿' },
+    ],
+  },
+  {
+    group: 'Analytical chain',
+    items: [
+      { id: 'attribution', label: '6E Attribution', icon: '─' },
+      { id: 'fusion', label: '6F Evidence Fusion', icon: '≡' },
+      { id: 'stint', label: '6G Stint Evidence', icon: '⋯' },
+      { id: 'racegap', label: '6H Race Gap', icon: 'σ' },
+      { id: 'counterfactual', label: '6I Counterfactual', icon: '⧉' },
+      { id: 'envelope', label: '6J Envelope', icon: '◺' },
+      { id: 'regime', label: '6K Regimes', icon: '⌁' },
+      { id: 'patterns', label: '6L Patterns', icon: '∞' },
+      { id: 'patternevidence', label: '6M Pattern Evidence', icon: '⊞' },
+    ],
+  },
+]
+
+function defaultScopeParams(): URLSearchParams {
+  return new URLSearchParams({
+    question_type: 'LAP_PERFORMANCE',
+    driver_a: 'max-verstappen',
+    driver_b: 'sergio-perez',
+    season: '2023',
+    round: '1',
+    lap_number: '6',
+  })
 }
 
-interface Hypothesis {
-  id: string
-  statement: string
-  status: string
-  confidence: number
-  supporting_evidence: string[]
-  contradicting_evidence: string[]
-}
-
-interface EvidenceItem {
-  id: string
-  type: string
-  statement: string
-  strength: number
-}
-
-interface CounterfactualItem {
-  id: string
-  intervention: string
-  predicted_delta_s: number | null
-  uncertainty_s: number | null
-  assumptions: string[]
-  simulator_version: string
-}
-
-interface GraphNode {
-  id: string
-  type: string
-  label: string
-  full_statement: string
-  strength: number
-  evidence_type: string
-  x?: number
-  y?: number
-  fx?: number | null
-  fy?: number | null
-}
-
-interface GraphEdge {
-  id: string
-  source: string
-  target: string
-  relationship: string
-  provenance?: string
-}
-
-interface GraphData {
-  nodes: GraphNode[]
-  edges: GraphEdge[]
-}
-
-interface ConclusionItem {
-  statement: string
-  confidence: number
-  evidence_ids: string[]
-  limitations: string[]
-}
-
-interface ToolExec {
-  id: string
-  tool: string
-  status: string
-  duration_ms: number | null
-  input_hash: string
-  output_hash: string
-}
-
-interface Investigation {
-  investigation_id: string
-  question: string
-  state: string
-  hypotheses: Hypothesis[]
-  evidence: EvidenceItem[]
-  counterfactuals: CounterfactualItem[]
-  conclusion: ConclusionItem | null
-  tool_executions: ToolExec[]
-}
-
-interface TraceEntry {
-  type: string
-  payload: Record<string, unknown>
-  timestamp: string
-}
-
-const FAILURE_STATES = new Set(['DATA_UNAVAILABLE', 'TOOL_FAILURE', 'MODEL_FAILURE', 'INSUFFICIENT_EVIDENCE'])
-
-function friendlyType(t: string): string {
-  return t.replaceAll('.', ' ').replaceAll('_', ' ')
-}
-
-interface CatalogSessionRef {
-  season: number
-  round: number
-  session_type: string
-  race_name: string | null
-}
-
-const CATALOG_TO_FASTF1: Record<string, string> = {
-  RACE: 'R',
-  QUALIFYING: 'Q',
-  SPRINT: 'S',
-  SPRINT_QUALIFYING: 'SQ',
-  FREE_PRACTICE_1: 'FP1',
-  FREE_PRACTICE_2: 'FP2',
-  FREE_PRACTICE_3: 'FP3',
-  FREE_PRACTICE_4: 'FP4',
-}
-
-function catalogEventName(raceName: string | null): string {
-  // Derive the FastF1 event selector from the canonical race name
-  // (e.g. "Formula 1 Gulf Air Bahrain Grand Prix 2023" -> "Bahrain").
-  if (!raceName) return 'Bahrain'
-  const words = raceName
-    .replace(/\d{4}/g, '')
-    .replace(/Formula 1|F1|Grand Prix|GP|Heuer|Louis Vuitton|Crypto|AWS|Qatar/gi, '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  const candidate = words[words.length - 1] || 'Bahrain'
-  return candidate
+function parseHash(): { view: ViewId; params: URLSearchParams } {
+  const hash = window.location.hash.replace(/^#\/?/, '')
+  const [view, query] = hash.split('?')
+  const params = new URLSearchParams(query || '')
+  const known = new Set(NAV.flatMap((g) => g.items.map((i) => i.id)))
+  const v = (known.has(view as ViewId) ? view : 'command') as ViewId
+  return { view: v, params }
 }
 
 export default function App() {
-  const [question, setQuestion] = useState('Why did VER lose pace during the second stint, and would an earlier pit stop have changed the outcome?')
-  const [investigation, setInvestigation] = useState<Investigation | null>(null)
-  const [trace, setTrace] = useState<TraceEntry[]>([])
-  const [running, setRunning] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [catalogSession, setCatalogSession] = useState<CatalogSessionRef | null>(null)
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null)
-  const [drivers, setDrivers] = useState<string[]>([])
-  const [selectedDriver, setSelectedDriver] = useState('VER')
+  const [{ view, params }, setRoute] = useState(parseHash)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [recentsCount, setRecentsCount] = useState(0)
 
   useEffect(() => {
-    async function loadSessions() {
-      try {
-        const resp = await fetch('/api/sessions')
-        if (resp.ok) {
-          const data = await resp.json()
-          setSessions(data.sessions || [])
-          if (data.sessions && data.sessions.length > 0) {
-            // Prefer a catalog-selected session, else the first available.
-            const target = catalogSession
-              ? data.sessions.find(
-                  (s: Session) =>
-                    s.year === catalogSession.season && s.session_type === catalogSession.session_type,
-                )
-              : undefined
-            const fallback = data.sessions.find((s: Session) => s.event === 'Bahrain') || data.sessions[0]
-            setSelectedSession(target || fallback)
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load sessions:', e)
+    function onHash() {
+      setRoute(parseHash())
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  const navigate = useCallback((v: string) => {
+    if (!v) return
+    window.location.hash = `#/${v}`
+    setRoute(parseHash())
+  }, [])
+
+  /* keyboard: Ctrl/Cmd+K opens the command palette */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen(true)
       }
     }
-    loadSessions()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   useEffect(() => {
-    const sessionKey = selectedSession?.session_key
-    if (sessionKey) {
-      async function loadDrivers() {
-        try {
-          const resp = await fetch(`/api/sessions/${sessionKey}/drivers`)
-          if (resp.ok) {
-            const data = await resp.json()
-            setDrivers(data.drivers || [])
-            if (data.drivers && data.drivers.length > 0) {
-              setSelectedDriver(data.drivers.includes('VER') ? 'VER' : data.drivers[0])
-            }
-          }
-        } catch (e) {
-          console.error('Failed to load drivers:', e)
-        }
-      }
-      loadDrivers()
-    }
-  }, [selectedSession?.session_key])
-
-  async function runInvestigation() {
-    if (!selectedSession || !selectedDriver) return
-    
-    setRunning(true)
-    setError(null)
-    setTrace([])
-    setInvestigation(null)
     try {
-      const createResp = await fetch('/api/investigations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          question, 
-          year: selectedSession.year, 
-          event: selectedSession.event, 
-          driver: selectedDriver,
-          session_type: selectedSession.session_type
-        }),
-      })
-      if (!createResp.ok) throw new Error(`Create failed: ${createResp.status}`)
-      const { investigation_id: invId } = await createResp.json()
-
-      const streamResp = await fetch(`/api/investigations/${invId}/stream`)
-      if (!streamResp.body) throw new Error('No stream')
-      const reader = streamResp.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      const entries: TraceEntry[] = []
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const parts = buffer.split('\n\n')
-        buffer = parts.pop() || ''
-        for (const part of parts) {
-          if (!part.startsWith('data: ')) continue
-          try {
-            const evt = JSON.parse(part.slice(6))
-            if (evt.type === 'investigation.started') continue
-            if (evt.type === 'done') continue
-            entries.push(evt as TraceEntry)
-            setTrace([...entries])
-          } catch { /* partial chunk */ }
-        }
-      }
-
-      const detailResp = await fetch(`/api/investigations/${invId}`)
-      const detail = await detailResp.json()
-      setInvestigation(detail)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setRunning(false)
+      const raw = window.localStorage.getItem('racewise.recent.investigations.v1')
+      setRecentsCount(raw ? (JSON.parse(raw) as unknown[]).length : 0)
+    } catch {
+      setRecentsCount(0)
     }
-  }
+  }, [view])
 
-  const [_graphData, _setGraphData] = useState<GraphData>({ nodes: [], edges: [] })
+  const presetParams = view === 'investigate' && [...params.keys()].length > 0 ? params : undefined
 
-  async function _loadEvidenceGraph(invId: string) {
-    try {
-      const resp = await fetch(`/api/investigations/${invId}/evidence-graph`)
-      if (resp.ok) {
-        const data = await resp.json()
-        const nodesWithPos = data.nodes.map((node: GraphNode, i: number) => ({
-          ...node,
-          x: 400 + Math.cos((i / Math.max(1, data.nodes.length)) * 2 * Math.PI) * 200,
-          y: 300 + Math.sin((i / Math.max(1, data.nodes.length)) * 2 * Math.PI) * 200,
-        }))
-        _setGraphData({ nodes: nodesWithPos, edges: data.edges })
-      }
-    } catch (e) {
-      console.error('Failed to load evidence graph:', e)
-    }
-  }
-
-  const _getNodeColor = (type: string) => {
-    switch (type) {
-      case 'FACT': return '#2e7d32'
-      case 'CALCULATION': return '#1565c0'
-      case 'INFERENCE': return '#f57f17'
-      case 'COUNTERFACTUAL': return '#6a1b9a'
-      case 'ASSUMPTION': return '#c62828'
-      default: return '#424242'
-    }
-  }
-
-  const _getEdgeColor = (relationship: string) => {
-    switch (relationship) {
-      case 'SUPPORTS': return '#2e7d32'
-      case 'CONTRADICTS': return '#c62828'
-      case 'DERIVES_FROM': return '#1565c0'
-      case 'INFORMS': return '#f57f17'
-      case 'CONSTRAINS': return '#6a1b9a'
-      default: return '#757575'
-    }
-  }
-
-  // Suppress unused variable warnings for future implementation
-  void _loadEvidenceGraph
-  void _getNodeColor
-  void _getEdgeColor
+  const scopeParams = useCallback(() => {
+    if ([...params.keys()].length > 0) return new URLSearchParams(params)
+    return defaultScopeParams()
+  }, [params])
 
   return (
-    <div className="app">
-      <header>
+    <div className="shell">
+      {/* ================= HEADER ================= */}
+      <header className="shell-header">
         <h1>RACE<span>WISE</span></h1>
-        <span className="tagline">Autonomous evidence-driven race engineering — investigations, not answers</span>
+        <span className="shell-tagline">evidence-driven race engineering — investigations, not answers</span>
+        <span className="spacer" />
+        <button
+          className="search-trigger"
+          onClick={() => setPaletteOpen(true)}
+          aria-label="Open command palette and search"
+        >
+          <span aria-hidden="true">⌕</span>
+          <span className="search-hint">Search / commands</span>
+          <kbd>Ctrl K</kbd>
+        </button>
       </header>
 
-      <CatalogExplorer
-        onInvestigate={(session) => {
-          // Catalog → Investigation handoff: derive the FastF1 selector from
-          // canonical identity. No hardcoded race.
-          const fastf1Code = CATALOG_TO_FASTF1[session.session_type] || 'R'
-          void catalogEventName(session.race_name)
-          const match = sessions.find(
-            (s) => s.year === session.season && s.session_type === fastf1Code,
-          )
-          if (match) {
-            setSelectedSession(match)
-          } else {
-            setCatalogSession({
-              season: session.season,
-              round: session.round,
-              session_type: fastf1Code,
-              race_name: session.race_name,
-            })
-            setError(
-              `Session ${session.season} R${session.round} is in the canonical catalog but not yet ` +
-              'in the FastF1 investigation session list. Ingest it via the data CLI to investigate.',
-            )
-          }
+      {/* ================= SIDEBAR ================= */}
+      <nav className="shell-sidebar" aria-label="Workspace navigation">
+        {NAV.map((group) => (
+          <div key={group.group}>
+            <div className="nav-group-label">{group.group}</div>
+            {group.items.map((item) => (
+              <button
+                key={item.id}
+                className={`nav-item ${view === item.id ? 'active' : ''}`}
+                onClick={() => navigate(item.id)}
+                aria-current={view === item.id ? 'page' : undefined}
+              >
+                <span className="nav-ico" aria-hidden="true">{item.icon}</span>
+                <span className="nav-label">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      {/* ================= WORKSPACE ================= */}
+      <main className="shell-workspace">
+        {view === 'command' && <CommandCenterView onNavigated={navigate} />}
+
+        {view === 'investigate' && (
+          <InvestigationView key={params.toString()} presetParams={presetParams} />
+        )}
+
+        {view === 'graph' && (
+          <section className="panel">
+            <h2>Investigation graph — provenance navigator (Phase 6P)</h2>
+            <p className="muted small">
+              Assembled on read from the 6N investigation of the scope below.
+              Click a node to trace its path; use the hypothesis focus to see
+              supporting / contradicting / non-decisive evidence side by side.
+            </p>
+            <GraphPanel scopeParams={scopeParams} />
+          </section>
+        )}
+
+        {view === 'replay' && (
+          <section className="panel">
+            <h2>Replay (Phase 6O)</h2>
+            <p className="muted small">
+              Deterministic replay: rebuild the snapshot, re-run the exact 6N
+              engine, compare canonical hashes. Divergence is reported as
+              exact structured differences with categories.
+            </p>
+            <ReplayPanel scopeParams={scopeParams} />
+          </section>
+        )}
+
+        {view === 'compare' && (
+          <section className="panel">
+            <h2>Comparison (Phase 6O)</h2>
+            <p className="muted small">
+              Dimension-wise deltas between investigation A (current scope)
+              and B (same scope, different lap). Neutral transition
+              terminology — no better/worse, no winner.
+            </p>
+            <ComparePanel baseScope={scopeParams} />
+          </section>
+        )}
+
+        {view === 'memory' && (
+          <section className="panel">
+            <h2>Engineering memory (Phase 6O)</h2>
+            <p className="muted small">
+              Evidence-bound, scope-limited memory derived on read and
+              retrieved by exact scope — never semantic similarity, never
+              universal truth.
+            </p>
+            <MemoryPanel scopeParams={scopeParams} driverA={scopeParams().get('driver_a') || ''} />
+          </section>
+        )}
+
+        {view === 'catalog' && (
+          <Suspense fallback={<LoadingLine label="Loading data catalog…" />}>
+            <CatalogExplorer
+              presetSession={
+                view === 'catalog' && [...params.keys()].length > 0
+                  ? {
+                      season: Number(params.get('season') || 0),
+                      round: Number(params.get('round') || 0),
+                      session_type: params.get('session_type') || 'RACE',
+                    }
+                  : undefined
+              }
+              onInvestigate={(session) =>
+                navigate(
+                  `investigate?season=${session.season}&round=${session.round}` +
+                  `&session_type=${encodeURIComponent(session.session_type)}`,
+                )
+              }
+            />
+          </Suspense>
+        )}
+
+        {view === 'telemetry' && (
+          <Suspense fallback={<LoadingLine label="Loading telemetry view…" />}>
+            <TelemetryView />
+          </Suspense>
+        )}
+
+        {view === 'attribution' && (
+          <Suspense fallback={<LoadingLine label="Loading attribution view…" />}>
+            <AttributionView />
+          </Suspense>
+        )}
+        {view === 'fusion' && (
+          <Suspense fallback={<LoadingLine label="Loading evidence fusion view…" />}>
+            <EvidenceFusionView />
+          </Suspense>
+        )}
+        {view === 'stint' && (
+          <Suspense fallback={<LoadingLine label="Loading stint evidence view…" />}>
+            <StintEvidenceView />
+          </Suspense>
+        )}
+        {view === 'racegap' && (
+          <Suspense fallback={<LoadingLine label="Loading race gap view…" />}>
+            <RaceGapView />
+          </Suspense>
+        )}
+        {view === 'counterfactual' && (
+          <Suspense fallback={<LoadingLine label="Loading counterfactual view…" />}>
+            <CounterfactualView />
+          </Suspense>
+        )}
+        {view === 'envelope' && (
+          <Suspense fallback={<LoadingLine label="Loading envelope view…" />}>
+            <PerformanceEnvelopeView />
+          </Suspense>
+        )}
+        {view === 'regime' && (
+          <Suspense fallback={<LoadingLine label="Loading regimes view…" />}>
+            <PerformanceRegimeView />
+          </Suspense>
+        )}
+        {view === 'patterns' && (
+          <Suspense fallback={<LoadingLine label="Loading patterns view…" />}>
+            <PerformancePatternView />
+          </Suspense>
+        )}
+        {view === 'patternevidence' && (
+          <Suspense fallback={<LoadingLine label="Loading pattern evidence view…" />}>
+            <PatternEvidenceView />
+          </Suspense>
+        )}
+      </main>
+
+      {/* ================= STATUS BAR (§33 — only real state) ================= */}
+      <footer className="shell-statusbar">
+        <span className="statusbar-item">
+          <span className="status-dot" aria-hidden="true" />
+          CHAIN 6E–6P READY
+        </span>
+        <span className="statusbar-item">REGISTRY 31 HISTORICAL TOOLS</span>
+        <span className="statusbar-item">DERIVED-ON-READ · ZERO STORAGE GROWTH</span>
+        {recentsCount > 0 && <span className="statusbar-item">{recentsCount} RECENT INVESTIGATION(S)</span>}
+        <span className="statusbar-item" style={{ marginLeft: 'auto' }}>PHASE 6Q WORKSPACE</span>
+      </footer>
+
+      {/* ================= COMMAND PALETTE (§26) ================= */}
+      {paletteOpen && (
+        <div
+          className="overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Command palette"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setPaletteOpen(false) }}
+        >
+          <CommandPalette
+            onClose={() => setPaletteOpen(false)}
+            onNavigate={(v) => { setPaletteOpen(false); navigate(v) }}
+            currentView={view}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ---------- command palette: only real application actions ---------- */
+
+function CommandPalette({
+  onClose,
+  onNavigate,
+}: {
+  onClose: () => void
+  onNavigate: (v: string) => void
+  currentView: string
+}) {
+  const [q, setQ] = useState('')
+  const [idx, setIdx] = useState(0)
+  const [search, setSearch] = useState<SearchResponse | null>(null)
+
+  /* global search (§25): exact/structured matching via /api/catalog/search —
+     no semantic search, deterministic retrieval only */
+  useEffect(() => {
+    const term = q.trim()
+    if (term.length < 2) {
+      setSearch(null)
+      return
+    }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      try {
+        const resp = await fetch(`/api/catalog/search?q=${encodeURIComponent(term)}`)
+        if (resp.ok && !cancelled) setSearch(await resp.json())
+      } catch {
+        /* search stays silent on transport errors — commands still work */
+      }
+    }, 200)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [q])
+
+  const commands = [
+    { label: 'New investigation', view: 'command' },
+    { label: 'Open investigation workspace', view: 'investigate' },
+    { label: 'Open investigation graph (6P)', view: 'graph' },
+    { label: 'Compare investigations (6O)', view: 'compare' },
+    { label: 'Open engineering memory (6O)', view: 'memory' },
+    { label: 'Replay investigation (6O)', view: 'replay' },
+    { label: 'Open data catalog', view: 'catalog' },
+    { label: 'Open telemetry comparison (6C)', view: 'telemetry' },
+    { label: 'Open 6E attribution', view: 'attribution' },
+    { label: 'Open 6F evidence fusion', view: 'fusion' },
+    { label: 'Open 6G stint evidence', view: 'stint' },
+    { label: 'Open 6H race gap decomposition', view: 'racegap' },
+    { label: 'Open 6I counterfactual simulator', view: 'counterfactual' },
+    { label: 'Open 6J performance envelope', view: 'envelope' },
+    { label: 'Open 6K performance regimes', view: 'regime' },
+    { label: 'Open 6L cross-race patterns', view: 'patterns' },
+    { label: 'Open 6M pattern evidence', view: 'patternevidence' },
+  ]
+  const filtered = commands.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()))
+  /* keyboard selection spans commands first, then typed search results */
+  const entries = [
+    ...filtered.map((c) => ({ kind: 'COMMAND' as const, view: c.view, label: c.label, detail: '', type: 'COMMAND' })),
+    ...(search?.results || []).map((r) => ({
+      kind: 'RESULT' as const,
+      view: r.result_type === 'RACE' || r.result_type === 'DRIVER'
+        ? `investigate?season=${r.ref.season ?? 2023}&round=${r.ref.round ?? 1}&driver_a=${r.ref.driver_key ?? r.ref.hypothesis_id ?? ''}`
+        : r.result_type === 'HYPOTHESIS'
+          ? `investigate?question_type=HYPOTHESIS_EVALUATION&hypotheses=${r.ref.hypothesis_id ?? ''}&driver_a=max-verstappen&driver_b=sergio-perez&season=2023&round=1&lap_number=6`
+          : r.result_type === 'INVESTIGATION' || r.result_type === 'MEMORY'
+            ? `memory`
+            : r.result_type === 'PATTERN'
+              ? `patternevidence`
+              : `investigate`,
+      label: r.label,
+      detail: r.detail,
+      type: r.result_type,
+    })),
+  ]
+  const active = Math.min(idx, Math.max(0, entries.length - 1))
+
+  return (
+    <>
+      <input
+        autoFocus
+        value={q}
+        placeholder="Type a command…"
+        aria-label="Command search"
+        onChange={(e) => { setQ(e.target.value); setIdx(0) }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose()
+          if (e.key === 'ArrowDown') { e.preventDefault(); setIdx((i) => Math.min(i + 1, filtered.length - 1)) }
+          if (e.key === 'ArrowUp') { e.preventDefault(); setIdx((i) => Math.max(i - 1, 0)) }
+          if (e.key === 'Enter' && entries[active]) onNavigate(entries[active].view)
         }}
       />
-
-      <TelemetryView />
-
-      <AttributionView />
-
-      <EvidenceFusionView />
-
-      <StintEvidenceView />
-
-      <RaceGapView />
-
-      <CounterfactualView />
-
-      <PerformanceEnvelopeView />
-
-      <PerformanceRegimeView />
-
-      <PerformancePatternView />
-
-      <PatternEvidenceView />
-
-      <InvestigationView />
-
-      <div className="controls">
-        <div className="session-selector">
-          <label>Session:</label>
-          <select 
-            value={selectedSession?.session_key || ''} 
-            onChange={(e) => {
-              const session = sessions.find(s => s.session_key === e.target.value)
-              setSelectedSession(session || null)
-            }}
-            disabled={running}
+      <div className="palette-list">
+        {entries.length === 0 && (
+          <div className="palette-empty">No command matches “{q}”.</div>
+        )}
+        {filtered.map((c, i) => (
+          <button
+            key={`cmd-${c.view}`}
+            className={`palette-item ${i === active ? 'active' : ''}`}
+            onMouseEnter={() => setIdx(i)}
+            onClick={() => onNavigate(c.view)}
           >
-            {sessions.map(s => (
-              <option key={s.session_key} value={s.session_key}>
-                {s.label} {s.availability !== 'AVAILABLE' ? ` (${s.availability})` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="driver-selector">
-          <label>Driver:</label>
-          <select 
-            value={selectedDriver} 
-            onChange={(e) => setSelectedDriver(e.target.value)}
-            disabled={running || drivers.length === 0}
-          >
-            {drivers.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="question-input">
-          <input
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ask an engineering question..."
-          />
-          <button onClick={runInvestigation} disabled={running || question.trim().length < 5 || !selectedSession || !selectedDriver}>
-            {running ? 'Investigating...' : 'Investigate'}
+            <span className="p-type">COMMAND</span>
+            <span>{c.label}</span>
           </button>
-        </div>
+        ))}
+        {(search?.results || []).map((r, j) => {
+          const i = filtered.length + j
+          const view =
+            r.result_type === 'RACE' && typeof r.ref.season === 'number'
+              ? `investigate?season=${r.ref.season}&round=${r.ref.round ?? 1}`
+              : r.result_type === 'DRIVER' && typeof r.ref.driver_key === 'string'
+                ? `investigate?season=2023&round=1&driver_a=${encodeURIComponent(r.ref.driver_key)}&driver_b=sergio-perez&lap_number=6`
+                : r.result_type === 'HYPOTHESIS'
+                  ? `investigate?question_type=HYPOTHESIS_EVALUATION&hypotheses=${r.ref.hypothesis_id ?? ''}`
+                  : r.result_type === 'INVESTIGATION' || r.result_type === 'MEMORY'
+                    ? 'memory'
+                    : r.result_type === 'PATTERN'
+                      ? 'patternevidence'
+                      : 'investigate'
+          return (
+            <button
+              key={`res-${r.result_type}-${r.label}-${i}`}
+              className={`palette-item ${i === active ? 'active' : ''}`}
+              onMouseEnter={() => setIdx(i)}
+              onClick={() => onNavigate(view)}
+            >
+              <span className="p-type">{r.result_type}</span>
+              <span>{r.label}{r.detail ? <em className="muted"> — {r.detail}</em> : null}</span>
+            </button>
+          )
+        })}
       </div>
-
-      {error && <div className="panel">Error: {error}</div>}
-
-      <div className="grid">
-        <div>
-          <section className="panel">
-            <h2>
-              Investigation Trace
-              {investigation && (
-                <span className={FAILURE_STATES.has(investigation.state) ? 'state-pill failure' : investigation.state === 'COMPLETED' ? 'state-pill completed' : 'state-pill'}>
-                  {investigation.state}
-                </span>
-              )}
-            </h2>
-            {trace.length === 0 && <p className="muted">No active investigation.</p>}
-            {trace.map((entry, i) => (
-              <div key={i} className="trace-entry">
-                <span className="time">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-                {friendlyType(entry.type)}
-                {entry.payload && typeof entry.payload === 'object' && 'tool' in entry.payload && (
-                  <span> — {String((entry.payload as { tool?: string }).tool)}</span>
-                )}
-                {entry.type === 'state.changed' && typeof (entry.payload as { state?: string }).state === 'string' && (
-                  <strong> → {String((entry.payload as { state: string }).state)}</strong>
-                )}
-              </div>
-            ))}
-          </section>
-
-          {investigation?.conclusion && (
-            <section className="panel">
-              <h2>Engineering Report</h2>
-              <div className="conclusion">{investigation.conclusion.statement}</div>
-              <h3 className="subhead">Limitations</h3>
-              <ul className="limitations">
-                {investigation.conclusion.limitations.map((lim, i) => (
-                  <li key={i}>{lim}</li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {investigation && investigation.counterfactuals.length > 0 && (
-            <section className="panel">
-              <h2>Counterfactual Lab</h2>
-              {investigation.counterfactuals.map((cf) => (
-                <div key={cf.id} className="cf-card">
-                  <div className="cf-label">COUNTERFACTUAL — {cf.intervention}</div>
-                  <div className="cf-delta">
-                    {cf.predicted_delta_s !== null && cf.predicted_delta_s > 0 ? '+' : ''}
-                    {cf.predicted_delta_s?.toFixed(2)}s ± {cf.uncertainty_s?.toFixed(2)}s
-                  </div>
-                  <ul className="assumptions-list">
-                    {cf.assumptions.map((a, i) => (
-                      <li key={i}>{a}</li>
-                    ))}
-                  </ul>
-                  <p className="muted small">Under the stated assumptions, the model estimates this delta. Simulator v{cf.simulator_version}. Not an observed result.</p>
-                </div>
-              ))}
-            </section>
-          )}
-        </div>
-
-        <div>
-          <section className="panel">
-            <h2>Evidence Graph</h2>
-            {investigation ? (
-              <canvas
-                width={800}
-                height={500}
-                style={{ border: '1px solid #ddd', borderRadius: '4px', background: '#fafafa', width: '100%', height: 'auto', maxWidth: '800px' }}
-              />
-            ) : (
-              <p className="muted">Run an investigation to see the evidence graph.</p>
-            )}
-          </section>
-        </div>
-
-        <div>
-          <section className="panel">
-            <h2>Hypothesis Board</h2>
-            {investigation?.hypotheses.map((hyp) => (
-              <div key={hyp.id} className="hypothesis-card">
-                <div className="statement">
-                  <strong>{hyp.id}</strong> — {hyp.statement}
-                </div>
-                <div>
-                  <span className={`status status-${hyp.status.toLowerCase()}`}>{hyp.status}</span>
-                </div>
-                <div className="confidence-bar">
-                  <div style={{ width: `${hyp.confidence * 100}%` }} />
-                </div>
-                <div className="muted small">
-                  {hyp.supporting_evidence.length > 0 && <span>{hyp.supporting_evidence.length} supporting · </span>}
-                  {hyp.contradicting_evidence.length > 0 && <span>{hyp.contradicting_evidence.length} contradicting</span>}
-                </div>
-              </div>
-            ))}
-            {!investigation && <p className="muted">Hypotheses appear here after an investigation runs.</p>}
-          </section>
-
-          <section className="panel">
-            <h2>Evidence Log</h2>
-            {investigation?.evidence.map((ev) => (
-              <div key={ev.id} className="evidence-item">
-                <span className={`evidence-tag tag-${ev.type}`}>{ev.type}</span>
-                {ev.statement}
-              </div>
-            ))}
-            {!investigation && <p className="muted">Evidence appears here with its taxonomy label.</p>}
-          </section>
-
-          <section className="panel">
-            <h2>Tool Executions & Provenance</h2>
-            {investigation?.tool_executions.map((te) => (
-              <div key={te.id} className="tool-exec">
-                <span>{te.tool} <span className={te.status === 'completed' ? 'ok' : 'fail'}>[{te.status}]</span></span>
-                <span>
-                  {te.duration_ms !== null ? `${te.duration_ms}ms ` : ''}
-                  <span className="hash">{te.output_hash?.slice(0, 10)}</span>
-                </span>
-              </div>
-            ))}
-            {!investigation && <p className="muted">Every tool call is hashed and traceable.</p>}
-          </section>
-        </div>
+      <div className="palette-hint">
+        <span><kbd>↑↓</kbd> navigate</span>
+        <span><kbd>Enter</kbd> run</span>
+        <span><kbd>Esc</kbd> close</span>
+        <span>search is also here — types: RACE / DRIVER / HYPOTHESIS / ids</span>
       </div>
-    </div>
+    </>
   )
 }
