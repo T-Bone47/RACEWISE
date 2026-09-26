@@ -179,7 +179,7 @@ export default function CounterfactualView() {
           <ul className="cf-gates">
             {Object.entries(gates).map(([name, gate]) => (
               <li key={name} className={GATE_OK.has(gate.status) ? 'rg-ok' : 'rg-warn'}>
-                <strong>{gate.status === 'PASS' ? '✓' : '·'}</strong> {name}
+                <strong>{gate.status === 'PASS' ? 'PASS' : '—'}</strong> {name}
                 {gate.detail ? <span className="muted"> — {gate.detail}</span> : null}
               </li>
             ))}

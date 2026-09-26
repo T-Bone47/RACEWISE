@@ -723,6 +723,7 @@ def catalog_performance_patterns(
     A recurring pattern is NOT a cause; no rankings, no confidence scores.
     """
     from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
     from racewise.data.historical.performance_patterns import (
         MAX_PATTERNS, MAX_RACES, analyze_cross_race_performance_patterns,
     )

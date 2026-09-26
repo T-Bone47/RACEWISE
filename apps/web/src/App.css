@@ -19,6 +19,7 @@
   /* --- brand + accent -------------------------------------------------- */
   --accent: #e10600; /* F1 red — fills, borders, large graphic elements */
   --accent-bright: #ff2b1f; /* accent for small TEXT: ≥4.5:1 on panel surfaces (AA) */
+  --accent-press: #c50500; /* pressed/hover state of accent fills */
   --accent-soft: rgba(225, 6, 0, 0.14);
   --info: #4ea1ff;
 
@@ -335,7 +336,7 @@ button.primary {
   font-weight: 600;
 }
 
-button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500; }
+button.primary:hover:not(:disabled) { background: var(--accent-press); border-color: var(--accent-press); }
 
 .linklike {
   background: none; border: none; padding: 0;
@@ -666,7 +667,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .gp-node {
   display: inline-block;
   padding: 1px 7px;
-  border-radius: 9px;
+  border-radius: var(--radius-pill);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -824,7 +825,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 }
 .trace-entry .time { color: var(--muted); margin-right: 8px; }
 
-.hypothesis-card { border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-bottom: 10px; background: var(--panel-2); }
+.hypothesis-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; background: var(--panel-2); }
 .hypothesis-card .statement { font-size: 14px; margin-bottom: 8px; }
 
 .status { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); letter-spacing: 1px; }
@@ -842,11 +843,11 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .evidence-item { font-size: 13px; padding: 8px; border-bottom: 1px solid var(--line); }
 .evidence-item:last-child { border-bottom: none; }
 
-.state-pill { font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; font-size: 12px; background: var(--panel-2); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--line); }
-.state-pill.failure { color: var(--accent); border-color: var(--accent); }
+.state-pill { font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; font-size: 12px; background: var(--panel-2); padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); }
+.state-pill.failure { color: var(--accent-bright); border-color: var(--accent); }
 .state-pill.completed { color: var(--fact); border-color: var(--fact); }
 
-.cf-card { background: var(--panel-2); border: 1px solid var(--cf); border-radius: 6px; padding: 12px; }
+.cf-card { background: var(--panel-2); border: 1px solid var(--cf); border-radius: var(--radius); padding: 12px; }
 .cf-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--cf); margin-bottom: 6px; }
 .cf-delta { font-size: 26px; font-weight: 700; font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; color: var(--cf); }
 
@@ -854,29 +855,29 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .conclusion { font-size: 15px; line-height: 1.5; border-left: 3px solid var(--fact); padding-left: 12px; }
 .limitations { color: var(--muted); font-size: 12.5px; }
 .tool-exec { font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
-.hash { color: #5a6472; font-size: 10.5px; }
+.hash { color: var(--faint); font-size: 10.5px; }
 
 .catalog-filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
 .catalog-filters select, .catalog-filters input, .catalog-filters button {
-  padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel-2); color: var(--text);
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); color: var(--text);
 }
 .race-name { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cap-cell { text-align: center; }
 .cap-available { color: var(--st-supported); font-weight: 700; }
-.cap-partial { color: #f57f17; font-weight: 700; }
+.cap-partial { color: var(--st-insufficient); font-weight: 700; }
 .cap-unavailable { color: var(--faint); }
 .catalog-pagination { display: flex; gap: 12px; align-items: center; margin: 10px 0; }
 .catalog-pagination button { padding: 4px 10px; }
-.catalog-loading, .catalog-empty, .catalog-error { padding: 14px; margin: 8px 0; border-radius: 4px; }
+.catalog-loading, .catalog-empty, .catalog-error { padding: 14px; margin: 8px 0; border-radius: var(--radius-sm); }
 .catalog-loading { background: var(--panel-2); }
 .catalog-empty { background: var(--panel-2); color: var(--muted); }
 .catalog-error { background: rgba(255, 92, 92, 0.08); color: var(--st-contradicted); }
-.catalog-detail { border: 1px solid var(--line); border-radius: 6px; padding: 14px; margin-top: 14px; background: var(--panel-2); }
+.catalog-detail { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-top: 14px; background: var(--panel-2); }
 .detail-meta { color: var(--muted); margin: 4px 0; font-size: 13px; }
 .detail-providers { color: var(--info); margin-bottom: 8px; font-size: 13px; }
 .capability-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
 .capability-list li { display: flex; gap: 8px; align-items: baseline; }
-.investigate-btn { margin-top: 10px; padding: 8px 16px; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+.investigate-btn { margin-top: 10px; padding: 8px 16px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer; }
 .investigate-btn:disabled { background: var(--panel-3); color: var(--faint); cursor: not-allowed; }
 
 .telemetry-view { margin-top: 12px; }
@@ -907,7 +908,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .cf-gates { list-style: none; padding-left: 0; font-size: 13px; }
 .cf-gates li { padding: 2px 0; }
 .rg-ok { color: var(--st-supported); }
-.rg-warn { color: #9a7b00; }
+.rg-warn { color: var(--st-insufficient); }
 
-.rg-widening { color: #b3402a; }
+.rg-widening { color: var(--st-notsupported); }
 .rg-narrowing { color: var(--st-supported); }

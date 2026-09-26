@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { IconCircleCheck, IconCircleDot, IconCircleX } from '@tabler/icons-react'
 
 interface Capability {
   count?: number
@@ -52,9 +53,12 @@ const CAPABILITY_LABELS: Record<string, string> = {
 }
 
 function CapabilityMark({ availability }: { availability: string }) {
-  if (availability === 'AVAILABLE') return <span className="cap-available" title="AVAILABLE">✓</span>
-  if (availability === 'PARTIAL') return <span className="cap-partial" title="PARTIAL">◐</span>
-  return <span className="cap-unavailable" title="UNAVAILABLE">—</span>
+  /* tabler (§44) — semantic, labelled, never color-alone */
+  if (availability === 'AVAILABLE')
+    return <span className="cap-available" title="AVAILABLE"><IconCircleCheck size={13} strokeWidth={1.75} aria-label="AVAILABLE" role="img" /></span>
+  if (availability === 'PARTIAL')
+    return <span className="cap-partial" title="PARTIAL"><IconCircleDot size={13} strokeWidth={1.75} aria-label="PARTIAL" role="img" /></span>
+  return <span className="cap-unavailable" title="UNAVAILABLE"><IconCircleX size={13} strokeWidth={1.75} aria-label="UNAVAILABLE" role="img" /></span>
 }
 
 export interface CatalogPreset {
