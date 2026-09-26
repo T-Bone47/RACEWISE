@@ -1,4 +1,11 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import {
+  IconGauge, IconSearch, IconGraph, IconHistory, IconGitCompare, IconArrowsExchange, IconReload,
+  IconDatabase, IconActivity, IconChartBar, IconChartLine, IconStack2,
+  IconBoxMultiple, IconChartHistogram, IconListNumbers, IconMathFunction, IconTable,
+} from '@tabler/icons-react'
+import '@fontsource-variable/geist'
+import '@fontsource-variable/geist-mono'
 import './App.css'
 import CommandCenterView from './CommandCenterView'
 import InvestigationView from './InvestigationView'
@@ -26,37 +33,38 @@ type ViewId =
   | 'racegap' | 'counterfactual' | 'envelope' | 'regime' | 'patterns'
   | 'patternevidence' | 'legacy'
 
-const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon: string }> }> = [
+/* one professional icon family (tabler, §44) — no emoji as functional UI */
+const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon: typeof IconGauge }> }> = [
   {
     group: 'Command center',
     items: [
-      { id: 'command', label: 'Overview', icon: '◉' },
-      { id: 'investigate', label: 'Investigate', icon: '⌕' },
-      { id: 'graph', label: 'Graph', icon: '⌗' },
-      { id: 'compare', label: 'Compare', icon: '⇄' },
-      { id: 'memory', label: 'Memory', icon: '✦' },
-      { id: 'replay', label: 'Replay', icon: '↺' },
+      { id: 'command', label: 'Overview', icon: IconGauge },
+      { id: 'investigate', label: 'Investigate', icon: IconSearch },
+      { id: 'graph', label: 'Graph', icon: IconGraph },
+      { id: 'compare', label: 'Compare', icon: IconGitCompare },
+      { id: 'memory', label: 'Memory', icon: IconHistory },
+      { id: 'replay', label: 'Replay', icon: IconReload },
     ],
   },
   {
     group: 'Data',
     items: [
-      { id: 'catalog', label: 'Catalog', icon: '▤' },
-      { id: 'telemetry', label: 'Telemetry', icon: '∿' },
+      { id: 'catalog', label: 'Catalog', icon: IconDatabase },
+      { id: 'telemetry', label: 'Telemetry', icon: IconActivity },
     ],
   },
   {
     group: 'Analytical chain',
     items: [
-      { id: 'attribution', label: '6E Attribution', icon: '─' },
-      { id: 'fusion', label: '6F Evidence Fusion', icon: '≡' },
-      { id: 'stint', label: '6G Stint Evidence', icon: '⋯' },
-      { id: 'racegap', label: '6H Race Gap', icon: 'σ' },
-      { id: 'counterfactual', label: '6I Counterfactual', icon: '⧉' },
-      { id: 'envelope', label: '6J Envelope', icon: '◺' },
-      { id: 'regime', label: '6K Regimes', icon: '⌁' },
-      { id: 'patterns', label: '6L Patterns', icon: '∞' },
-      { id: 'patternevidence', label: '6M Pattern Evidence', icon: '⊞' },
+      { id: 'attribution', label: '6E Attribution', icon: IconChartBar },
+      { id: 'fusion', label: '6F Evidence Fusion', icon: IconChartLine },
+      { id: 'stint', label: '6G Stint Evidence', icon: IconStack2 },
+      { id: 'racegap', label: '6H Race Gap', icon: IconArrowsExchange },
+      { id: 'counterfactual', label: '6I Counterfactual', icon: IconBoxMultiple },
+      { id: 'envelope', label: '6J Envelope', icon: IconChartHistogram },
+      { id: 'regime', label: '6K Regimes', icon: IconListNumbers },
+      { id: 'patterns', label: '6L Patterns', icon: IconMathFunction },
+      { id: 'patternevidence', label: '6M Pattern Evidence', icon: IconTable },
     ],
   },
 ]
@@ -140,7 +148,7 @@ export default function App() {
           onClick={() => setPaletteOpen(true)}
           aria-label="Open command palette and search"
         >
-          <span aria-hidden="true">⌕</span>
+          <IconSearch size={15} strokeWidth={1.75} aria-hidden="true" />
           <span className="search-hint">Search / commands</span>
           <kbd>Ctrl K</kbd>
         </button>
@@ -158,7 +166,7 @@ export default function App() {
                 onClick={() => navigate(item.id)}
                 aria-current={view === item.id ? 'page' : undefined}
               >
-                <span className="nav-ico" aria-hidden="true">{item.icon}</span>
+                <span className="nav-ico" aria-hidden="true"><item.icon size={16} strokeWidth={1.75} /></span>
                 <span className="nav-label">{item.label}</span>
               </button>
             ))}

@@ -3,7 +3,7 @@ import {
   HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES,
 } from './types'
 import type { InvestigationResult, LedgerItem } from './types'
-import { LoadingLine, ProvenanceDrawer, StructuredError } from './workspace'
+import { ProvenanceDrawer, StructuredError, WorkspaceSkeleton } from './workspace'
 import { ClaimTag, EvidenceDetailDrawer, StateChip } from './workspace'
 import type { ProvenanceTarget } from './workspace'
 import { GraphPanel, ReplayPanel, ComparePanel, MemoryPanel } from './panels'
@@ -239,7 +239,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
           hint="Adjust the scope or pick a session with the required capability — nothing is broadened silently."
         />
       )}
-      {loading && <LoadingLine label="Collecting evidence and evaluating hypotheses…" />}
+      {loading && <WorkspaceSkeleton />}
 
       {!result && !loading && !error && (
         <div className="empty-state">

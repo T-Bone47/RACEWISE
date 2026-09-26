@@ -13,11 +13,12 @@
   --line: #232933;
   --line-soft: #1a1f29;
   --text: #e8eaf0;
-  --muted: #8b93a3;
-  --faint: #5a6472;
+  --muted: #98a1b1;   /* ≥4.5:1 on all surfaces (AA) */
+  --faint: #828c9c;   /* ≥4.5:1 on --bg/--panel (AA) */
 
   /* --- brand + accent -------------------------------------------------- */
-  --accent: #e10600; /* F1 red */
+  --accent: #e10600; /* F1 red — fills, borders, large graphic elements */
+  --accent-bright: #ff2b1f; /* accent for small TEXT: ≥4.5:1 on panel surfaces (AA) */
   --accent-soft: rgba(225, 6, 0, 0.14);
   --info: #4ea1ff;
 
@@ -34,17 +35,34 @@
   --st-contradicted: #ff5c5c;
   --st-notsupported: #f07662;
   --st-mixed: #f5a623;
-  --st-untestable: #8b93a3;
-  --st-insufficient: #c0a468;
+  --st-untestable: #a8b1c0;   /* ≥4.5:1 blended over chip bg (AA) */
+  --st-insufficient: #d4bc85; /* ≥4.5:1 blended over chip bg (AA) */
 
   /* --- shared metrics --------------------------------------------------- */
+  /* shape system: pills (999px) for chips/steps/status · --radius for panels
+     · --radius-sm for micro-elements (kbd, code, tags, bars) */
   --radius: 8px;
   --radius-sm: 5px;
+  --radius-pill: 999px;
+
+  /* --- surface levels (§10): 0 app bg · 1 section · 2 elevated/interactive --- */
+  --surface-0: var(--bg);
+  --surface-1: var(--panel);
+  --surface-2: var(--panel-2);
+
+  /* --- motion tokens (§31): micro 100–220ms · panels 180–350ms · views ≤500ms --- */
   --speed: 150ms;
   --speed-panel: 240ms;
+  --speed-view: 320ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --sidebar-w: 216px;
 
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  /* layering: content < drawer < palette < toasts */
+  --z-drawer: 60;
+  --z-palette: 70;
+
+  font-family: 'Geist Variable', 'Segoe UI', system-ui, sans-serif;
+  font-feature-settings: 'ss01' on; /* geometric single-story forms */
 }
 
 * { box-sizing: border-box; }
@@ -52,12 +70,26 @@
 html, body { margin: 0; }
 
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Geist Variable', 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
   line-height: 1.45;
 }
+
+/* technical numerics (§7): tabular alignment for engineering values */
+.mono, kbd, .qid, .cf-delta {
+  font-family: 'Geist Mono Variable', 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace;
+  font-feature-settings: 'tnum' on, 'zero' on;
+}
+
+/* typographic hierarchy (§8): levels via scale + color, not size inflation */
+.t-h1 { font-size: 15px; font-weight: 650; letter-spacing: 0.4px; color: var(--text); }
+.t-h2 { font-size: 13px; font-weight: 620; letter-spacing: 0.2px; color: var(--text); }
+.t-h3 { font-size: 12px; font-weight: 600; color: var(--text); }
+.t-label { font-size: 10.5px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--faint); }
+.t-num { font-family: 'Geist Mono Variable', 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; font-variant-numeric: tabular-nums; }
+.t-annotation { font-size: 11.5px; color: var(--muted); }
 
 ::selection { background: rgba(78, 161, 255, 0.35); }
 
@@ -79,7 +111,7 @@ body {
     "header header"
     "sidebar workspace"
     "statusbar statusbar";
-  min-height: 100vh;
+  min-height: 100dvh; /* §42: dynamic viewport, never h-screen */
 }
 
 .shell-header {
@@ -89,7 +121,7 @@ body {
   gap: 14px;
   padding: 0 16px;
   border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface-1);
   position: sticky;
   top: 0;
   z-index: 40;
@@ -103,7 +135,7 @@ body {
   white-space: nowrap;
 }
 
-.shell-header h1 span { color: var(--accent); }
+.shell-header h1 span { color: var(--accent-bright); }
 
 .shell-tagline {
   color: var(--muted);
@@ -137,23 +169,23 @@ body {
 
 .search-trigger kbd {
   margin-left: auto;
-  font-family: 'Cascadia Code', Consolas, monospace;
+  font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace;
   font-size: 10.5px;
   color: var(--faint);
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   padding: 0 4px;
 }
 
 .shell-sidebar {
   grid-area: sidebar;
   border-right: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface-1);
   padding: 12px 8px;
   overflow-y: auto;
   position: sticky;
   top: 52px;
-  height: calc(100vh - 82px);
+  height: calc(100dvh - 82px);
 }
 
 .nav-group-label {
@@ -209,7 +241,7 @@ body {
   background: var(--panel);
   color: var(--faint);
   font-size: 11px;
-  font-family: 'Cascadia Code', Consolas, monospace;
+  font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -246,18 +278,18 @@ body {
 .panel h3 { font-size: 13.5px; margin: 18px 0 8px; }
 
 code {
-  font-family: 'Cascadia Code', Consolas, monospace;
+  font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace;
   font-size: 0.92em;
   color: var(--calc);
   background: var(--panel-2);
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 
 .muted { color: var(--muted); }
 .faint { color: var(--faint); }
 .small { font-size: 12.5px; }
-.mono { font-family: 'Cascadia Code', Consolas, monospace; }
+.mono { font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; }
 .error { color: var(--st-contradicted); font-size: 13px; }
 
 a { color: var(--info); }
@@ -288,6 +320,11 @@ button {
 }
 
 button:hover:not(:disabled) { border-color: var(--faint); background: var(--panel-2); }
+button:active:not(:disabled) { transform: translateY(1px); }
+
+/* selected rows: precise state, calm hover (§34) */
+tbody tr:has(button):hover { background: var(--panel-2); }
+tbody tr:has(button) { transition: background var(--speed) var(--ease); }
 
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -325,6 +362,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
   width: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
+  font-variant-numeric: tabular-nums; /* engineering values align (§7) */
 }
 
 .catalog-table th, .catalog-table td {
@@ -359,7 +397,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .ef-badge, .ev-chip, .st-chip {
   display: inline-block;
   padding: 1px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -384,7 +422,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
   font-size: 10.5px;
   font-weight: 700;
   padding: 1px 7px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   margin-right: 6px;
   letter-spacing: 0.8px;
 }
@@ -460,8 +498,8 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
   width: min(480px, 92vw);
   background: var(--panel-2);
   border-left: 1px solid var(--line);
-  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
-  z-index: 61;
+  box-shadow: -18px 0 40px rgba(3, 5, 9, 0.55);
+  z-index: var(--z-drawer);
   padding: 18px;
   overflow-y: auto;
   animation: slidein var(--speed-panel) ease;
@@ -501,8 +539,9 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
   width: min(640px, 94vw);
   background: var(--panel-2);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 70px rgba(3, 5, 9, 0.6);
+  z-index: var(--z-palette);
   overflow: hidden;
   animation: palettein var(--speed-panel) ease;
 }
@@ -533,7 +572,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 
 .palette-item .p-type {
   font-size: 10px; font-weight: 700; letter-spacing: 1px;
-  padding: 1px 7px; border-radius: 3px;
+  padding: 1px 7px; border-radius: var(--radius-sm);
   background: var(--panel-3); color: var(--muted);
   min-width: 96px; text-align: center;
 }
@@ -549,8 +588,8 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 }
 
 .palette-hint kbd {
-  font-family: 'Cascadia Code', Consolas, monospace;
-  border: 1px solid var(--line); border-radius: 3px; padding: 0 5px;
+  font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 5px;
 }
 
 /* ============================================================
@@ -576,7 +615,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
   text-transform: uppercase; letter-spacing: 1px;
 }
 
-.launcher-steps .step { padding: 3px 9px; border: 1px solid var(--line); border-radius: 10px; }
+.launcher-steps .step { padding: 3px 9px; border: 1px solid var(--line); border-radius: var(--radius-pill); }
 .launcher-steps .step.active { color: var(--text); border-color: var(--faint); background: var(--panel-2); }
 .launcher-steps .step.done { color: var(--st-supported); border-color: rgba(61, 220, 132, 0.4); }
 
@@ -664,7 +703,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .gp-path li { padding: 2px 0; }
 
 /* ============================================================
-   LOADING / EMPTY STATES
+   LOADING / EMPTY STATES — structural skeletons (§36), no generic spinners
    ============================================================ */
 
 .loading-line {
@@ -673,16 +712,25 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
   padding: 10px 2px;
 }
 
-.loading-line::before {
-  content: "";
-  width: 12px; height: 12px;
-  border: 2px solid var(--line);
-  border-top-color: var(--info);
-  border-radius: 50%;
-  animation: spin 900ms linear infinite;
+/* shimmer skeleton primitives: shape mirrors the final layout */
+.ws-skeleton { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 14px; }
+.sk-row { display: flex; gap: 12px; align-items: center; }
+.sk-block {
+  border: 1px solid var(--line-soft);
+  background: var(--surface-1);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex; flex-direction: column; gap: 9px;
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton {
+  display: inline-block;
+  height: 11px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(100deg, var(--panel-2) 40%, var(--panel-3) 50%, var(--panel-2) 60%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 .empty-state {
   border: 1px dashed var(--line);
@@ -725,6 +773,38 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
   .shell-tagline { display: none; }
 }
 
+/* tablet: two-panel adaptive workspace (§42) */
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 56px 1fr; }
+  .quick-grid { grid-template-columns: repeat(2, 1fr); }
+  .drawer { width: min(560px, 100vw); }
+}
+
+/* mobile: single-focus stack with progressive disclosure (§42) */
+@media (max-width: 640px) {
+  body { font-size: 13.5px; }
+  .shell { grid-template-columns: 1fr; grid-template-rows: 52px auto 1fr 30px; grid-template-areas: "header" "sidebar" "workspace" "statusbar"; }
+  .shell-sidebar {
+    position: sticky; top: 52px; z-index: 35;
+    display: flex; overflow-x: auto; overflow-y: hidden;
+    border-right: none; border-bottom: 1px solid var(--line);
+    padding: 6px 8px; gap: 2px;
+  }
+  .shell-sidebar > div { display: flex; gap: 2px; }
+  .nav-group-label { display: none; }
+  .nav-item { padding: 7px 10px; white-space: nowrap; }
+  .nav-item .nav-label { display: inline; font-size: 12px; }
+  .nav-ico { display: none; }
+  .quick-grid { grid-template-columns: 1fr; }
+  .drawer { width: 100vw; border-radius: 0; }
+  .shell-workspace { padding: 12px; }
+  /* dense analytical tables + fixed-width scope inputs scroll inside their
+     section instead of pushing the page horizontally (§63) */
+  .panel { overflow-x: auto; }
+  .controls { flex-wrap: wrap; }
+  .controls label { white-space: nowrap; }
+}
+
 /* ============================================================
    LEGACY VIEW HELPERS (retained for the 6E–6M analytical views)
    ============================================================ */
@@ -734,7 +814,7 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; align-items: start; }
 
 .trace-entry {
-  font-family: 'Cascadia Code', Consolas, monospace;
+  font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace;
   font-size: 12.5px;
   padding: 6px 8px;
   border-left: 2px solid var(--accent);
@@ -747,33 +827,33 @@ button.primary:hover:not(:disabled) { background: #c50500; border-color: #c50500
 .hypothesis-card { border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-bottom: 10px; background: var(--panel-2); }
 .hypothesis-card .statement { font-size: 14px; margin-bottom: 8px; }
 
-.status { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 1px; }
+.status { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-pill); letter-spacing: 1px; }
 .status.SUPPORTED { background: rgba(61, 220, 132, 0.15); color: var(--fact); }
 .status.WEAKENED { background: rgba(245, 166, 35, 0.15); color: var(--infer); }
-.status.REJECTED { background: rgba(225, 6, 0, 0.2); color: var(--accent); }
+.status.REJECTED { background: rgba(225, 6, 0, 0.2); color: var(--accent-bright); }
 .status.PROPOSED, .status.UNRESOLVED { background: rgba(139, 147, 163, 0.15); color: var(--muted); }
 
-.confidence-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.confidence-bar { height: 6px; background: var(--line); border-radius: var(--radius-sm); margin-top: 8px; overflow: hidden; }
 .confidence-bar > div { height: 100%; background: var(--calc); transition: width 0.4s ease; }
 
-.evidence-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 3px; margin-right: 6px; letter-spacing: 1px; }
+.evidence-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-sm); margin-right: 6px; letter-spacing: 1px; }
 .tag-ASSUMPTION { background: rgba(139, 147, 163, 0.15); color: var(--assume); }
 
 .evidence-item { font-size: 13px; padding: 8px; border-bottom: 1px solid var(--line); }
 .evidence-item:last-child { border-bottom: none; }
 
-.state-pill { font-family: 'Cascadia Code', Consolas, monospace; font-size: 12px; background: var(--panel-2); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--line); }
+.state-pill { font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; font-size: 12px; background: var(--panel-2); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--line); }
 .state-pill.failure { color: var(--accent); border-color: var(--accent); }
 .state-pill.completed { color: var(--fact); border-color: var(--fact); }
 
 .cf-card { background: var(--panel-2); border: 1px solid var(--cf); border-radius: 6px; padding: 12px; }
 .cf-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--cf); margin-bottom: 6px; }
-.cf-delta { font-size: 26px; font-weight: 700; font-family: 'Cascadia Code', Consolas, monospace; color: var(--cf); }
+.cf-delta { font-size: 26px; font-weight: 700; font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; color: var(--cf); }
 
 .assumptions-list { color: var(--muted); font-size: 12.5px; margin: 8px 0 0 0; padding-left: 18px; }
 .conclusion { font-size: 15px; line-height: 1.5; border-left: 3px solid var(--fact); padding-left: 12px; }
 .limitations { color: var(--muted); font-size: 12.5px; }
-.tool-exec { font-family: 'Cascadia Code', Consolas, monospace; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.tool-exec { font-family: 'Geist Mono Variable', 'Cascadia Code', Consolas, monospace; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--line); }
 .hash { color: #5a6472; font-size: 10.5px; }
 
 .catalog-filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }

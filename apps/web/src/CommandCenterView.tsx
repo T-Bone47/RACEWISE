@@ -1,9 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  IconSearch, IconGraph, IconHistory, IconGitCompare, IconDatabase, IconReload,
+} from '@tabler/icons-react'
+import {
   HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES,
 } from './types'
 import type { QuestionScope, SearchResponse } from './types'
 import { LoadingLine, StructuredError } from './workspace'
+
+/* icon map for quick tiles — tabler (§44: one professional icon family) */
+const QUICK_ICONS = {
+  Data: IconDatabase,
+  Graph: IconGraph,
+  Memory: IconHistory,
+  Compare: IconGitCompare,
+  Search: IconSearch,
+  Replay: IconReload,
+} as const
 
 /* ============ Phase 6Q — Command Center (default landing view) ============ */
 
@@ -292,24 +305,32 @@ export default function CommandCenterView({
       <section className="panel" aria-label="Shortcuts">
         <h2>Evidence / Graph / Memory shortcuts</h2>
         <div className="quick-grid">
-          <button className="quick-tile" onClick={() => onNavigated?.('catalog')}>
-            <span className="q-label">Data</span>Browse the canonical catalog and launch from a session
-          </button>
-          <button className="quick-tile" onClick={() => onNavigated?.('graph')}>
-            <span className="q-label">Graph</span>Open the 6P provenance navigator for the current scope
-          </button>
-          <button className="quick-tile" onClick={() => onNavigated?.('memory')}>
-            <span className="q-label">Memory</span>Exact-scope engineering memory (derived on read)
-          </button>
-          <button className="quick-tile" onClick={() => onNavigated?.('compare')}>
-            <span className="q-label">Compare</span>Dimension-wise comparison of two investigations
-          </button>
-          <button className="quick-tile" onClick={() => { setSearchOpen(true); onNavigated?.('') }}>
-            <span className="q-label">Search</span>Find races, drivers and hypotheses (Ctrl/Cmd + K)
-          </button>
-          <button className="quick-tile" onClick={() => onNavigated?.('replay')}>
-            <span className="q-label">Replay</span>Deterministic replay of a 6N investigation
-          </button>
+          {[['Data', 'catalog'], ['Graph', 'graph'], ['Memory', 'memory'],
+            ['Compare', 'compare'], ['Search', 'search'], ['Replay', 'replay']].map(([label, view]) => {
+            const Icon = QUICK_ICONS[label as keyof typeof QUICK_ICONS]
+            return (
+              <button
+                key={label}
+                className="quick-tile"
+                onClick={() => {
+                  if (view === 'search') { setSearchOpen(true); onNavigated?.('') }
+                  else onNavigated?.(view)
+                }}
+              >
+                <span className="q-label">
+                  <Icon size={15} strokeWidth={1.75} aria-hidden="true" /> {label}
+                </span>
+                {{
+                  Data: 'Browse the canonical catalog and launch from a session',
+                  Graph: 'Open the 6P provenance navigator for the current scope',
+                  Memory: 'Exact-scope engineering memory (derived on read)',
+                  Compare: 'Dimension-wise comparison of two investigations',
+                  Search: 'Find races, drivers and hypotheses (Ctrl/Cmd + K)',
+                  Replay: 'Deterministic replay of a 6N investigation',
+                }[label]}
+              </button>
+            )
+          })}
         </div>
       </section>
 

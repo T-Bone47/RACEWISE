@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { X as XIcon } from 'lucide-react'
 import { stateChipClass } from './types'
 import type { LedgerItem } from './types'
 
@@ -71,7 +72,7 @@ export function Drawer({
         aria-label={title}
       >
         <button ref={closeRef} className="drawer-close" onClick={onClose} aria-label="Close panel">
-          ✕
+          <XIcon size={15} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <h3>{title}</h3>
         {subtitle && <p className="muted small">{subtitle}</p>}
@@ -247,4 +248,41 @@ export function StructuredError({
 
 export function LoadingLine({ label }: { label: string }) {
   return <div className="loading-line" role="status">{label}</div>
+}
+
+/* ---------- structural skeleton loaders (§36): shapes mirror the real
+   workspace layout, so the page never jumps when data lands ---------- */
+
+export function Skeleton({ style }: { style?: CSSProperties }) {
+  return <span className="skeleton" style={style} aria-hidden="true" />
+}
+
+export function WorkspaceSkeleton() {
+  return (
+    <div className="ws-skeleton" role="status" aria-label="Preparing investigation">
+      <div className="sk-row">
+        <Skeleton style={{ width: 150, height: 14 }} />
+        <Skeleton style={{ width: 110, height: 20 }} />
+        <span style={{ flex: 1 }} />
+        <Skeleton style={{ width: 96, height: 28 }} />
+      </div>
+      <Skeleton style={{ width: '70%', height: 11 }} />
+      <div className="sk-block">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="sk-row">
+            <Skeleton style={{ width: 60, height: 11 }} />
+            <Skeleton style={{ width: '30%', height: 11 }} />
+            <Skeleton style={{ width: '18%', height: 11 }} />
+            <Skeleton style={{ width: 56, height: 11 }} />
+            <Skeleton style={{ width: 44, height: 11 }} />
+          </div>
+        ))}
+      </div>
+      <div className="sk-block">
+        <Skeleton style={{ width: '45%', height: 11 }} />
+        <Skeleton style={{ width: '90%', height: 11 }} />
+        <Skeleton style={{ width: '82%', height: 11 }} />
+      </div>
+    </div>
+  )
 }
