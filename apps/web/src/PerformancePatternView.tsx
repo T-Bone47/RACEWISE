@@ -152,8 +152,8 @@ export default function PerformancePatternView() {
     <div className="catalog attribution-view">
       <h2>Cross-Race Performance Patterns</h2>
       <p className="muted small">
-        Deterministic recurrence detection over per-race performance regimes (Phase 6K
-        signatures, documented thresholds, no clustering, no embeddings). A recurring pattern
+        Deterministic recurrence detection over per-race performance-regime
+        signatures (documented thresholds, no clustering, no embeddings). A recurring pattern
         is an observation of repetition across independent race instances — it is{' '}
         <strong>not</strong> a cause, not a significance claim, and races/drivers are never
         ranked. No confidence scores — states are deterministic classifications.
@@ -266,7 +266,7 @@ export default function PerformancePatternView() {
                 ))}
               </p>
 
-              <h4>Hypothesis consistency (6F vocabulary, never collapsed)</h4>
+              <h4>Hypothesis consistency (canonical vocabulary, never collapsed)</h4>
               <table className="catalog-table">
                 <thead>
                   <tr>

@@ -275,7 +275,7 @@ export default function PerformanceEnvelopeView() {
           <div className="rg-accounting">
             <strong>Evidence</strong>
             <p>
-              Historical evidence verdicts (Phase 6F) and model sensitivity (here) are
+              Historical evidence verdicts (lap evidence) and model sensitivity (here) are
               different epistemic objects. A supported hypothesis and a sensitive model
               do not together prove historical causation.
             </p>

@@ -479,7 +479,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
 
           {/* ================= INVESTIGATION GRAPH (§16/§17) ================= */}
           <section className="panel" aria-label="Investigation graph">
-            <h2>Investigation graph (Phase 6P)</h2>
+            <h2>Engineering graph</h2>
             <p className="muted small">
               The provenance navigator: edges are imported analytical relationships —
               SUPPORTS is evidence-consistency (not causation), CONTRADICTS comes from
@@ -524,7 +524,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                               kind: 'COUNTERFACTUAL (MODELLED)',
                               id: exec.candidate_id.slice(0, 10),
                               provenance: {
-                                source_phase: '6I',
+                                source_phase: 'Counterfactual model',
                                 model: exec.model,
                                 baseline: exec.baseline,
                               },
@@ -556,7 +556,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
               </tbody>
             </table>
             <p className="muted small">
-              Counterfactuals run only when 6I-eligible; race-level extrapolation is
+              Counterfactuals run only when model-eligible; race-level extrapolation is
               structurally ineligible. A modelled delta is a property of the model,
               never history or prediction.
             </p>
@@ -623,17 +623,17 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
 
           {/* ================= REPLAY / COMPARE / MEMORY (§18-§20) ================= */}
           <section className="panel" aria-label="Replay">
-            <h2>Replay (Phase 6O)</h2>
+            <h2>Replay</h2>
             <ReplayPanel scopeParams={scopeParams} />
           </section>
 
           <section className="panel" aria-label="Comparison">
-            <h2>Compare (Phase 6O)</h2>
+            <h2>Compare</h2>
             <ComparePanel baseScope={scopeParams} initialBLap={result.question.scope.lap_number ?? undefined} />
           </section>
 
           <section className="panel" aria-label="Engineering memory">
-            <h2>Engineering memory (Phase 6O)</h2>
+            <h2>Engineering memory</h2>
             <MemoryPanel scopeParams={scopeParams} driverA={driverA.trim()} />
           </section>
         </>

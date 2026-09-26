@@ -326,7 +326,7 @@ export function GraphPanel({
       {!graph && !loading && !error && (
         <div className="empty-state">
           No graph built for this scope yet. The graph is assembled on read from
-          the 6N investigation of the current scope — build it to navigate
+          the investigation of the current scope — build it to navigate
           evidence, hypotheses, contradictions and memory.
         </div>
       )}
@@ -408,7 +408,7 @@ export function ReplayPanel({ scopeParams }: { scopeParams: () => URLSearchParam
       )}
       {!replay && !loading && !error && (
         <div className="empty-state" style={{ marginTop: 10 }}>
-          No replay run yet. Replay re-runs the exact 6N engine for this scope
+          No replay run yet. Replay re-runs the exact deterministic engine for this scope
           and compares canonical hashes — a differing result is reported as
           exact structured differences, never “something changed”.
         </div>

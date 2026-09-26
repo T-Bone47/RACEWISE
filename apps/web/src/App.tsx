@@ -50,21 +50,21 @@ const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon
     group: 'Data',
     items: [
       { id: 'catalog', label: 'Catalog', icon: IconDatabase },
-      { id: 'telemetry', label: 'Telemetry', icon: IconActivity },
     ],
   },
   {
-    group: 'Analytical chain',
+    group: 'Engineering',
     items: [
-      { id: 'attribution', label: '6E Attribution', icon: IconChartBar },
-      { id: 'fusion', label: '6F Evidence Fusion', icon: IconChartLine },
-      { id: 'stint', label: '6G Stint Evidence', icon: IconStack2 },
-      { id: 'racegap', label: '6H Race Gap', icon: IconArrowsExchange },
-      { id: 'counterfactual', label: '6I Counterfactual', icon: IconBoxMultiple },
-      { id: 'envelope', label: '6J Envelope', icon: IconChartHistogram },
-      { id: 'regime', label: '6K Regimes', icon: IconListNumbers },
-      { id: 'patterns', label: '6L Patterns', icon: IconMathFunction },
-      { id: 'patternevidence', label: '6M Pattern Evidence', icon: IconTable },
+      { id: 'telemetry', label: 'Lap Comparison', icon: IconActivity },
+      { id: 'attribution', label: 'Lap Attribution', icon: IconChartBar },
+      { id: 'fusion', label: 'Evidence Fusion', icon: IconChartLine },
+      { id: 'stint', label: 'Stint Analysis', icon: IconStack2 },
+      { id: 'racegap', label: 'Race Gap', icon: IconArrowsExchange },
+      { id: 'counterfactual', label: 'Counterfactuals', icon: IconBoxMultiple },
+      { id: 'envelope', label: 'Performance Envelope', icon: IconChartHistogram },
+      { id: 'regime', label: 'Performance Regimes', icon: IconListNumbers },
+      { id: 'patterns', label: 'Cross-Race Patterns', icon: IconMathFunction },
+      { id: 'patternevidence', label: 'Pattern Evidence', icon: IconTable },
     ],
   },
 ]
@@ -184,9 +184,9 @@ export default function App() {
 
         {view === 'graph' && (
           <section className="panel">
-            <h2>Investigation graph — provenance navigator (Phase 6P)</h2>
+            <h2>Engineering graph — provenance navigator</h2>
             <p className="muted small">
-              Assembled on read from the 6N investigation of the scope below.
+              Assembled on read from the investigation of the scope below.
               Click a node to trace its path; use the hypothesis focus to see
               supporting / contradicting / non-decisive evidence side by side.
             </p>
@@ -196,9 +196,9 @@ export default function App() {
 
         {view === 'replay' && (
           <section className="panel">
-            <h2>Replay (Phase 6O)</h2>
+            <h2>Replay</h2>
             <p className="muted small">
-              Deterministic replay: rebuild the snapshot, re-run the exact 6N
+              Deterministic replay: rebuild the snapshot, re-run the exact
               engine, compare canonical hashes. Divergence is reported as
               exact structured differences with categories.
             </p>
@@ -208,7 +208,7 @@ export default function App() {
 
         {view === 'compare' && (
           <section className="panel">
-            <h2>Comparison (Phase 6O)</h2>
+            <h2>Comparison</h2>
             <p className="muted small">
               Dimension-wise deltas between investigation A (current scope)
               and B (same scope, different lap). Neutral transition
@@ -220,7 +220,7 @@ export default function App() {
 
         {view === 'memory' && (
           <section className="panel">
-            <h2>Engineering memory (Phase 6O)</h2>
+            <h2>Engineering memory</h2>
             <p className="muted small">
               Evidence-bound, scope-limited memory derived on read and
               retrieved by exact scope — never semantic similarity, never
@@ -309,12 +309,11 @@ export default function App() {
       <footer className="shell-statusbar">
         <span className="statusbar-item">
           <span className="status-dot" aria-hidden="true" />
-          CHAIN 6E–6P READY
+          DETERMINISTIC CHAIN READY
         </span>
-        <span className="statusbar-item">REGISTRY 31 HISTORICAL TOOLS</span>
-        <span className="statusbar-item">DERIVED-ON-READ · ZERO STORAGE GROWTH</span>
+        <span className="statusbar-item">EVIDENCE-DRIVEN · ZERO STORAGE GROWTH</span>
         {recentsCount > 0 && <span className="statusbar-item">{recentsCount} RECENT INVESTIGATION(S)</span>}
-        <span className="statusbar-item" style={{ marginLeft: 'auto' }}>PHASE 6Q WORKSPACE</span>
+        <span className="statusbar-item" style={{ marginLeft: 'auto' }}>RACEWISE ENGINEERING WORKSPACE</span>
       </footer>
 
       {/* ================= COMMAND PALETTE (§26) ================= */}
@@ -377,21 +376,21 @@ function CommandPalette({
   const commands = [
     { label: 'New investigation', view: 'command' },
     { label: 'Open investigation workspace', view: 'investigate' },
-    { label: 'Open investigation graph (6P)', view: 'graph' },
-    { label: 'Compare investigations (6O)', view: 'compare' },
-    { label: 'Open engineering memory (6O)', view: 'memory' },
-    { label: 'Replay investigation (6O)', view: 'replay' },
+    { label: 'Open investigation graph', view: 'graph' },
+    { label: 'Compare investigations', view: 'compare' },
+    { label: 'Open engineering memory', view: 'memory' },
+    { label: 'Replay investigation', view: 'replay' },
     { label: 'Open data catalog', view: 'catalog' },
-    { label: 'Open telemetry comparison (6C)', view: 'telemetry' },
-    { label: 'Open 6E attribution', view: 'attribution' },
-    { label: 'Open 6F evidence fusion', view: 'fusion' },
-    { label: 'Open 6G stint evidence', view: 'stint' },
-    { label: 'Open 6H race gap decomposition', view: 'racegap' },
-    { label: 'Open 6I counterfactual simulator', view: 'counterfactual' },
-    { label: 'Open 6J performance envelope', view: 'envelope' },
-    { label: 'Open 6K performance regimes', view: 'regime' },
-    { label: 'Open 6L cross-race patterns', view: 'patterns' },
-    { label: 'Open 6M pattern evidence', view: 'patternevidence' },
+    { label: 'Open lap comparison', view: 'telemetry' },
+    { label: 'Open lap attribution', view: 'attribution' },
+    { label: 'Open evidence fusion', view: 'fusion' },
+    { label: 'Open stint analysis', view: 'stint' },
+    { label: 'Open race gap decomposition', view: 'racegap' },
+    { label: 'Open counterfactual simulator', view: 'counterfactual' },
+    { label: 'Open performance envelope', view: 'envelope' },
+    { label: 'Open performance regimes', view: 'regime' },
+    { label: 'Open cross-race patterns', view: 'patterns' },
+    { label: 'Open pattern evidence', view: 'patternevidence' },
   ]
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()))
   /* keyboard selection spans commands first, then typed search results */

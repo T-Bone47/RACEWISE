@@ -198,18 +198,18 @@ export default function PatternEvidenceView() {
 
   return (
     <div className="panel">
-      <h2>Phase 6M — Cross-Race Hypothesis &amp; Evidence</h2>
+      <h2>Cross-Race Hypothesis &amp; Evidence</h2>
       <p className="muted small">
         Investigates how the measured evidence behind one recurring cross-race
         pattern behaves across its independent occurrences. Evidence states are
-        deterministic classifications of 6F/6G observations — not confidence
+        deterministic classifications of lap-evidence and stint observations — not confidence
         scores. A consistent aggregate is not causation; no falsification found
         is not confirmation; residuals are never assigned.
       </p>
       <div className="controls">
         <input
           type="text"
-          placeholder="pattern_id from Phase 6L patterns view"
+          placeholder="pattern id from Cross-Race Patterns"
           value={patternId}
           onChange={(e) => setPatternId(e.target.value)}
           style={{ minWidth: 260 }}

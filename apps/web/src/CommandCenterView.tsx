@@ -171,7 +171,7 @@ export default function CommandCenterView({
       <section className="cmd-hero" aria-label="New investigation">
         <h2>New investigation</h2>
         <p className="muted small">
-          One structured engineering question through the deterministic 6E–6N chain.
+          One structured engineering question through the deterministic analytical chain.
           Closed vocabulary only — no free-form logic, no causal claims.
         </p>
         <div className="launcher-steps" aria-hidden="true">
@@ -229,7 +229,7 @@ export default function CommandCenterView({
             <label>
               pattern id:{' '}
               <input type="text" value={patternId} style={{ minWidth: 220 }}
-                     placeholder="from the 6L patterns view"
+                     placeholder="pattern id from Cross-Race Patterns"
                      onChange={(e) => setPatternId(e.target.value)} />
             </label>
           )}
@@ -251,7 +251,7 @@ export default function CommandCenterView({
         </div>
 
         <div className="muted small" style={{ marginBottom: 10 }}>
-          evidence plan will execute: {(questionType && QUESTION_INPUTS[questionType] !== undefined) ? 'per 6N closed plan' : '—'} ·
+          evidence plan will execute: {(questionType && QUESTION_INPUTS[questionType] !== undefined) ? 'per the closed evidence plan' : '—'} ·
           {' '}drivers must be distinct · scope data is checked at run time (UNAVAILABLE is reported, never broadened)
         </div>
 
@@ -322,11 +322,11 @@ export default function CommandCenterView({
                 </span>
                 {{
                   Data: 'Browse the canonical catalog and launch from a session',
-                  Graph: 'Open the 6P provenance navigator for the current scope',
+                  Graph: 'Open the engineering graph for the current scope',
                   Memory: 'Exact-scope engineering memory (derived on read)',
                   Compare: 'Dimension-wise comparison of two investigations',
                   Search: 'Find races, drivers and hypotheses (Ctrl/Cmd + K)',
-                  Replay: 'Deterministic replay of a 6N investigation',
+                  Replay: 'Deterministic replay of an investigation',
                 }[label]}
               </button>
             )
@@ -347,7 +347,7 @@ export default function CommandCenterView({
           <div className="muted small">
             <span className="status-dot" aria-hidden="true" /> DATA AVAILABLE —{' '}
             {status.sessions} catalog sessions with telemetry capability ·{' '}
-            investigations READY · 6E–6P analytical chain READY ·{' '}
+            investigations READY · deterministic analytical chain READY ·{' '}
             graph READY (derived on read)
           </div>
         )}

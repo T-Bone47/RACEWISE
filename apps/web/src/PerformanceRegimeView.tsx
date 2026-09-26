@@ -157,6 +157,7 @@ export default function PerformanceRegimeView() {
       </div>
 
       {error && <div className="catalog-error">Error: {error}</div>}
+      {loading && <div className="catalog-loading">Segmenting the comparable-lap gap series into regimes…</div>}
 
       {result && !valid && (
         <div className="catalog-empty">

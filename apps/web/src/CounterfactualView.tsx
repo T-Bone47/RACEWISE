@@ -197,7 +197,7 @@ export default function CounterfactualView() {
 
           {result.cross_check_6e && (
             <p className="muted small">
-              6E cross-check (informational, different quantity — never merged): attribution status{' '}
+              Lap-attribution cross-check (informational, different quantity — never merged): attribution status{' '}
               {result.cross_check_6e.attribution_status ?? 'unavailable'}
               {result.cross_check_6e.attribution_estimated_pace_component_s !== null &&
               result.cross_check_6e.attribution_estimated_pace_component_s !== undefined
@@ -212,7 +212,7 @@ export default function CounterfactualView() {
             <p>
               {result.epistemics}. The delta quantifies how strongly the lap-time model responds
               to the specified intervention — it does not establish that the deficit caused the
-              historical gap, and the 6E residual applies at full removal.
+              historical gap, and the attribution residual applies at full removal.
             </p>
           </div>
 

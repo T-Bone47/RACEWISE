@@ -16,7 +16,7 @@ interface Hypothesis {
   status: string
   supporting: string[]
   contradicting: string[]
-  not_tested_by: string[]
+  untestable?: string[]
   rationale: string
 }
 
@@ -228,10 +228,10 @@ export default function EvidenceFusionView() {
                     </span>
                   </td>
                   <td className="small">
-                    {h.supporting.length > 0 && <div>+ {h.supporting.join(', ')}</div>}
-                    {h.contradicting.length > 0 && <div>− {h.contradicting.join(', ')}</div>}
-                    {h.not_tested_by.length > 0 && (
-                      <div className="muted">· not tested: {h.not_tested_by.join(', ')}</div>
+                    {h.supporting?.length > 0 && <div>+ {h.supporting.join(', ')}</div>}
+                    {h.contradicting?.length > 0 && <div>− {h.contradicting.join(', ')}</div>}
+                    {(h.untestable ?? []).length > 0 && (
+                      <div className="muted">· not tested: {h.untestable!.join(', ')}</div>
                     )}
                     <div className="muted small">{h.rationale}</div>
                   </td>
