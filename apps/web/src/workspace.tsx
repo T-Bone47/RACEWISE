@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import { X as XIcon } from 'lucide-react'
+import { ArrowLeft, X as XIcon } from 'lucide-react'
 import { stateChipClass } from './types'
 import type { LedgerItem } from './types'
 
@@ -82,23 +82,17 @@ export function Drawer({
   )
 }
 
-/* ---------- evidence detail drawer (§11) ---------- */
+/* ---------- evidence details (shared by overlay drawer AND contextual inspector) ---------- */
 
-export function EvidenceDetailDrawer({
+export function EvidenceDetails({
   item,
-  onClose,
   onTraceToSource,
 }: {
   item: LedgerItem
-  onClose: () => void
   onTraceToSource?: (item: LedgerItem) => void
 }) {
   return (
-    <Drawer
-      title={`Evidence ${item.evidence_id}`}
-      subtitle="Every field below is imported from the investigation ledger — nothing is derived for display."
-      onClose={onClose}
-    >
+    <>
       <dl className="drawer-kv">
         <KV k="claim">{item.claim}</KV>
         <KV k="claim class">{item.claim_class}</KV>
@@ -147,11 +141,31 @@ export function EvidenceDetailDrawer({
           Trace to source →
         </button>
       )}
+    </>
+  )
+}
+
+export function EvidenceDetailDrawer({
+  item,
+  onClose,
+  onTraceToSource,
+}: {
+  item: LedgerItem
+  onClose: () => void
+  onTraceToSource?: (item: LedgerItem) => void
+}) {
+  return (
+    <Drawer
+      title={`Evidence ${item.evidence_id}`}
+      subtitle="Every field below is imported from the investigation ledger — nothing is derived for display."
+      onClose={onClose}
+    >
+      <EvidenceDetails item={item} onTraceToSource={onTraceToSource} />
     </Drawer>
   )
 }
 
-/* ---------- universal provenance drawer (§21) ---------- */
+/* ---------- universal provenance details (§21) ---------- */
 
 export interface ProvenanceTarget {
   kind: string
@@ -163,20 +177,9 @@ export interface ProvenanceTarget {
   extra?: Array<{ k: string; v: ReactNode }>
 }
 
-export function ProvenanceDrawer({
-  target,
-  onClose,
-}: {
-  target: ProvenanceTarget | null
-  onClose: () => void
-}) {
-  if (!target) return null
+export function ProvenanceDetails({ target }: { target: ProvenanceTarget }) {
   return (
-    <Drawer
-      title={`Provenance — ${target.kind} ${target.id}`}
-      subtitle="The universal “show me why” surface: where this object came from and what bounds its interpretation."
-      onClose={onClose}
-    >
+    <>
       <dl className="drawer-kv">
         <KV k="source">
           <code className="small">{JSON.stringify(target.provenance)}</code>
@@ -206,7 +209,102 @@ export function ProvenanceDrawer({
           </ul>
         </>
       )}
+    </>
+  )
+}
+
+export function ProvenanceDrawer({
+  target,
+  onClose,
+}: {
+  target: ProvenanceTarget | null
+  onClose: () => void
+}) {
+  if (!target) return null
+  return (
+    <Drawer
+      title={`Provenance — ${target.kind} ${target.id}`}
+      subtitle="The universal “show me why” surface: where this object came from and what bounds its interpretation."
+      onClose={onClose}
+    >
+      <ProvenanceDetails target={target} />
     </Drawer>
+  )
+}
+
+/* ---------- contextual inspector: evidence/provenance open BESIDE the
+   workspace (sticky right column) instead of over it; a back stack keeps
+   evidence → trace-to-source → back navigable ---------- */
+
+export type InspectorEntry =
+  | { kind: 'evidence'; item: LedgerItem }
+  | { kind: 'provenance'; target: ProvenanceTarget }
+
+export function ContextInspector({
+  entry,
+  history,
+  onBack,
+  onClose,
+  onTraceToSource,
+}: {
+  entry: InspectorEntry | null
+  history: InspectorEntry[]
+  onBack: () => void
+  onClose: () => void
+  onTraceToSource?: (item: LedgerItem) => void
+}) {
+  /* the PARENT owns both the current entry and the history list; this
+     component renders it and routes Esc/BACK to the parent, so evidence →
+     trace-to-source → BACK truly returns to the evidence */
+  const headRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (!entry) return
+    headRef.current?.focus()
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      if (history.length > 1) onBack()
+      else onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [entry, history.length, onBack, onClose])
+
+  if (!entry) return null
+  const current = entry
+
+  const title = current.kind === 'evidence'
+    ? `Evidence ${current.item.evidence_id}`
+    : `Provenance — ${current.target.kind} ${current.target.id}`
+  const subtitle = current.kind === 'evidence'
+    ? 'Every field below is imported from the investigation ledger — nothing is derived for display.'
+    : 'The universal “show me why” surface: where this object came from and what bounds its interpretation.'
+
+  return (
+    <aside className="context-inspector" role="complementary" aria-label="Contextual inspector">
+      <div className="inspector-head">
+        {history.length > 1 && (
+          <button
+            className="inspector-back"
+            onClick={onBack}
+            aria-label="Back to previous panel"
+          >
+            <ArrowLeft size={15} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        )}
+        <h3 ref={headRef} tabIndex={-1}>{title}</h3>
+        <button className="drawer-close" onClick={onClose} aria-label="Close inspector">
+          <XIcon size={15} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      </div>
+      <p className="muted small">{subtitle}</p>
+      <div aria-live="polite">
+        {current.kind === 'evidence'
+          ? <EvidenceDetails item={current.item} onTraceToSource={onTraceToSource} />
+          : <ProvenanceDetails target={current.target} />}
+      </div>
+    </aside>
   )
 }
 

@@ -470,6 +470,85 @@ button.primary:hover:not(:disabled) { background: var(--accent-press); border-co
   .split { grid-template-columns: 1fr; }
 }
 
+/* ============================================================
+   CONTEXTUAL INSPECTOR: evidence/provenance open BESIDE the workspace
+   (sticky right column) instead of over it (§14 right inspector)
+   ============================================================ */
+
+.inv-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  align-items: start;
+}
+
+.inv-layout.with-inspector {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+
+.inv-main { min-width: 0; }
+
+.context-inspector {
+  position: sticky;
+  top: 66px; /* header 52px + breathing room */
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: 0 12px 34px rgba(3, 5, 9, 0.4);
+  animation: inspectorin var(--speed-panel) var(--ease);
+}
+
+@keyframes inspectorin { from { transform: translateX(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.inspector-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.inspector-head h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 620;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+}
+
+.inspector-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+
+.inspector-back:hover { color: var(--text); border-color: var(--faint); }
+
+/* narrow workspace: inspector falls back to the overlay drawer (§42) */
+@media (max-width: 1280px) {
+  .inv-layout.with-inspector { grid-template-columns: 1fr; }
+  .inv-layout .context-inspector {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(480px, 92vw);
+    max-height: none;
+    border-radius: 0;
+    border-top: none;
+    border-bottom: none;
+    border-right: none;
+    box-shadow: -18px 0 40px rgba(3, 5, 9, 0.55);
+    z-index: var(--z-drawer);
+  }
+}
+
 .ws-section { margin-top: 4px; }
 
 /* falsification banner */

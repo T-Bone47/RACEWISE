@@ -3,9 +3,9 @@ import {
   HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES,
 } from './types'
 import type { InvestigationResult, LedgerItem } from './types'
-import { ProvenanceDrawer, StructuredError, WorkspaceSkeleton } from './workspace'
-import { ClaimTag, EvidenceDetailDrawer, StateChip } from './workspace'
-import type { ProvenanceTarget } from './workspace'
+import { StructuredError, WorkspaceSkeleton } from './workspace'
+import { ClaimTag, ContextInspector, StateChip } from './workspace'
+import type { InspectorEntry, ProvenanceTarget } from './workspace'
 import { GraphPanel, ReplayPanel, ComparePanel, MemoryPanel } from './panels'
 import { saveRecent } from './CommandCenterView'
 import type { RecentInvestigation } from './CommandCenterView'
@@ -34,9 +34,30 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
   /* focus + cross-navigation */
   const [hypFilter, setHypFilter] = useState('')
   const [focusNode, setFocusNode] = useState<{ type: string; key: string } | null>(null)
-  const [evidenceDrawer, setEvidenceDrawer] = useState<LedgerItem | null>(null)
   const [openTrace, setOpenTrace] = useState<string | null>(null)
-  const [prov, setProv] = useState<ProvenanceTarget | null>(null)
+  /* contextual inspector state: single side-by-side surface with a back stack
+     (evidence → trace-to-source → BACK returns to the evidence) */
+  const [inspector, setInspector] = useState<InspectorEntry | null>(null)
+  const [inspectorHistory, setInspectorHistory] = useState<InspectorEntry[]>([])
+
+  function pushInspector(next: InspectorEntry) {
+    setInspectorHistory((h) => {
+      const top = h[h.length - 1]
+      /* replace-tail semantics: clicking a new object while one is open swaps
+         the top; trace-to-source-style drills append below via two-step call */
+      if (top && (
+        (top.kind === 'evidence' && next.kind === 'evidence' && top.item.evidence_id === next.item.evidence_id) ||
+        (top.kind === 'provenance' && next.kind === 'provenance' && top.target.id === next.target.id)
+      )) return h
+      /* drill-down: provenance opened while an evidence is showing appends */
+      if (next.kind === 'provenance' && top && top.kind === 'evidence' &&
+          next.target.kind === 'EVIDENCE' && next.target.id === top.item.evidence_id) {
+        return [...h, next]
+      }
+      return [next]
+    })
+    setInspector(next)
+  }
 
   const inputs = QUESTION_INPUTS[questionType] || []
 
@@ -106,7 +127,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
     setHypFilter('')
     setFocusNode({ type: 'EVIDENCE', key: eid })
     const item = result?.evidence_ledger.find((x) => x.evidence_id === eid)
-    if (item) setEvidenceDrawer(item)
+    if (item) pushInspector({ kind: 'evidence', item })
   }
 
   /* evidence ledger filtering */
@@ -124,8 +145,31 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
   const established = result?.synthesis.conclusion_state === 'SUPPORTED_BY_AVAILABLE_EVIDENCE'
   const blocked = result?.falsification_gate.hypotheses_with_unresolved_contradictions ?? []
 
+  /* every provenance opener routes into the side-by-side inspector */
+  function openProvenance(target: ProvenanceTarget) {
+    pushInspector({ kind: 'provenance', target })
+  }
+
+  /* trace-to-source inside the inspector PUSHES a provenance entry so BACK
+     returns to the evidence that was open */
+  function inspectorTraceToSource(item: LedgerItem) {
+    openProvenance({
+      kind: 'EVIDENCE',
+      id: item.evidence_id,
+      provenance: {
+        source_phase: item.source_phase,
+        source_tool: item.source_tool,
+        source_hash: item.source_hash,
+      },
+      canonicalReference: item.source_reference,
+      assumptions: item.assumptions,
+      limitations: item.limitations,
+    })
+  }
+
   return (
-    <div>
+    <div className={inspector ? 'inv-layout with-inspector' : 'inv-layout'}>
+      <div className="inv-main">
       {/* ================= INVESTIGATION HEADER (§8) ================= */}
       <div className="inv-header">
         <div className="inv-title">
@@ -214,7 +258,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
             <span title={`output hash ${result.output_hash}`}>hash <code>{result.output_hash.slice(0, 10)}</code></span>
             <button
               className="linklike small"
-              onClick={() => setProv({
+              onClick={() => openProvenance({
                 kind: 'INVESTIGATION',
                 id: result.investigation_id,
                 provenance: result.provenance as unknown as Record<string, unknown>,
@@ -306,7 +350,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
             <p className="muted small">{result.falsification_gate.rule}</p>
             <button
               className="linklike small"
-              onClick={() => setProv({
+              onClick={() => openProvenance({
                 kind: 'FALSIFICATION',
                 id: 'gate',
                 provenance: {
@@ -355,7 +399,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                       key={it.evidence_id}
                       className={`clickable ${conflictIds.has(it.evidence_id) ? 'selected' : ''}`}
                       onClick={() => {
-                        setEvidenceDrawer(it)
+                        pushInspector({ kind: 'evidence', item: it })
                         focusEvidence(it.evidence_id)
                       }}
                     >
@@ -446,7 +490,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
               scopeParams={scopeParams}
               focusNode={focusNode}
               onNodeFocused={() => undefined}
-              onOpenProvenance={setProv}
+              onOpenProvenance={openProvenance}
             />
           </section>
 
@@ -476,7 +520,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                         {exec ? (
                           <button
                             className="linklike"
-                            onClick={() => setProv({
+                            onClick={() => openProvenance({
                               kind: 'COUNTERFACTUAL (MODELLED)',
                               id: exec.candidate_id.slice(0, 10),
                               provenance: {
@@ -595,29 +639,23 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
         </>
       )}
 
-      {/* ================= DRAWERS ================= */}
-      {evidenceDrawer && (
-        <EvidenceDetailDrawer
-          item={evidenceDrawer}
-          onClose={() => setEvidenceDrawer(null)}
-          onTraceToSource={(item) => {
-            setProv({
-              kind: 'EVIDENCE',
-              id: item.evidence_id,
-              provenance: {
-                source_phase: item.source_phase,
-                source_tool: item.source_tool,
-                source_hash: item.source_hash,
-              },
-              canonicalReference: item.source_reference,
-              assumptions: item.assumptions,
-              limitations: item.limitations,
-            })
-            setEvidenceDrawer(null)
-          }}
-        />
-      )}
-      <ProvenanceDrawer target={prov} onClose={() => setProv(null)} />
+      </div>{/* /inv-main */}
+
+      {/* ================= CONTEXTUAL INSPECTOR (side-by-side) ================= */}
+      <ContextInspector
+        entry={inspector}
+        history={inspectorHistory}
+        onBack={() => {
+          const next = inspectorHistory.slice(0, -1)
+          setInspectorHistory(next)
+          setInspector(next[next.length - 1] ?? null)
+        }}
+        onClose={() => {
+          setInspector(null)
+          setInspectorHistory([])
+        }}
+        onTraceToSource={inspectorTraceToSource}
+      />
 
     </div>
   )
