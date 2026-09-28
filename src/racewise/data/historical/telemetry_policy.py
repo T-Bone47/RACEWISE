@@ -55,12 +55,19 @@ class TelemetryPolicy:
     canonical results) over up to ``max_laps_per_driver`` clean timed laps
     each, evenly spaced across the driver's race. Every bound is enforced in
     the ingestion path.
+
+    Phase 6S (wider fused-lap coverage): the per-driver lap bound was raised
+    12 -> 24 after measurement. The change is strictly additive: telemetry
+    identity is a content hash of (provider, session, driver, lap, time),
+    ingestion is an idempotent upsert, and no row is ever deleted, so every
+    previously covered lap is preserved byte-identically and existing fused
+    outputs do not change. The per-session sample budget is unchanged.
     """
 
     enabled: bool = False
     session_codes: tuple[str, ...] = ("R",)
     max_drivers_per_session: Optional[int] = 2
-    max_laps_per_driver: Optional[int] = 12
+    max_laps_per_driver: Optional[int] = 24
     max_samples_per_session: int = PROJECTED_SAMPLES_PER_SESSION
     signals: tuple[str, ...] = PLANNED_SIGNALS
 
@@ -97,7 +104,12 @@ class TelemetryCapability:
             "available": self.available,
             "policy_enabled": self.policy.enabled,
             "note": (
-                "Telemetry ingestion is deferred to Phase 6C; no telemetry rows "
-                "exist and none are fabricated."
+                "Telemetry is ingested only when the bounded policy is "
+                "enabled: top-2 classified finishers x up to 24 evenly "
+                "spaced clean timed laps per driver, six car-data signals, "
+                "a hard per-session sample budget, deterministic idempotent "
+                "upsert, and no fabricated rows. Laps outside the covered "
+                "subset report honest evidence limits rather than "
+                "interpolated data."
             ),
         }

@@ -1,7 +1,7 @@
 {
-  "golden_set": "phase_6r_goldens_v1",
-  "captured": "2026-09-27",
-  "note": "canonical inputs and measured hashes; conclusions are structural states, never invented numbers; hashes bind to the canonical data state at capture time",
+  "golden_set": "phase_6r_goldens_v2",
+  "captured": "2026-09-29",
+  "note": "canonical inputs and measured hashes; conclusions are structural states, never invented numbers; hashes bind to the canonical data state at capture time. v2 adds the Phase 6S gap-closure goldens G13 (id-addressed graph), G14 (qualifying lap) and G15 (structural related memory). Hash-classified deltas vs 6R: G02_STINT output hash changed = EXPECTED_CAPABILITY_EXTENSION (the 6S telemetry probe expansion 12->24 laps measures more laps of the same stint-1 scope); all other G01-G12 hashes are unchanged including the honest limitation G08",
   "goldens": [
     {
       "golden_id": "G01_LAP",
@@ -20,7 +20,7 @@
       "prior_id_match": true,
       "conclusion_state": "MIXED_EVIDENCE",
       "evidence_items": 12,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "snapshot_hash": "a7a0446765a05e4f",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
@@ -48,18 +48,18 @@
       },
       "status": "VALID",
       "investigation_id": "af976923c342cd68",
-      "output_hash": "b3ef97d0e3676f6b",
+      "output_hash": "bd29a9cb8115d9e0",
       "prior_id_match": true,
       "conclusion_state": "MIXED_EVIDENCE",
       "evidence_items": 30,
-      "provenance_hash": "afd5686f263ee806",
-      "snapshot_hash": "c606f27ece508f82",
+      "provenance_hash": "cf8abccf9a20fcf5",
+      "snapshot_hash": "f7815269062ee3da",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
-      "replay_hash": "c606f27ece508f82",
+      "replay_hash": "f7815269062ee3da",
       "graph": {
-        "nodes": 97,
-        "edges": 362,
+        "nodes": 101,
+        "edges": 383,
         "graph_id": "bc2f61a943b5442c",
         "graph_version": "6p_graph_v1",
         "snapshot_hash": null,
@@ -83,7 +83,7 @@
       "prior_id_match": true,
       "conclusion_state": "INSUFFICIENT_EVIDENCE",
       "evidence_items": 5,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "snapshot_hash": "136f480d8113eaf5",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
@@ -114,7 +114,7 @@
       "prior_id_match": true,
       "conclusion_state": "INSUFFICIENT_EVIDENCE",
       "evidence_items": 6,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "snapshot_hash": "5ff49761d2a987e8",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
@@ -142,15 +142,15 @@
       },
       "status": "VALID",
       "investigation_id": "6ecf748133304076",
-      "output_hash": "b5f9915e933daae5",
+      "output_hash": "6db1ff627bda1b66",
       "prior_id_match": true,
       "conclusion_state": "INSUFFICIENT_EVIDENCE",
       "evidence_items": 7,
-      "provenance_hash": "afd5686f263ee806",
-      "snapshot_hash": "54b5b60128f40eb1",
+      "provenance_hash": "cf8abccf9a20fcf5",
+      "snapshot_hash": "4688ef11d8f87476",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
-      "replay_hash": "54b5b60128f40eb1"
+      "replay_hash": "4688ef11d8f87476"
     },
     {
       "golden_id": "G06_HYPOTHESIS",
@@ -173,7 +173,7 @@
       "prior_id_match": true,
       "conclusion_state": "MIXED_EVIDENCE",
       "evidence_items": 12,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "snapshot_hash": "41c8b9284d59bfc0",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
@@ -196,7 +196,7 @@
       "prior_id_match": true,
       "conclusion_state": "INSUFFICIENT_EVIDENCE",
       "evidence_items": 1,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "snapshot_hash": "c3c5d404a2db51c2",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
@@ -219,7 +219,7 @@
       "prior_id_match": true,
       "conclusion_state": "INSUFFICIENT_EVIDENCE",
       "evidence_items": 0,
-      "provenance_hash": "afd5686f263ee806"
+      "provenance_hash": "cf8abccf9a20fcf5"
     },
     {
       "golden_id": "G09_HISTORICAL",
@@ -237,7 +237,7 @@
       "prior_id_match": true,
       "conclusion_state": "INSUFFICIENT_EVIDENCE",
       "evidence_items": 0,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "snapshot_hash": "33ccedce637b9449",
       "replay_status": "IDENTICAL",
       "replay_identical": true,
@@ -259,7 +259,7 @@
       "prior_id_match": true,
       "conclusion_state": null,
       "evidence_items": null,
-      "provenance_hash": "7739b7a102a00651"
+      "provenance_hash": "c677c5ecaf92e1c2"
     },
     {
       "golden_id": "G11_COMPARE",
@@ -278,7 +278,7 @@
       "prior_id_match": true,
       "conclusion_state": "MIXED_EVIDENCE",
       "evidence_items": 12,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "comparison": {
         "compatibility": {
           "state": "PARTIALLY_COMPARABLE",
@@ -308,10 +308,118 @@
       "prior_id_match": true,
       "conclusion_state": "MIXED_EVIDENCE",
       "evidence_items": 12,
-      "provenance_hash": "afd5686f263ee806",
+      "provenance_hash": "cf8abccf9a20fcf5",
       "memory": {
         "derived_items": 7,
         "exact_scope_matches": 7
+      }
+    },
+    {
+      "golden_id": "G13_GRAPH_BY_ID",
+      "label": "graph addressed by investigation id",
+      "canonical_input": {
+        "question_type": "LAP_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 6
+      },
+      "status": "VALID",
+      "investigation_id": "fcc1bf694daada8e",
+      "output_hash": "e8263d8a0e191839",
+      "prior_id_match": true,
+      "conclusion_state": "MIXED_EVIDENCE",
+      "evidence_items": 12,
+      "provenance_hash": "cf8abccf9a20fcf5",
+      "snapshot_hash": "a7a0446765a05e4f",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "a7a0446765a05e4f",
+      "graph": {
+        "nodes": 58,
+        "edges": 185,
+        "graph_id": "b2494a57c6a5268e",
+        "graph_version": "6p_graph_v1",
+        "snapshot_hash": null,
+        "verify_status": "VALID",
+        "replay_status": "IDENTICAL"
+      },
+      "addressed_by": {
+        "investigation_id": "fcc1bf694daada8e",
+        "graph_id_matches_scope_graph": true
+      }
+    },
+    {
+      "golden_id": "G14_QUALIFYING_LAP",
+      "label": "qualifying single-lap investigation (honest telemetry limits)",
+      "canonical_input": {
+        "question_type": "LAP_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2022,
+        "round": 4,
+        "lap_number": 2,
+        "session_type": "QUALIFYING"
+      },
+      "status": "VALID",
+      "investigation_id": "d045ea5c7cfb0818",
+      "output_hash": "86aa93daa3dc6e88",
+      "prior_id_match": true,
+      "conclusion_state": "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+      "evidence_items": 11,
+      "provenance_hash": "09963e441eccc58a",
+      "snapshot_hash": "68bceeb71f3ecaf3",
+      "replay_status": "IDENTICAL",
+      "replay_identical": true,
+      "replay_hash": "68bceeb71f3ecaf3",
+      "graph": {
+        "nodes": 47,
+        "edges": 107,
+        "graph_id": "e415724d31251b77",
+        "graph_version": "6p_graph_v1",
+        "snapshot_hash": null,
+        "verify_status": "VALID",
+        "replay_status": "IDENTICAL"
+      }
+    },
+    {
+      "golden_id": "G15_RELATED_MEMORY",
+      "label": "structural related-memory retrieval from LAP6",
+      "canonical_input": {
+        "question_type": "LAP_PERFORMANCE",
+        "driver_a": "max-verstappen",
+        "driver_b": "sergio-perez",
+        "season": 2023,
+        "round": 1,
+        "lap_number": 6
+      },
+      "status": "VALID",
+      "investigation_id": "fcc1bf694daada8e",
+      "output_hash": "e8263d8a0e191839",
+      "prior_id_match": true,
+      "conclusion_state": "MIXED_EVIDENCE",
+      "evidence_items": 12,
+      "provenance_hash": "cf8abccf9a20fcf5",
+      "related_memory": {
+        "neighbor_runs": [
+          {
+            "season": 2022,
+            "status": "VALID",
+            "items_derived": 0
+          },
+          {
+            "season": 2024,
+            "status": "VALID",
+            "items_derived": 7
+          }
+        ],
+        "related_match_count": 7,
+        "match_reasons": [
+          "adjacent_season",
+          "same_driver_pair"
+        ],
+        "policy": "structural related-memory retrieval: matches on declared scope fields only (driver pair/driver overlap, hypothesis overlap, adjacent season); a related item is a provenance-backed pointer, never a conclusion transfer \u2014 its statement is not evidence about the requesting scope"
       }
     }
   ]

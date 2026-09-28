@@ -291,12 +291,26 @@ class TestNegativeControls:
         assert f["status"] == "INSUFFICIENT_EVIDENCE"
 
     def test_only_one_valid_lap_trend_insufficient(self, queries):
+        """Trend validity must be consistent with the measured lap count.
+
+        Phase 6S widened the 6D telemetry coverage (12 -> 24 laps/driver),
+        so stints that previously had a single comparable lap now have
+        several and classify honestly as VALID; the invariant under test is
+        the reporting rule, not the historical coverage state: a trend is
+        VALID only with >=2 measured laps and INSUFFICIENT_EVIDENCE below
+        that (never fabricated in either direction).
+        """
         from racewise.data.historical.stint_evidence import fuse_stint_evidence
 
         f = fuse_stint_evidence(queries, 2022, 5, "charles-leclerc", "max-verstappen", 1)
         if f["status"] == "INSUFFICIENT_EVIDENCE":
             pytest.skip("stint yields no trajectory")
-        assert f["performance"]["trend"]["status"] == "INSUFFICIENT_EVIDENCE"
+        n_laps = len((f.get("provenance") or {}).get("selected_laps") or [])
+        trend_status = f["performance"]["trend"]["status"]
+        if n_laps >= 2:
+            assert trend_status == "VALID"
+        else:
+            assert trend_status == "INSUFFICIENT_EVIDENCE"
 
 
 # ---------------------------------------------------------------------------

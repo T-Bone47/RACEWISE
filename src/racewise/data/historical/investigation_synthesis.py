@@ -186,6 +186,17 @@ MIN_SEASON = 1950
 MAX_SEASON = 2100
 DEFAULT_SESSION = "RACE"
 
+# Session types the engineering chain can investigate (Phase 6S GAP 2).
+# Each entry is backed by verified canonical data and explicit comparability
+# semantics (see _validate_question and fuse_qualifying_lap_evidence).
+# Unknown session types are INVALID (never silently broadened).
+SESSION_TYPES = ("RACE", "QUALIFYING")
+
+# Qualifying canonical lap-time coverage begins with the 2018 season
+# (measured against canonical_lap_times); earlier qualifying sessions have
+# no lap facts and honestly report UNAVAILABLE.
+QUALIFYING_LAP_TIMES_FIRST_SEASON = 2018
+
 # Bounded lap-level 6F collection inside stint investigations (§9).
 STINT_LAP_PROBE_LIMIT = 3
 STINT_LAP_COLLECT_LIMIT = 2
@@ -268,14 +279,57 @@ def _validate_question(params: dict[str, Any]) -> dict[str, Any]:
         return {**base, "status": "INVALID",
                 "reason": "CROSS_RACE_PATTERN requires pattern_id"}
 
-    # race existence (canonical fact)
-    results = params["queries"].get_results(season_i, round_i, DEFAULT_SESSION)
-    if not results:
-        return {**base, "status": "UNAVAILABLE",
-                "reason": f"no canonical race result for {season_i} R{round_i}"}
-    participants = {r["driver_key"] for r in results}
+    # session-type validation (Phase 6S GAP 2). Closed vocabulary; the
+    # session type is part of the question scope and of the investigation
+    # identity. Comparability semantics are documented per session type.
+    st = str(params.get("session_type") or DEFAULT_SESSION)
+    if st not in SESSION_TYPES:
+        return {**base, "status": "INVALID",
+                "reason": (f"session_type must be one of {list(SESSION_TYPES)}; "
+                           "no comparability semantics are defined for other "
+                           "session types")}
+    if st == "QUALIFYING":
+        if sn is not None:
+            return {**base, "status": "INVALID",
+                    "reason": ("STINT numbers have no qualifying comparability "
+                               "semantics: a qualifying session is a sequence "
+                               "of independent single-lap comparisons, not "
+                               "race stints")}
+        if qt == "RACE_GAP":
+            return {**base, "status": "INVALID",
+                    "reason": "RACE_GAP has no qualifying comparability "
+                              "semantics (a qualifying session has no race "
+                              "distance and no pit-stop phase)"}
+        if int(season_i) < QUALIFYING_LAP_TIMES_FIRST_SEASON:
+            return {**base, "status": "UNAVAILABLE",
+                    "reason": (f"no canonical qualifying lap times for "
+                                f"{season_i} R{round_i} (coverage begins "
+                                f"{QUALIFYING_LAP_TIMES_FIRST_SEASON})")}
+
+    # participant existence (canonical fact, per session type)
+    if st == "QUALIFYING":
+        # no canonical_results rows exist for qualifying sessions; the
+        # classification of record is canonical_qualifying (Phase 6S GAP 2)
+        qrows = params["queries"].get_qualifying(season_i, round_i,
+                                                 "QUALIFYING")
+        participants = {r["driver_key"] for r in qrows}
+        if not participants:
+            return {**base, "status": "UNAVAILABLE",
+                    "reason": f"no canonical qualifying classification for "
+                              f"{season_i} R{round_i}"}
+    else:
+        results = params["queries"].get_results(season_i, round_i,
+                                                DEFAULT_SESSION)
+        if not results:
+            return {**base, "status": "UNAVAILABLE",
+                    "reason": f"no canonical race result for {season_i} R{round_i}"}
+        participants = {r["driver_key"] for r in results}
     if da not in participants or db not in participants:
         missing = sorted({da, db} - participants)
+        if st == "QUALIFYING":
+            return {**base, "status": "UNAVAILABLE",
+                    "reason": (f"driver(s) not in the canonical qualifying "
+                               f"classification: {missing}")}
         return {**base, "status": "UNAVAILABLE",
                 "reason": f"driver(s) not in the canonical race result: {missing}"}
 
@@ -285,15 +339,15 @@ def _validate_question(params: dict[str, Any]) -> dict[str, Any]:
     if ln is not None:
         laps = {int(r["lap_number"])
                 for r in params["queries"].get_lap_times(
-                    season_i, round_i, DEFAULT_SESSION, da)}
+                    season_i, round_i, st, da)}
         if int(ln) not in laps:
             return {**base, "status": "UNAVAILABLE",
                     "reason": (f"lap {int(ln)} has no canonical lap time for "
-                                f"{da} in {season_i} R{round_i}")}
+                                f"{da} in {season_i} R{round_i} {st}")}
     if sn is not None:
         stints = {int(r.get("stint_number", 0))
                   for r in params["queries"].get_stints(
-                      season_i, round_i, DEFAULT_SESSION, da)}
+                      season_i, round_i, st, da)}
         if int(sn) not in stints:
             return {**base, "status": "UNAVAILABLE",
                     "reason": (f"stint {int(sn)} not present for {da} in "
@@ -737,14 +791,17 @@ def _collect_evidence(
             supports=supportive,
             contradicts=st == "CONTRADICTED")
 
-    def _add_lap_items(res: dict[str, Any], lap: int) -> None:
+    def _add_lap_items(res: dict[str, Any], lap: int,
+                       fusion_tool: str = "fuse_lap_evidence") -> None:
         """Ledger items from one usable 6F lap fusion (§9/§11)."""
-        base_ref = {"analysis": "fuse_lap_evidence", "season": season_i,
+        base_ref = {"analysis": fusion_tool, "season": season_i,
                     "round": round_i, "lap_number": lap,
                     "drivers": [da, db]}
         _add(
             evidence_type="FACT", source_phase="6E",
-            source_tool="attribute_lap_loss",
+            source_tool=("fuse_qualifying_lap_evidence"
+                         if fusion_tool == "fuse_qualifying_lap_evidence"
+                         else "attribute_lap_loss"),
             source_reference={**base_ref, "kind": "observed_delta"},
             claim=f"observed lap delta at lap {lap} ({da} vs {db})",
             claim_class=CLAIM_OBSERVED,
@@ -752,8 +809,30 @@ def _collect_evidence(
             state="OBSERVED", hypothesis_ids=[],
             assumptions=[], limitations=[],
             supports=False, contradicts=False)
+        is_qual = fusion_tool == "fuse_qualifying_lap_evidence"
         for sec in (res.get("authoritative_sector_decomposition") or []):
             if sec.get("delta_s") is None:
+                continue
+            if is_qual:
+                # qualifying: sector splits are measured FACTS that locate
+                # the delta; without telemetry they are not mechanism
+                # evidence and never support a hypothesis (Phase 6S GAP 2)
+                _add(
+                    evidence_type="FACT", source_phase="6E",
+                    source_tool=fusion_tool,
+                    source_reference={**base_ref,
+                                      "kind": "sector",
+                                      "sector": sec.get("sector")},
+                    claim=(f"measured sector split delta "
+                           f"(sector {sec.get('sector')})"),
+                    claim_class=CLAIM_OBSERVED,
+                    measured_value=sec.get("delta_s"), units="s",
+                    state="OBSERVED",
+                    hypothesis_ids=[],
+                    assumptions=["sector deltas are measured facts"],
+                    limitations=["sector splits locate the delta; they are "
+                                 "not mechanism evidence"],
+                    supports=False, contradicts=False)
                 continue
             _add(
                 evidence_type="CALCULATION", source_phase="6E",
@@ -774,7 +853,8 @@ def _collect_evidence(
         if res.get("residual_s") is not None:
             _add(
                 evidence_type="CALCULATION", source_phase="6E",
-                source_tool="attribute_lap_loss",
+                source_tool=("fuse_qualifying_lap_evidence"
+                             if is_qual else "attribute_lap_loss"),
                 source_reference={**base_ref, "kind": "residual"},
                 claim="unexplained residual component (reported, "
                       "never assigned)",
@@ -794,17 +874,26 @@ def _collect_evidence(
                 continue
             st = blk["status"]
             _add_hyp_state(
-                "6F", "fuse_lap_evidence", h, st,
+                "6F", fusion_tool, h, st,
                 {**base_ref, "kind": "hypothesis", "hypothesis": h,
                  "supporting_sources": blk.get("supporting", []),
                  "contradicting_sources": blk.get("contradicting", [])},
                 ["evidence-consistency, not causation"])
 
     def _fuse_one_lap(lap: int) -> Optional[dict[str, Any]]:
-        from racewise.data.historical.evidence_fusion import fuse_lap_evidence
-        res = fuse_lap_evidence(queries, season_i, round_i, da, db, lap,
-                                q["session_type"])
-        raw.setdefault("fuse_lap_evidence", []).append(
+        if q["session_type"] == "QUALIFYING":
+            from racewise.data.historical.evidence_fusion import \
+                fuse_qualifying_lap_evidence
+            res = fuse_qualifying_lap_evidence(
+                queries, season_i, round_i, da, db, lap, "QUALIFYING")
+            layer = "fuse_qualifying_lap_evidence"
+        else:
+            from racewise.data.historical.evidence_fusion import \
+                fuse_lap_evidence
+            res = fuse_lap_evidence(queries, season_i, round_i, da, db, lap,
+                                    q["session_type"])
+            layer = "fuse_lap_evidence"
+        raw.setdefault(layer, []).append(
             {"lap": lap, "status": res.get("status")})
         if res.get("status") not in FUSION_VALID:
             return None
@@ -814,7 +903,11 @@ def _collect_evidence(
         res = _fuse_one_lap(int(q["lap_number"]))
         if res is None:
             return "INSUFFICIENT_EVIDENCE"
-        _add_lap_items(res, int(q["lap_number"]))
+        _add_lap_items(
+            res, int(q["lap_number"]),
+            fusion_tool=("fuse_qualifying_lap_evidence"
+                         if q["session_type"] == "QUALIFYING"
+                         else "fuse_lap_evidence"))
         return None
 
     def _collect_stint() -> Optional[str]:
@@ -1464,12 +1557,15 @@ def run_engineering_investigation(
             "investigation_version": INVESTIGATION_VERSION,
             "layers_executed": sorted(raw.keys()),
             "provider": "fastf1",
-            "source_tables": [
-                "canonical_results", "canonical_lap_times",
-                "canonical_telemetry", "canonical_stints",
-                "canonical_weather", "canonical_race_control",
-                "canonical_pit_stops",
-            ],
+            "source_tables": (
+                ["canonical_qualifying", "canonical_lap_times",
+                 "canonical_stints", "canonical_weather",
+                 "canonical_pit_stops"]
+                if session_type == "QUALIFYING"
+                else ["canonical_results", "canonical_lap_times",
+                      "canonical_telemetry", "canonical_stints",
+                      "canonical_weather", "canonical_race_control",
+                      "canonical_pit_stops"]),
         },
     }
     hashable = {k: v for k, v in result.items() if k != "output_hash"}

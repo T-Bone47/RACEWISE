@@ -973,3 +973,132 @@ def retrieve_engineering_memory(
             "memory items are scope-limited and never generalize",
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# related-memory retrieval (Phase 6S GAP 4: structural match layer)
+# ---------------------------------------------------------------------------
+
+MAX_RELATED_MEMORY_ITEMS = 20
+
+RELATED_MATCH_REASONS = (
+    "same_driver_pair",      # exact declared driver pair match
+    "driver_overlap",        # shares at least one declared driver
+    "hypothesis_overlap",    # shares at least one evaluated hypothesis
+    "adjacent_season",       # same driver pair, season within ±1
+)
+
+RELATED_TRANSFER_POLICY = (
+    "structural related-memory retrieval: matches on declared scope fields "
+    "only (driver pair/driver overlap, hypothesis overlap, adjacent season); "
+    "a related item is a provenance-backed pointer, never a conclusion "
+    "transfer — its statement is not evidence about the requesting scope"
+)
+
+
+def retrieve_related_engineering_memory(
+    items: list[dict[str, Any]],
+    *,
+    season: Optional[int] = None,
+    round_num: Optional[int] = None,
+    driver: Optional[str] = None,
+    driver_pair: Optional[list[str]] = None,
+    hypothesis: Optional[str] = None,
+    scope_type: Optional[str] = None,
+    include_invalidated: bool = False,
+) -> dict[str, Any]:
+    """Deterministic structural related-memory retrieval (no semantics).
+
+    Phase 6S GAP 4, layered on top of (never replacing) the exact-scope
+    contract of ``retrieve_engineering_memory``. An item is structurally
+    related when at least one declared structural field overlaps the
+    request: the driver pair, one of the drivers, the evaluated
+    hypotheses, or (for the same pair) a season within ±1. Items whose
+    full exact scope (season AND round AND pair) already matches the
+    request are excluded — they are the exact layer's results, not related
+    pointers. Invalidated items are excluded unless explicitly included,
+    exactly as in the exact layer. No similarity scores, no embeddings,
+    no opaque ranking: matches are declared-field overlaps, each reported
+    with its explicit ``match_reasons``, and the result is deterministic.
+    """
+    req_drivers = set(driver_pair or ([driver] if driver else []))
+
+    def _match_reasons(it: dict[str, Any]) -> list[str]:
+        s = it.get("scope") or {}
+        reasons: list[str] = []
+        item_pair = set(s.get("driver_pair") or [])
+        if driver_pair is not None and \
+                sorted(item_pair) == sorted(set(driver_pair)):
+            reasons.append("same_driver_pair")
+        elif req_drivers and (item_pair & req_drivers):
+            reasons.append("driver_overlap")
+        if hypothesis is not None and \
+                hypothesis in (it.get("hypothesis_ids") or []):
+            reasons.append("hypothesis_overlap")
+        if (season is not None and "same_driver_pair" in reasons
+                and s.get("season") is not None
+                and abs(int(s["season"]) - int(season)) == 1):
+            reasons.append("adjacent_season")
+        return reasons
+
+    def _is_exact_match(it: dict[str, Any]) -> bool:
+        s = it.get("scope") or {}
+        if season is not None and s.get("season") != season:
+            return False
+        if round_num is not None and s.get("round") != round_num:
+            return False
+        if driver_pair is not None and \
+                sorted(s.get("driver_pair") or []) != sorted(driver_pair):
+            return False
+        return season is not None or round_num is not None \
+            or driver_pair is not None
+
+    related: list[dict[str, Any]] = []
+    for it in items:
+        if not include_invalidated and \
+                it.get("validity_status") != "ACTIVE":
+            continue
+        if _is_exact_match(it):
+            continue
+        if scope_type is not None and \
+                (it.get("scope") or {}).get("scope_type") != scope_type:
+            continue
+        reasons = _match_reasons(it)
+        if not reasons:
+            continue
+        out = dict(it)
+        out["match_class"] = "STRUCTURAL"
+        out["match_reasons"] = sorted(reasons)
+        out["transfer_policy"] = RELATED_TRANSFER_POLICY
+        related.append(out)
+
+    related.sort(key=lambda x: str(x.get("memory_id")))
+    related = related[:MAX_RELATED_MEMORY_ITEMS]
+    return {
+        "analysis": ANALYSIS,
+        "version": MEMORY_VERSION,
+        "related_memory_items": related,
+        "related_match_count": len(related),
+        "requested_related_scope": {
+            "season": season, "round": round_num, "driver": driver,
+            "driver_pair": driver_pair, "hypothesis": hypothesis,
+            "scope_type": scope_type,
+            "include_invalidated": include_invalidated},
+        "match_reason_vocabulary": list(RELATED_MATCH_REASONS),
+        "policy": RELATED_TRANSFER_POLICY,
+        "provenance": {
+            "method": "deterministic_structural_memory_retrieval",
+            "analytical_chain": ["6E", "6F", "6G", "6H", "6I",
+                                 "6J", "6K", "6L", "6M", "6N",
+                                 "6O"],
+        },
+        "limitations": [
+            "related items are pointers, never conclusion transfers; the "
+            "exact-scope layer remains the only source of scope-matched "
+            "conclusions",
+            "no semantic similarity: matching is limited to the declared "
+            "structural fields listed in match_reason_vocabulary",
+            "memory is derived-on-read from the supplied investigations; "
+            "nothing is persisted",
+        ],
+    }

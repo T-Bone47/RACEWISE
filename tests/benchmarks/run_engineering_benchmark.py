@@ -37,7 +37,7 @@ from racewise.data.historical.investigation_graph import (  # noqa: E402
 from racewise.data.historical.investigation_memory import (  # noqa: E402
     compare_engineering_investigations, derive_memory_items,
     invalidate_memory_item, replay_engineering_investigation,
-    retrieve_engineering_memory,
+    retrieve_engineering_memory, retrieve_related_engineering_memory,
 )
 from racewise.data.historical.investigation_synthesis import (  # noqa: E402
     HYPOTHESIS_IDS, run_engineering_investigation,
@@ -182,6 +182,7 @@ def run_case(queries: CanonicalQueries, case: dict[str, Any],
         "lap_number": case.get("lap_number"),
         "stint_number": case.get("stint_number"),
         "pattern_id": case.get("pattern_id"),
+        "session_type": case.get("session_type", "RACE"),
     }
     if case.get("hypotheses_subset"):
         kwargs["hypotheses"] = list(case["hypotheses_subset"])
@@ -407,6 +408,172 @@ def run_case(queries: CanonicalQueries, case: dict[str, Any],
                                   f"matches={body.get('match_count')}")
             except Exception as exc:  # noqa: BLE001
                 return finish("API_GAP", False, f"memory API call failed: {exc}")
+        elif kind == "graph_by_id":
+            # Phase 6S GAP 1: id-addressed graph retrieval. The graph must
+            # equal the scope-addressed graph; a wrong id must 404 (no
+            # silent fallback), an id without scope must 422. A probe with
+            # expect=mismatch is the negative control: the primary request
+            # uses a deliberately wrong id and must 404.
+            import httpx
+            try:
+                expect = probe.get("expect", "match")
+                inv_id = ("0" * 16 if expect == "mismatch"
+                          else inv.get("investigation_id"))
+                base_qs = (f"question_type={case['question_type']}"
+                           f"&driver_a={case['driver_a']}"
+                           f"&driver_b={case['driver_b']}"
+                           f"&season={case['season']}&round={case['round']}")
+                if case.get("lap_number"):
+                    base_qs += f"&lap_number={case['lap_number']}"
+                if case.get("session_type", "RACE") != "RACE":
+                    base_qs += f"&session_type={case['session_type']}"
+                r_ok = httpx.get(
+                    f"{api_url}/api/catalog/investigation-graph?{base_qs}"
+                    f"&investigation_id={inv_id}", timeout=180.0)
+                r_scope = httpx.get(
+                    f"{api_url}/api/catalog/investigation-graph?{base_qs}",
+                    timeout=180.0)
+                r_wrong = httpx.get(
+                    f"{api_url}/api/catalog/investigation-graph?{base_qs}"
+                    f"&investigation_id={'0' * 16}", timeout=60.0)
+                r_noscope = httpx.get(
+                    f"{api_url}/api/catalog/investigation-graph"
+                    f"?investigation_id={'0' * 16}", timeout=60.0)
+                ok_body = r_ok.json() if r_ok.status_code == 200 else {}
+                scope_body = (r_scope.json()
+                              if r_scope.status_code == 200 else {})
+                checks["graph_by_id_status"] = r_ok.status_code
+                checks["graph_ids_equal"] = (
+                    ok_body.get("graph_id") == scope_body.get("graph_id")
+                    if ok_body and scope_body else False)
+                checks["wrong_id_is_404"] = r_wrong.status_code == 404
+                checks["id_without_scope_is_422"] = r_noscope.status_code == 422
+                if expect == "mismatch":
+                    ok = (r_ok.status_code == 404
+                          and r_scope.status_code == 200
+                          and checks["wrong_id_is_404"])
+                else:
+                    ok = (r_ok.status_code == 200
+                          and checks["graph_ids_equal"]
+                          and checks["wrong_id_is_404"]
+                          and checks["id_without_scope_is_422"])
+                if not ok:
+                    return finish("API_GAP", False,
+                                  f"graph-by-id({expect}): "
+                                  f"status={r_ok.status_code} "
+                                  f"ids_equal={checks['graph_ids_equal']} "
+                                  f"wrong404={checks['wrong_id_is_404']} "
+                                  f"noscope422={checks['id_without_scope_is_422']}")
+            except Exception as exc:  # noqa: BLE001
+                return finish("API_GAP", False,
+                              f"graph-by-id probe failed: {exc}")
+        elif kind == "qualifying_honesty":
+            # Phase 6S GAP 2: telemetry-dependent hypotheses must never
+            # claim measured support in a qualifying scope
+            states = inv.get("investigation_snapshot", {}).get(
+                "hypothesis_states") or {}
+            bad = [h for h in ("H2_throttle", "H3_braking", "H6_drs")
+                   if states.get(h) in ("SUPPORTED", "PARTIALLY_SUPPORTED")]
+            checks["qualifying_honest_states"] = not bad
+            tools = {e.get("source_tool")
+                     for e in inv.get("evidence_ledger") or []}
+            checks["qualifying_fusion_tool_present"] = \
+                "fuse_qualifying_lap_evidence" in tools
+            checks["telemetry_tool_absent"] = \
+                "attribute_lap_loss" not in tools
+            if bad or not checks["qualifying_fusion_tool_present"] \
+                    or not checks["telemetry_tool_absent"]:
+                return finish("ORCHESTRATION_GAP", False,
+                              f"qualifying honesty violated: {bad} tools={tools}")
+        elif kind == "related_memory_probes":
+            # Phase 6S GAP 4: default response has no related section;
+            # structural retrieval returns provenance-backed pointers with
+            # explicit reasons; invalidated items excluded by default.
+            # A probe pair override drives the leakage guard: a scope with
+            # no structural neighbors must return zero related items.
+            items = derive_memory_items(inv)
+            base_res = retrieve_engineering_memory(
+                items, season=case["season"], round_num=case["round"])
+            checks["exact_unchanged"] = "related_memory_items" not in base_res
+            pair = list(case.get("related_probe_pair") or
+                        [case["driver_a"], case["driver_b"]])
+            rel = retrieve_related_engineering_memory(
+                items, season=case["season"], round_num=case["round"],
+                driver_pair=pair)
+            checks["related_count"] = rel.get("related_match_count")
+            checks["related_provenance_complete"] = all(
+                r.get("source_investigation_ids")
+                and r.get("match_reasons")
+                and r.get("match_class") == "STRUCTURAL"
+                for r in rel.get("related_memory_items") or [])
+            if case.get("related_invalidation_check") and items:
+                invalidated = invalidate_memory_item(
+                    items[0], "REPLAY_MISMATCH", "phase_6s_benchmark")
+                rel_inv = retrieve_related_engineering_memory(
+                    [invalidated] + items[1:], season=case["season"],
+                    round_num=case["round"], driver_pair=pair)
+                rel_incl = retrieve_related_engineering_memory(
+                    [invalidated] + items[1:], season=case["season"],
+                    round_num=case["round"], driver_pair=pair,
+                    include_invalidated=True)
+                checks["related_invalidation_excluded"] = \
+                    (rel_inv.get("related_match_count") or 0) == \
+                    max(0, (rel.get("related_match_count") or 0) - 1)
+                checks["related_invalidation_included_explicit"] = \
+                    (rel_incl.get("related_match_count") or 0) == \
+                    (rel.get("related_match_count") or 0)
+            expect_zero = case.get("expect_zero_related", False)
+            ok = (checks["exact_unchanged"]
+                  and checks["related_provenance_complete"]
+                  and "never a conclusion transfer" in rel.get("policy", "")
+                  and (not expect_zero
+                       or (rel.get("related_match_count") or 0) == 0)
+                  and (not case.get("related_invalidation_check")
+                       or (checks.get("related_invalidation_excluded")
+                           and checks.get(
+                               "related_invalidation_included_explicit"))))
+            if not ok:
+                return finish("ORCHESTRATION_GAP", False,
+                              f"related-memory probes failed: "
+                              f"exact_unchanged={checks['exact_unchanged']} "
+                              f"provenance={checks['related_provenance_complete']} "
+                              f"count={checks['related_count']} "
+                              f"expect_zero={expect_zero}")
+        elif kind == "related_memory_api":
+            import httpx
+            try:
+                qs = (f"question_type={case['question_type']}"
+                      f"&driver_a={case['driver_a']}"
+                      f"&driver_b={case['driver_b']}"
+                      f"&season={case['season']}&round={case['round']}")
+                if case.get("lap_number"):
+                    qs += f"&lap_number={case['lap_number']}"
+                r_def = httpx.get(
+                    f"{api_url}/api/catalog/engineering-memory?{qs}",
+                    timeout=180.0)
+                r_rel = httpx.get(
+                    f"{api_url}/api/catalog/engineering-memory?{qs}"
+                    f"&include_related=true", timeout=300.0)
+                def_body = r_def.json() if r_def.status_code == 200 else {}
+                rel_body = r_rel.json() if r_rel.status_code == 200 else {}
+                checks["memory_api_default_has_no_related"] = \
+                    "related_memory_items" not in def_body
+                checks["memory_api_related_present"] = \
+                    "related_memory_items" in rel_body
+                checks["memory_api_related_policy"] = \
+                    "never a conclusion transfer" in \
+                    str(rel_body.get("related_policy", ""))
+                ok = (r_def.status_code == 200 and r_rel.status_code == 200
+                      and checks["memory_api_default_has_no_related"]
+                      and checks["memory_api_related_present"]
+                      and checks["memory_api_related_policy"])
+                if not ok:
+                    return finish("API_GAP", False,
+                                  f"related-memory API: def={r_def.status_code} "
+                                  f"rel={r_rel.status_code}")
+            except Exception as exc:  # noqa: BLE001
+                return finish("API_GAP", False,
+                              f"related-memory API probe failed: {exc}")
         elif kind in ("exact_scope_hit", "wrong_scope_zero",
                       "invalidation_exclusion"):
             items = derive_memory_items(inv)
@@ -600,6 +767,40 @@ def api_validation(api_url: str, checks_log: list[dict[str, Any]]) -> dict[str, 
         "/api/catalog/engineering-memory?question_type=LAP_PERFORMANCE"
         "&driver_a=max-verstappen&driver_b=sergio-perez&season=2023&round=1"
         "&lap_number=6"), "2xx")
+    # Phase 6S GAP 1: id-addressed graph retrieval
+    probe("graph-by-id-mismatch-404", (
+        "/api/catalog/investigation-graph?question_type=LAP_PERFORMANCE"
+        "&driver_a=max-verstappen&driver_b=sergio-perez&season=2023&round=1"
+        "&lap_number=6&investigation_id=" + "0" * 16), "404")
+    probe("graph-by-id-without-scope-422", (
+        "/api/catalog/investigation-graph?investigation_id=" + "0" * 16),
+        "422")
+    # Phase 6S GAP 2: qualifying investigations
+    probe("investigation-qualifying-valid", (
+        "/api/catalog/engineering-investigation?question_type=LAP_PERFORMANCE"
+        "&driver_a=max-verstappen&driver_b=sergio-perez&season=2022&round=4"
+        "&lap_number=2&session_type=QUALIFYING"), "2xx")
+    probe("investigation-qualifying-stint-422", (
+        "/api/catalog/engineering-investigation?question_type=STINT_PERFORMANCE"
+        "&driver_a=max-verstappen&driver_b=sergio-perez&season=2022&round=4"
+        "&stint_number=1&session_type=QUALIFYING"), "422")
+    probe("investigation-unknown-session-type-422", (
+        "/api/catalog/engineering-investigation?question_type=LAP_PERFORMANCE"
+        "&driver_a=max-verstappen&driver_b=sergio-perez&season=2022&round=4"
+        "&lap_number=2&session_type=SPRINT"), "422")
+    probe("investigation-qualifying-pre-2018-unavailable", (
+        "/api/catalog/engineering-investigation?question_type=LAP_PERFORMANCE"
+        "&driver_a=luigi-fagioli&driver_b=juan-manuel-fangio&season=1950"
+        "&round=1&lap_number=1&session_type=QUALIFYING"), "2xx")
+    # Phase 6S GAP 4: related-memory retrieval
+    probe("memory-related-default", (
+        "/api/catalog/engineering-memory?question_type=LAP_PERFORMANCE"
+        "&driver_a=max-verstappen&driver_b=sergio-perez&season=2023&round=1"
+        "&lap_number=6"), "2xx")
+    probe("memory-related-expanded", (
+        "/api/catalog/engineering-memory?question_type=LAP_PERFORMANCE"
+        "&driver_a=max-verstappen&driver_b=sergio-perez&season=2023&round=1"
+        "&lap_number=6&include_related=true"), "2xx")
     probe("missing-route", "/api/catalog/does-not-exist", "404")
     client.close()
     return {
@@ -736,10 +937,14 @@ def security_scan() -> dict[str, Any]:
 
 
 def frontend_build_check() -> dict[str, Any]:
+    import shutil
     import subprocess
     try:
+        # Windows: npm is npm.cmd; plain "npm" is unresolvable without a
+        # shell, so resolve the real executable first (Phase 6S fix).
+        npm = shutil.which("npm") or shutil.which("npm.cmd") or "npm"
         proc = subprocess.run(
-            ["npm", "--prefix", str(ROOT / "apps" / "web"), "run", "build"],
+            [npm, "--prefix", str(ROOT / "apps" / "web"), "run", "build"],
             capture_output=True, text=True, timeout=420, cwd=str(ROOT))
         ok = proc.returncode == 0
         tail = (proc.stdout or proc.stderr or "").strip().splitlines()[-6:]

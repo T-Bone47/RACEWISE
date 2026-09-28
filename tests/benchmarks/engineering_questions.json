@@ -19,12 +19,31 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Where did Max Verstappen lose time to Sergio Perez on lap 6 of the 2023 Bahrain GP, and which sectors explain the delta?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -38,12 +57,31 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Is the lap-11 deficit between Perez and Verstappen (2023 Bahrain) consistent with corner-speed evidence?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 11,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 11,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -57,12 +95,26 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Where did Verstappen lose time to Perez on lap 12 of the 2023 Bahrain GP?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 12,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 12,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -76,18 +128,34 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Where did Verstappen lose time to Perez on lap 30 of the 2023 Bahrain GP?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 30,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 30,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
       "data_availability_expectation": "PARTIAL",
-      "limitation_case": true,
-      "validation_notes": "Second non-fused lap control: proves the limitation is systematic, not lap-specific luck."
+      "limitation_case": false,
+      "validation_notes": "Phase 6R measured INSUFFICIENT_EVIDENCE on this lap under the 12-lap 6D probe policy. Phase 6S GAP 3 widened the coverage (12->24 laps/driver, 93 sessions re-ingested additively); this lap now reaches a measured fused outcome. Classified EXPECTED_CAPABILITY_EXTENSION: the improvement is exactly the capability the gap document promised, all structural checks still pass, and no numeric value is asserted."
     },
     {
       "benchmark_id": "EQ-A05",
@@ -95,12 +163,32 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Where did Lewis Hamilton lose time to Oscar Piastri on lap 6 of the 2024 Dutch GP?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2024, "round": 14, "session_type": "RACE",
-      "driver_a": "lewis-hamilton", "driver_b": "oscar-piastri", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE", "UNAVAILABLE"],
+      "season": 2024,
+      "round": 14,
+      "session_type": "RACE",
+      "driver_a": "lewis-hamilton",
+      "driver_b": "oscar-piastri",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -114,12 +202,31 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Which sectors explain the lap-6 delta between Verstappen and Perez at the 2022 Emilia-Romagna GP?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2022, "round": 4, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2022,
+      "round": 4,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -133,12 +240,28 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Where did Nino Farina lose time to Luigi Fagioli on lap 1 of the 1950 British GP?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "luigi-fagioli", "lap_number": 1,
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "luigi-fagioli",
+      "lap_number": 1,
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -152,12 +275,22 @@
       "category_name": "LAP_PERFORMANCE",
       "question": "Where did Verstappen lose time to Kimi Antonelli on lap 6 of the 2023 Bahrain GP?",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "kimi-antonelli", "lap_number": 6,
-      "expected_status": ["UNAVAILABLE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "kimi-antonelli",
+      "lap_number": 6,
+      "expected_status": [
+        "UNAVAILABLE"
+      ],
       "expected_conclusion_states": [],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -171,12 +304,31 @@
       "category_name": "STINT_PERFORMANCE",
       "question": "Did the Verstappen-vs-Perez performance gap evolve across stint 1 of the 2023 Bahrain GP?",
       "question_type": "STINT_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "stint_number": 1,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "stint_number": 1,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -190,12 +342,31 @@
       "category_name": "STINT_PERFORMANCE",
       "question": "Is there evidence of a changing performance trend across stint 2 of the 2023 Bahrain GP for Verstappen vs Perez?",
       "question_type": "STINT_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "stint_number": 2,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "stint_number": 2,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -209,12 +380,31 @@
       "category_name": "STINT_PERFORMANCE",
       "question": "Were there regime transitions inside stint 1 of the 2022 Emilia-Romagna GP for Verstappen vs Perez?",
       "question_type": "STINT_PERFORMANCE",
-      "season": 2022, "round": 4, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "stint_number": 1,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2022,
+      "round": 4,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "stint_number": 1,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -228,12 +418,28 @@
       "category_name": "STINT_PERFORMANCE",
       "question": "Did the Farina-vs-Fagioli gap evolve across stint 1 of the 1950 British GP?",
       "question_type": "STINT_PERFORMANCE",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "luigi-fagioli", "stint_number": 1,
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "luigi-fagioli",
+      "stint_number": 1,
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -247,12 +453,27 @@
       "category_name": "STINT_PERFORMANCE",
       "question": "Analyze stint 99 of the 2023 Bahrain GP for Verstappen vs Perez.",
       "question_type": "STINT_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "stint_number": 99,
-      "expected_status": ["VALID", "UNAVAILABLE", "INVALID"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "stint_number": 99,
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE",
+        "INVALID"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -266,12 +487,31 @@
       "category_name": "STINT_PERFORMANCE",
       "question": "Did the Norris-vs-Verstappen gap evolve across stint 1 of the 2024 Dutch GP?",
       "question_type": "STINT_PERFORMANCE",
-      "season": 2024, "round": 14, "session_type": "RACE",
-      "driver_a": "lando-norris", "driver_b": "max-verstappen", "stint_number": 1,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2024,
+      "round": 14,
+      "session_type": "RACE",
+      "driver_a": "lando-norris",
+      "driver_b": "max-verstappen",
+      "stint_number": 1,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -285,12 +525,29 @@
       "category_name": "RACE_GAP",
       "question": "How did the analytical comparable-lap gap between Verstappen and Perez evolve across the 2024 Dutch GP, and how does it differ from the official classified gap?",
       "question_type": "RACE_GAP",
-      "season": 2024, "round": 14, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2024,
+      "round": 14,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -304,12 +561,29 @@
       "category_name": "RACE_GAP",
       "question": "Which portions of the 2023 Bahrain GP are comparable between Verstappen and Perez, and which laps are excluded?",
       "question_type": "RACE_GAP",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -323,12 +597,29 @@
       "category_name": "RACE_GAP",
       "question": "How did the analytical gap between Verstappen and Perez evolve across the 2022 Emilia-Romagna GP?",
       "question_type": "RACE_GAP",
-      "season": 2022, "round": 4, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2022,
+      "round": 4,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -342,12 +633,28 @@
       "category_name": "RACE_GAP",
       "question": "How did the gap between Nino Farina and Juan Manuel Fangio evolve across the 1950 British GP?",
       "question_type": "RACE_GAP",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "juan-manuel-fangio",
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE", "PARTIALLY_SUPPORTED"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "juan-manuel-fangio",
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE",
+        "PARTIALLY_SUPPORTED"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -361,12 +668,31 @@
       "category_name": "RACE_GAP",
       "question": "How did the gap between Michael Schumacher and Rubens Barrichello evolve across the 2000 Australian GP?",
       "question_type": "RACE_GAP",
-      "season": 2000, "round": 1, "session_type": "RACE",
-      "driver_a": "michael-schumacher", "driver_b": "rubens-barrichello",
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE", "PARTIALLY_SUPPORTED", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "MIXED_EVIDENCE"],
+      "season": 2000,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "michael-schumacher",
+      "driver_b": "rubens-barrichello",
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE",
+        "PARTIALLY_SUPPORTED",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "MIXED_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -380,12 +706,29 @@
       "category_name": "RACE_GAP",
       "question": "How did the analytical gap between Norris and Verstappen evolve across the 2025 Australian GP?",
       "question_type": "RACE_GAP",
-      "season": 2025, "round": 1, "session_type": "RACE",
-      "driver_a": "lando-norris", "driver_b": "max-verstappen",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2025,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "lando-norris",
+      "driver_b": "max-verstappen",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -399,12 +742,29 @@
       "category_name": "PERFORMANCE_REGIME",
       "question": "Were there measurable performance-regime changes between Verstappen and Perez in the 2022 Emilia-Romagna GP, and where did the trend change?",
       "question_type": "PERFORMANCE_REGIME",
-      "season": 2022, "round": 4, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2022,
+      "round": 4,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -418,12 +778,29 @@
       "category_name": "PERFORMANCE_REGIME",
       "question": "Did the Verstappen-Perez gap show regime transitions during the 2023 Bahrain GP?",
       "question_type": "PERFORMANCE_REGIME",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -437,12 +814,29 @@
       "category_name": "PERFORMANCE_REGIME",
       "question": "Were there measurable regime changes between Norris and Verstappen in the 2025 Australian GP?",
       "question_type": "PERFORMANCE_REGIME",
-      "season": 2025, "round": 1, "session_type": "RACE",
-      "driver_a": "lando-norris", "driver_b": "max-verstappen",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2025,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "lando-norris",
+      "driver_b": "max-verstappen",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -456,12 +850,28 @@
       "category_name": "PERFORMANCE_REGIME",
       "question": "Were there performance regimes between Farina and Fagioli in the 1950 British GP?",
       "question_type": "PERFORMANCE_REGIME",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "luigi-fagioli",
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE", "PARTIALLY_SUPPORTED"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "luigi-fagioli",
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE",
+        "PARTIALLY_SUPPORTED"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -475,12 +885,31 @@
       "category_name": "PERFORMANCE_REGIME",
       "question": "Did the Schumacher-Barrichello gap show regime changes in the 2000 Australian GP?",
       "question_type": "PERFORMANCE_REGIME",
-      "season": 2000, "round": 1, "session_type": "RACE",
-      "driver_a": "michael-schumacher", "driver_b": "rubens-barrichello",
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE", "PARTIALLY_SUPPORTED", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "MIXED_EVIDENCE"],
+      "season": 2000,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "michael-schumacher",
+      "driver_b": "rubens-barrichello",
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE",
+        "PARTIALLY_SUPPORTED",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "MIXED_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -494,14 +923,36 @@
       "category_name": "CROSS_RACE_PATTERN",
       "question": "Does a structural performance pattern for Verstappen vs Perez recur across the 2022 and 2023 seasons, and are the underlying signatures actually comparable?",
       "question_type": "CROSS_RACE_PATTERN",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
       "pattern_id": "3082b650453bb3e8",
-      "pattern_discovery": {"seasons": [2022, 2023]},
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "pattern_discovery": {
+        "seasons": [
+          2022,
+          2023
+        ]
+      },
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -515,14 +966,36 @@
       "category_name": "CROSS_RACE_PATTERN",
       "question": "Does the second structural pattern for Verstappen vs Perez (2022+2023) recur, and does the same hypothesis behavior appear in each instance?",
       "question_type": "CROSS_RACE_PATTERN",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
       "pattern_id": "aa01533a485012df",
-      "pattern_discovery": {"seasons": [2022, 2023]},
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "pattern_discovery": {
+        "seasons": [
+          2022,
+          2023
+        ]
+      },
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -536,13 +1009,26 @@
       "category_name": "CROSS_RACE_PATTERN",
       "question": "Analyze cross-race pattern 0000000000000000 for Verstappen vs Perez.",
       "question_type": "CROSS_RACE_PATTERN",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
       "pattern_id": "0000000000000000",
-      "expected_status": ["UNAVAILABLE", "VALID"],
-      "expected_conclusion_states": ["UNAVAILABLE", "INSUFFICIENT_EVIDENCE"],
+      "expected_status": [
+        "UNAVAILABLE",
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "UNAVAILABLE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -556,13 +1042,36 @@
       "category_name": "CROSS_RACE_PATTERN",
       "question": "Do recurring performance patterns exist for Farina vs Fagioli across the 1950 season?",
       "question_type": "CROSS_RACE_PATTERN",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "luigi-fagioli",
-      "pattern_discovery": {"seasons": [1950]},
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["UNAVAILABLE", "INSUFFICIENT_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "luigi-fagioli",
+      "pattern_discovery": {
+        "seasons": [
+          1950
+        ]
+      },
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "UNAVAILABLE",
+        "INSUFFICIENT_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -576,13 +1085,37 @@
       "category_name": "CROSS_RACE_PATTERN",
       "question": "Do structural patterns recur for Norris vs Verstappen across the 2024 and 2025 seasons?",
       "question_type": "CROSS_RACE_PATTERN",
-      "season": 2025, "round": 1, "session_type": "RACE",
-      "driver_a": "lando-norris", "driver_b": "max-verstappen",
-      "pattern_discovery": {"seasons": [2024, 2025]},
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE", "UNAVAILABLE"],
+      "season": 2025,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "lando-norris",
+      "driver_b": "max-verstappen",
+      "pattern_discovery": {
+        "seasons": [
+          2024,
+          2025
+        ]
+      },
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -596,12 +1129,31 @@
       "category_name": "HYPOTHESIS_EVALUATION",
       "question": "Evaluate all six engineering hypotheses (corner speed, throttle, braking, tyre state, race control, DRS) for the lap-6 delta at 2023 Bahrain.",
       "question_type": "HYPOTHESIS_EVALUATION",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -615,13 +1167,35 @@
       "category_name": "HYPOTHESIS_EVALUATION",
       "question": "Evaluate only corner-speed and DRS hypotheses for the lap-6 delta at 2023 Bahrain.",
       "question_type": "HYPOTHESIS_EVALUATION",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "hypotheses_subset": ["H1_corner_speed", "H6_drs"],
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "hypotheses_subset": [
+        "H1_corner_speed",
+        "H6_drs"
+      ],
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -635,13 +1209,34 @@
       "category_name": "HYPOTHESIS_EVALUATION",
       "question": "Evaluate only the race-control hypothesis for the lap-6 delta at 2023 Bahrain.",
       "question_type": "HYPOTHESIS_EVALUATION",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "hypotheses_subset": ["H5_race_control"],
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "PARTIALLY_SUPPORTED", "CONTRADICTED", "NOT_TESTABLE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "hypotheses_subset": [
+        "H5_race_control"
+      ],
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "NOT_TESTABLE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -655,12 +1250,28 @@
       "category_name": "HYPOTHESIS_EVALUATION",
       "question": "Evaluate the engineering hypotheses for the lap-1 delta between Farina and Fagioli at the 1950 British GP.",
       "question_type": "HYPOTHESIS_EVALUATION",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "luigi-fagioli", "lap_number": 1,
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "luigi-fagioli",
+      "lap_number": 1,
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -674,12 +1285,30 @@
       "category_name": "COUNTERFACTUAL_ELIGIBILITY",
       "question": "Is a REMOVE_DEFICIT lap speed-profile counterfactual eligible for Verstappen on lap 6 of the 2023 Bahrain GP, and what would it change?",
       "question_type": "COUNTERFACTUAL_ELIGIBILITY",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -693,12 +1322,28 @@
       "category_name": "COUNTERFACTUAL_ELIGIBILITY",
       "question": "Model a counterfactual for Farina on lap 1 of the 1950 British GP.",
       "question_type": "COUNTERFACTUAL_ELIGIBILITY",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "luigi-fagioli", "lap_number": 1,
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "luigi-fagioli",
+      "lap_number": 1,
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -712,12 +1357,29 @@
       "category_name": "COUNTERFACTUAL_ELIGIBILITY",
       "question": "Model a race-level counterfactual removing the deficit for Perez across the whole 2024 Dutch GP.",
       "question_type": "COUNTERFACTUAL_ELIGIBILITY",
-      "season": 2024, "round": 14, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE"],
+      "season": 2024,
+      "round": 14,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -731,12 +1393,29 @@
       "category_name": "COUNTERFACTUAL_ELIGIBILITY",
       "question": "Is a lap speed-profile counterfactual eligible for Norris on lap 6 of the 2025 Australian GP?",
       "question_type": "COUNTERFACTUAL_ELIGIBILITY",
-      "season": 2025, "round": 1, "session_type": "RACE",
-      "driver_a": "lando-norris", "driver_b": "max-verstappen", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "PARTIALLY_SUPPORTED", "INSUFFICIENT_EVIDENCE"],
+      "season": 2025,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "lando-norris",
+      "driver_b": "max-verstappen",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "PARTIALLY_SUPPORTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -750,13 +1429,31 @@
       "category_name": "COUNTERFACTUAL_ELIGIBILITY",
       "question": "Run the lap-6 investigation with counterfactual execution budget zero.",
       "question_type": "COUNTERFACTUAL_ELIGIBILITY",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
       "max_counterfactuals": 0,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "INSUFFICIENT_EVIDENCE"],
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "BOUNDED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -770,12 +1467,30 @@
       "category_name": "INVESTIGATION_SYNTHESIS",
       "question": "Full-chain structural validation: question to hypotheses to evidence to falsification to counterfactual to synthesis to provenance for the lap-6 2023 Bahrain investigation.",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -789,12 +1504,30 @@
       "category_name": "INVESTIGATION_SYNTHESIS",
       "question": "Full-chain structural validation for the stint-1 2023 Bahrain investigation.",
       "question_type": "STINT_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "stint_number": 1,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "stint_number": 1,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -808,12 +1541,29 @@
       "category_name": "INVESTIGATION_SYNTHESIS",
       "question": "Full-chain structural validation for the 2024 Dutch GP race-gap investigation.",
       "question_type": "RACE_GAP",
-      "season": 2024, "round": 14, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2024,
+      "round": 14,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -827,12 +1577,28 @@
       "category_name": "INVESTIGATION_SYNTHESIS",
       "question": "Structural chain validation for the honest-limitation 1950 race-gap investigation.",
       "question_type": "RACE_GAP",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "juan-manuel-fangio",
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE", "PARTIALLY_SUPPORTED"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "juan-manuel-fangio",
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE",
+        "PARTIALLY_SUPPORTED"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -846,13 +1612,36 @@
       "category_name": "HYPOTHESIS_EVALUATION",
       "question": "Evaluate only the tyre-state and DRS hypotheses for the stint-1 investigation at 2023 Bahrain.",
       "question_type": "STINT_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "stint_number": 1,
-      "hypotheses_subset": ["H4_tyre_state", "H6_drs"],
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED", "NOT_TESTABLE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "stint_number": 1,
+      "hypotheses_subset": [
+        "H4_tyre_state",
+        "H6_drs"
+      ],
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED",
+        "NOT_TESTABLE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -866,12 +1655,29 @@
       "category_name": "HYPOTHESIS_EVALUATION",
       "question": "Full-hypothesis evaluation at race-gap scope for Verstappen vs Perez, 2024 Dutch GP.",
       "question_type": "RACE_GAP",
-      "season": 2024, "round": 14, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2024,
+      "round": 14,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -885,13 +1691,34 @@
       "category_name": "MEMORY",
       "question": "Store-then-retrieve: derive memory items from the lap-6 2023 Bahrain investigation and retrieve them by exact scope.",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "memory_probe": {"kind": "exact_scope_hit", "expect_min_matches": 1},
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "exact_scope_hit",
+        "expect_min_matches": 1
+      },
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -905,13 +1732,38 @@
       "category_name": "MEMORY",
       "question": "Retrieve memory for a scope that was never investigated (2001 R1 Verstappen vs Perez).",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "memory_probe": {"kind": "wrong_scope_zero", "retrieval_scope": {"season": 2001, "round": 1}, "expect_matches": 0},
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "wrong_scope_zero",
+        "retrieval_scope": {
+          "season": 2001,
+          "round": 1
+        },
+        "expect_matches": 0
+      },
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -925,13 +1777,33 @@
       "category_name": "MEMORY",
       "question": "Invalidated memory items are excluded from retrieval unless explicitly included.",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "memory_probe": {"kind": "invalidation_exclusion"},
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "invalidation_exclusion"
+      },
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -945,13 +1817,34 @@
       "category_name": "MEMORY",
       "question": "API-layer memory retrieval for the lap-6 2023 Bahrain scope.",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "memory_probe": {"kind": "api_layer", "expect_min_matches": 1},
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "api_layer",
+        "expect_min_matches": 1
+      },
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": false,
@@ -965,12 +1858,30 @@
       "category_name": "REPLAY",
       "question": "Snapshot, replay and compare the lap-6 2023 Bahrain investigation; identities and numbers must be identical.",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -984,12 +1895,29 @@
       "category_name": "REPLAY",
       "question": "Snapshot, replay and compare the 2024 Dutch GP race-gap investigation.",
       "question_type": "RACE_GAP",
-      "season": 2024, "round": 14, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2024,
+      "round": 14,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": false,
@@ -1003,12 +1931,30 @@
       "category_name": "GRAPH",
       "question": "Build the engineering graph for the lap-6 2023 Bahrain investigation and trace question to evidence to hypothesis to conclusion.",
       "question_type": "LAP_PERFORMANCE",
-      "season": 2023, "round": 1, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez", "lap_number": 6,
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["MIXED_EVIDENCE", "SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "CONTRADICTED"],
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "lap_number": 6,
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "CONTRADICTED"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": true,
       "graph_trace_expected": true,
@@ -1022,12 +1968,29 @@
       "category_name": "GRAPH",
       "question": "Graph behavior on the regime investigation (2022 R4): every regime and change-point node must trace to measured upstream output.",
       "question_type": "PERFORMANCE_REGIME",
-      "season": 2022, "round": 4, "session_type": "RACE",
-      "driver_a": "max-verstappen", "driver_b": "sergio-perez",
-      "expected_status": ["VALID"],
-      "expected_conclusion_states": ["SUPPORTED", "SUPPORTED_BY_AVAILABLE_EVIDENCE", "PARTIALLY_SUPPORTED", "MIXED_EVIDENCE", "INSUFFICIENT_EVIDENCE"],
+      "season": 2022,
+      "round": 4,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "SUPPORTED",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "PARTIALLY_SUPPORTED",
+        "MIXED_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
       "evidence_rich": true,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "NOT_REQUESTED",
       "replay_expected": false,
       "graph_trace_expected": true,
@@ -1041,18 +2004,707 @@
       "category_name": "GRAPH",
       "question": "Graph behavior on an honest-limitation investigation (1950 race gap): no fabricated nodes.",
       "question_type": "RACE_GAP",
-      "season": 1950, "round": 1, "session_type": "RACE",
-      "driver_a": "nino-farina", "driver_b": "juan-manuel-fangio",
-      "expected_status": ["VALID", "UNAVAILABLE"],
-      "expected_conclusion_states": ["INSUFFICIENT_EVIDENCE", "UNAVAILABLE", "PARTIALLY_SUPPORTED"],
+      "season": 1950,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "nino-farina",
+      "driver_b": "juan-manuel-fangio",
+      "expected_status": [
+        "VALID",
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE",
+        "UNAVAILABLE",
+        "PARTIALLY_SUPPORTED"
+      ],
       "evidence_rich": false,
-      "required_provenance": ["provider", "source_tables", "method", "analytical_chain", "investigation_version"],
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
       "counterfactual_expected": "INELIGIBLE_EXPLAINED",
       "replay_expected": false,
       "graph_trace_expected": true,
       "data_availability_expectation": "HISTORICAL_ONLY",
       "limitation_case": true,
       "validation_notes": "The graph layer must handle a limitation investigation honestly: either no graph with a reason, or a graph containing only nodes backed by real outputs (no fabricated evidence nodes)."
+    },
+    {
+      "benchmark_id": "EQ-L01",
+      "category": "L",
+      "category_name": "GRAPH_BY_ID",
+      "question": "Address the lap-6 2023 Bahrain graph by its investigation id and verify it equals the scope-addressed graph.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "NOT_REQUESTED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 1 positive: id-addressed graph must be identical (graph_id, node/edge ids) to the scope-addressed graph of the same investigation; addressing marker reported.",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "graph_by_id"
+      }
+    },
+    {
+      "benchmark_id": "EQ-L02",
+      "category": "L",
+      "category_name": "GRAPH_BY_ID",
+      "question": "Attempt to address the lap-6 2023 Bahrain graph with a wrong investigation id.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "NOT_REQUESTED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 1 negative: a wrong investigation id must 404 with an explicit reason and never fall back to a different investigation.",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "graph_by_id",
+        "expect": "mismatch"
+      }
+    },
+    {
+      "benchmark_id": "EQ-L03",
+      "category": "L",
+      "category_name": "GRAPH_BY_ID",
+      "question": "Request an investigation with an unknown question type (invalid-input control for the graph-addressing family).",
+      "question_type": "FREE_FORM",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": false,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "NOT_REQUESTED",
+      "replay_expected": false,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 1 invalid-input control: an unknown question type is rejected by the engine with an explicit reason (INVALID; API 422). The API-level id-without-scope rejection (422) is covered by the graph-by-id-without-scope API probe.",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "graph_by_id"
+      },
+      "invalid_input": {
+        "expect_status": "INVALID",
+        "reason": "question_type must be one of"
+      }
+    },
+    {
+      "benchmark_id": "EQ-L04",
+      "category": "L",
+      "category_name": "GRAPH_BY_ID",
+      "question": "Replay the lap-6 2023 Bahrain investigation and trace its id-addressed graph through snapshot verification.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": true,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 1 provenance/replay: the same investigation supports replay IDENTICAL, graph snapshot verify and graph replay IDENTICAL while being addressed by id.",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "graph_by_id"
+      }
+    },
+    {
+      "benchmark_id": "EQ-M01",
+      "category": "M",
+      "category_name": "QUALIFYING_LAP",
+      "question": "Where did Verstappen gain time over Perez on qualifying lap 2 of the 2022 Emilia-Romagna GP, and which sectors explain it?",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2022,
+      "round": 4,
+      "session_type": "QUALIFYING",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 2 positive: qualifying single-lap comparison measured on canonical lap times and complete sector splits; telemetry-dependent hypotheses must remain honest at fusion level, fusion tool must be fuse_qualifying_lap_evidence, and attribute_lap_loss must NOT appear in the ledger.",
+      "lap_number": 2,
+      "memory_probe": {
+        "kind": "qualifying_honesty"
+      }
+    },
+    {
+      "benchmark_id": "EQ-M02",
+      "category": "M",
+      "category_name": "QUALIFYING_LAP",
+      "question": "Compare Verstappen and Perez on qualifying lap 3 of the 2023 Bahrain GP.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "QUALIFYING",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 2 positive, second era: qualifying investigation with honest telemetry-hypothesis states; conclusion must be evidence-bound.",
+      "lap_number": 3,
+      "memory_probe": {
+        "kind": "qualifying_honesty"
+      }
+    },
+    {
+      "benchmark_id": "EQ-M03",
+      "category": "M",
+      "category_name": "QUALIFYING_LAP",
+      "question": "Compare Fagioli and Fangio in qualifying at the 1950 British GP.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 1950,
+      "round": 1,
+      "session_type": "QUALIFYING",
+      "driver_a": "luigi-fagioli",
+      "driver_b": "juan-manuel-fangio",
+      "expected_status": [
+        "UNAVAILABLE"
+      ],
+      "expected_conclusion_states": [
+        "UNAVAILABLE"
+      ],
+      "evidence_rich": false,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": false,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "UNAVAILABLE",
+      "limitation_case": true,
+      "validation_notes": "GAP 2 limitation: canonical qualifying lap times begin in 2018; pre-2018 qualifying must report honest UNAVAILABLE with the coverage reason, never fabricated lap evidence.",
+      "lap_number": 1
+    },
+    {
+      "benchmark_id": "EQ-M04",
+      "category": "M",
+      "category_name": "QUALIFYING_LAP",
+      "question": "Request a stint-scoped investigation for a qualifying session.",
+      "question_type": "STINT_PERFORMANCE",
+      "season": 2022,
+      "round": 4,
+      "session_type": "QUALIFYING",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "INVALID"
+      ],
+      "expected_conclusion_states": [
+        "UNAVAILABLE"
+      ],
+      "evidence_rich": false,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": false,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "UNAVAILABLE",
+      "limitation_case": false,
+      "validation_notes": "GAP 2 negative: stint numbers have no qualifying comparability semantics; the engine must reject with an explicit reason (INVALID; API 422).",
+      "invalid_input": {
+        "session_type": "QUALIFYING",
+        "stint_number": 1,
+        "question_type": "STINT_PERFORMANCE",
+        "expect": "INVALID"
+      }
+    },
+    {
+      "benchmark_id": "EQ-M05",
+      "category": "M",
+      "category_name": "QUALIFYING_LAP",
+      "question": "Replay the qualifying lap-2 2022 Emilia-Romagna investigation from its snapshot.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2022,
+      "round": 4,
+      "session_type": "QUALIFYING",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 2 provenance/replay: a qualifying investigation snapshots and replays IDENTICAL through the same 6O machinery as race investigations.",
+      "lap_number": 2
+    },
+    {
+      "benchmark_id": "EQ-N01",
+      "category": "N",
+      "category_name": "FUSED_LAP_COVERAGE",
+      "question": "Where did Verstappen lose time to Perez on lap 8 of the 2023 Bahrain GP?",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "PARTIAL",
+      "limitation_case": false,
+      "validation_notes": "GAP 3 positive: lap 8 was outside the 12-lap 6D probe set and must now reach a measured fused outcome (or remain honestly INSUFFICIENT if the lap is genuinely not comparable); any change is EXPECTED_CAPABILITY_EXTENSION.",
+      "lap_number": 8
+    },
+    {
+      "benchmark_id": "EQ-N02",
+      "category": "N",
+      "category_name": "FUSED_LAP_COVERAGE",
+      "question": "Where did Verstappen lose time to Perez on lap 44 of the 2023 Bahrain GP?",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": false,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": false,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "PARTIAL",
+      "limitation_case": true,
+      "validation_notes": "GAP 3 limitation: the 24-lap bound still leaves gaps (lap 44 is uncovered for both drivers even after the union of both drivers' picks); uncovered laps must keep reporting honest INSUFFICIENT_EVIDENCE with zero fabricated evidence and a TELEMETRY_UNAVAILABLE counterfactual candidate (the limitation shrinks, it does not disappear).",
+      "lap_number": 44
+    },
+    {
+      "benchmark_id": "EQ-N03",
+      "category": "N",
+      "category_name": "FUSED_LAP_COVERAGE",
+      "question": "Assess counterfactual availability for a newly covered lap versus an uncovered lap.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "ELIGIBLE",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "PARTIAL",
+      "limitation_case": false,
+      "validation_notes": "GAP 3 measured delta: the lap-8 counterfactual candidate must be ELIGIBLE (previously TELEMETRY_UNAVAILABLE under the 12-lap policy); candidates on still-uncovered laps (lap 44, EQ-N02) must report TELEMETRY_UNAVAILABLE.",
+      "lap_number": 8
+    },
+    {
+      "benchmark_id": "EQ-N04",
+      "category": "N",
+      "category_name": "FUSED_LAP_COVERAGE",
+      "question": "Confirm additive identity: the previously covered lap-6 fused output is unchanged after the probe expansion.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "ELIGIBLE_OR_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 3 additive regression: the 6R golden lap must remain byte-identical after the 12-to-24 expansion (upsert identity, no deletes).",
+      "lap_number": 6
+    },
+    {
+      "benchmark_id": "EQ-O01",
+      "category": "O",
+      "category_name": "RELATED_MEMORY",
+      "question": "Retrieve engineering memory for the lap-6 2023 Bahrain investigation with the default exact-scope contract.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 4 default-identity regression: without include_related the response must be byte-identical to the Phase 6R contract (no related keys present).",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "related_memory_api"
+      }
+    },
+    {
+      "benchmark_id": "EQ-O02",
+      "category": "O",
+      "category_name": "RELATED_MEMORY",
+      "question": "Ask which structurally related prior investigations exist for the lap-6 2023 Bahrain scope.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 4 positive: include_related must return structural matches with complete provenance, explicit match_reasons and the non-transfer policy; neighbor seasons contribute only VALID investigations.",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "related_memory_api"
+      }
+    },
+    {
+      "benchmark_id": "EQ-O03",
+      "category": "O",
+      "category_name": "RELATED_MEMORY",
+      "question": "Verify zero structural leakage: a scope with no structural neighbors returns no related items.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 4 negative: structural matching against a disjoint driver pair must return zero related items (no leakage, no semantic drift).",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "related_memory_probes",
+        "related_probe_pair": [
+          "charles-leclerc",
+          "carlos-sainz-jr"
+        ],
+        "expect_zero_related": true
+      }
+    },
+    {
+      "benchmark_id": "EQ-O04",
+      "category": "O",
+      "category_name": "RELATED_MEMORY",
+      "question": "Confirm invalidated memory items are excluded from structural retrieval unless explicitly included.",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 4 invalidation: an item invalidated with REPLAY_MISMATCH must disappear from related results and reappear only with include_invalidated, mirroring the exact layer.",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "related_memory_probes",
+        "related_invalidation_check": true
+      }
+    },
+    {
+      "benchmark_id": "EQ-O05",
+      "category": "O",
+      "category_name": "RELATED_MEMORY",
+      "question": "Trace provenance on every structurally related memory item returned for the 2023 Bahrain lap-6 scope (2024 neighbor season in pool).",
+      "question_type": "LAP_PERFORMANCE",
+      "season": 2023,
+      "round": 1,
+      "session_type": "RACE",
+      "driver_a": "max-verstappen",
+      "driver_b": "sergio-perez",
+      "expected_status": [
+        "VALID"
+      ],
+      "expected_conclusion_states": [
+        "MIXED_EVIDENCE",
+        "SUPPORTED_BY_AVAILABLE_EVIDENCE",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "evidence_rich": true,
+      "required_provenance": [
+        "provider",
+        "source_tables",
+        "method",
+        "analytical_chain",
+        "investigation_version"
+      ],
+      "counterfactual_expected": "INELIGIBLE_EXPLAINED",
+      "replay_expected": true,
+      "graph_trace_expected": false,
+      "data_availability_expectation": "FULL_TELEMETRY",
+      "limitation_case": false,
+      "validation_notes": "GAP 4 provenance: every related pointer carries source investigation ids, evidence ids, source hashes, declared scope, match_class STRUCTURAL and match_reasons from the closed vocabulary; neighbor seasons contribute only VALID investigations' items.",
+      "lap_number": 6,
+      "memory_probe": {
+        "kind": "related_memory_probes"
+      }
     }
   ]
 }

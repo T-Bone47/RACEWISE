@@ -77,10 +77,27 @@ class TestQ9Matrix:
             "falsification-first: at least one stint must surface a contradicted hypothesis"
 
     def test_q9_8_insufficient_common_laps_reported(self, q9):
+        """Thin stints are reported honestly when they exist.
+
+        Phase 6S widened the 6D telemetry coverage (12 -> 24 laps/driver),
+        so the fixed sampling matrix can legitimately contain no thin
+        stint anymore; the invariant under test is the reporting rule:
+        every matrix entry with <2 comparable laps must be flagged
+        trend-insufficient or honestly INSUFFICIENT_EVIDENCE.
+        """
+        for r in q9["matrix"]:
+            if (r.get("valid_laps") or 0) < 2 and \
+                    r.get("status") in ("VALID_COMPARISON",
+                                        "VALID_WITH_CAVEATS"):
+                assert r.get("trend_insufficient") or \
+                    r.get("pattern") == "INSUFFICIENT_EVIDENCE", \
+                    f"thin stint reported as trended: {r}"
         thin = [r for r in q9["matrix"] if r.get("trend_insufficient")
                 or r.get("pattern") == "INSUFFICIENT_EVIDENCE"
                 or r.get("status") == "INSUFFICIENT_EVIDENCE"]
-        assert thin, "matrix must include honestly-insufficient stints"
+        # honesty invariant: thin entries never carry a trend pattern
+        for r in thin:
+            assert r.get("pattern") not in ("WIDENING", "NARROWING", "STABLE")
 
     def test_q9_9_residual_conservation_everywhere(self, q9):
         for r in q9["matrix"]:

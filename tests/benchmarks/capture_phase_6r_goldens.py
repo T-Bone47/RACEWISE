@@ -91,6 +91,21 @@ GOLDENS: list[dict[str, Any]] = [
                "driver_b": "sergio-perez", "season": 2023, "round": 1,
                "lap_number": 6},
      "memory": True, "graph": False, "replay": False},
+    {"golden_id": "G13_GRAPH_BY_ID", "label": "graph addressed by investigation id",
+     "input": {"question_type": "LAP_PERFORMANCE", "driver_a": "max-verstappen",
+               "driver_b": "sergio-perez", "season": 2023, "round": 1,
+               "lap_number": 6},
+     "graph": True, "replay": True, "addressed_graph": True},
+    {"golden_id": "G14_QUALIFYING_LAP", "label": "qualifying single-lap investigation (honest telemetry limits)",
+     "input": {"question_type": "LAP_PERFORMANCE", "driver_a": "max-verstappen",
+               "driver_b": "sergio-perez", "season": 2022, "round": 4,
+               "lap_number": 2, "session_type": "QUALIFYING"},
+     "graph": True, "replay": True},
+    {"golden_id": "G15_RELATED_MEMORY", "label": "structural related-memory retrieval from LAP6",
+     "input": {"question_type": "LAP_PERFORMANCE", "driver_a": "max-verstappen",
+               "driver_b": "sergio-perez", "season": 2023, "round": 1,
+               "lap_number": 6},
+     "related_memory": True, "graph": False, "replay": False},
 ]
 
 
@@ -179,17 +194,68 @@ def main() -> int:
             entry["memory"] = {"derived_items": len(items),
                                "exact_scope_matches": res.get("match_count")}
 
+        if g.get("related_memory") and inv.get("status") == "VALID":
+            # Phase 6S GAP 4: ±1-season neighbor pool + structural
+            # retrieval (mirrors the API's bounded neighborhood)
+            from racewise.data.historical.investigation_memory import (
+                derive_memory_items, retrieve_related_engineering_memory,
+            )
+            items = derive_memory_items(inv)
+            neighbor_runs = []
+            for nb_season in (int(kw["season"]) - 1, int(kw["season"]) + 1):
+                nb_kw = dict(kw)
+                nb_kw["season"] = nb_season
+                nb_inv = run_engineering_investigation(queries, **nb_kw)
+                nb_items = 0
+                if nb_inv.get("status") == "VALID":
+                    nb_items = len(derive_memory_items(nb_inv))
+                    items += derive_memory_items(nb_inv)
+                neighbor_runs.append({
+                    "season": nb_season,
+                    "status": nb_inv.get("status"),
+                    "items_derived": nb_items})
+            rel = retrieve_related_engineering_memory(
+                items, season=2023, round_num=1,
+                driver_pair=["max-verstappen", "sergio-perez"])
+            entry["related_memory"] = {
+                "neighbor_runs": neighbor_runs,
+                "related_match_count": rel.get("related_match_count"),
+                "match_reasons": sorted({r for item in
+                                         rel.get("related_memory_items") or []
+                                         for r in item.get("match_reasons")}),
+                "policy": rel.get("policy"),
+            }
+
+        if g.get("addressed_graph") and inv.get("status") == "VALID":
+            # Phase 6S GAP 1: the id-addressed graph must equal the
+            # scope-addressed graph of the same investigation
+            graph_by_id = build_investigation_graph(queries, inv)
+            entry["addressed_by"] = {
+                "investigation_id": inv.get("investigation_id"),
+                "graph_id_matches_scope_graph": (
+                    graph_by_id.get("graph_id") ==
+                    (entry.get("graph") or {}).get("graph_id")),
+            }
+
         out.append(entry)
         print(f"{g['golden_id']}: status={entry.get('status')} "
               f"hash={entry.get('output_hash')} replay={entry.get('replay_status')}")
 
     dest = ROOT / "tests" / "benchmarks" / "phase_6r_goldens.json"
+    # (file name kept for continuity; the set itself is v2 with 15 goldens)
     payload = {
-        "golden_set": "phase_6r_goldens_v1",
-        "captured": "2026-09-27",
+        "golden_set": "phase_6r_goldens_v2",
+        "captured": "2026-09-29",
         "note": ("canonical inputs and measured hashes; conclusions are "
                  "structural states, never invented numbers; hashes bind to "
-                 "the canonical data state at capture time"),
+                 "the canonical data state at capture time. v2 adds the "
+                 "Phase 6S gap-closure goldens G13 (id-addressed graph), "
+                 "G14 (qualifying lap) and G15 (structural related "
+                 "memory). Hash-classified deltas vs 6R: G02_STINT output "
+                 "hash changed = EXPECTED_CAPABILITY_EXTENSION (the 6S "
+                 "telemetry probe expansion 12->24 laps measures more laps "
+                 "of the same stint-1 scope); all other G01-G12 hashes are "
+                 "unchanged including the honest limitation G08"),
         "goldens": out,
     }
     dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")

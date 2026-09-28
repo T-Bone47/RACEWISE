@@ -132,7 +132,7 @@ class CanonicalQueries:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT q.*, d.full_name AS driver_name, d.code AS driver_code, c.name AS constructor_name
+                SELECT q.*, d.full_name AS driver_name, d.code AS driver_code, d.driver_key, c.name AS constructor_name
                 FROM canonical_qualifying q
                 JOIN canonical_drivers d ON d.driver_id = q.driver_id
                 LEFT JOIN canonical_constructors c ON c.constructor_id = q.constructor_id

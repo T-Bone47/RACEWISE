@@ -525,10 +525,24 @@ def _regime_sensitivity(
     regime_tel_laps: list[int],
 ) -> dict[str, Any]:
     """Bounded 6J sensitivity sweep restricted to this regime's telemetry laps."""
-    from racewise.data.historical.performance_envelope import analyze_performance_envelope
+    from racewise.data.historical.performance_envelope import (
+        _clean_covered_laps, analyze_performance_envelope,
+    )
     if not regime_tel_laps:
         return {"status": "UNAVAILABLE",
                 "reason": "no paired telemetry laps inside this regime"}
+    # Restrict to the driver's clean comparable telemetry-covered set: the
+    # envelope (correctly) rejects context-dirty laps (pit in/out, flags,
+    # deleted, inaccurate) with INVALID, so the regime probe must pre-filter
+    # with the exact same criteria instead of relying on probe-lap spacing
+    # (Phase 6S: the wider telemetry coverage surfaced this latent coupling).
+    clean, _excluded, _n = _clean_covered_laps(
+        queries, season, round_num, "RACE", driver_a)
+    usable = [ln for ln in regime_tel_laps if ln in set(clean)]
+    if not usable:
+        return {"status": "UNAVAILABLE",
+                "reason": ("no clean comparable telemetry laps inside this "
+                           "regime (telemetry laps are pit/flag-affected)")}
     try:
         env = analyze_performance_envelope(
             queries, season, round_num, driver_a,
@@ -536,7 +550,7 @@ def _regime_sensitivity(
             reference_driver=driver_b, max_scenarios=5,
             max_laps=MAX_SENSITIVITY_LAPS,
             stint_number=None,
-            laps=regime_tel_laps[:MAX_SENSITIVITY_LAPS],
+            laps=usable[:MAX_SENSITIVITY_LAPS],
         )
     except Exception as exc:
         return {"status": "INSUFFICIENT_EVIDENCE",

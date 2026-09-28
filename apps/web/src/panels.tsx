@@ -372,6 +372,17 @@ export function ReplayPanel({ scopeParams }: { scopeParams: () => URLSearchParam
             snapshot <code>{replay.snapshot?.snapshot_hash ?? replay.original_hash}</code> → replay{' '}
             <code>{replay.replay_hash ?? '—'}</code>
           </p>
+          {replay.snapshot?.investigation_id && (
+            <p className="small">
+              investigation id <code>{replay.snapshot.investigation_id}</code> ·{' '}
+              <a
+                className="linklike"
+                href={`#/graph?${scopeParams().toString()}&investigation_id=${replay.snapshot.investigation_id}`}
+              >
+                Open graph addressed by this investigation id →
+              </a>
+            </p>
+          )}
           {replay.identical ? (
             <p>
               <span className={`ef-badge ${stateChipClass('SUPPORTED')}`}>IDENTICAL REPLAY</span>{' '}
@@ -555,6 +566,7 @@ export function MemoryPanel({ scopeParams, driverA }: { scopeParams: () => URLSe
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<{ code: string; message: string } | null>(null)
   const [prov, setProv] = useState<ProvenanceTarget | null>(null)
+  const [includeRelated, setIncludeRelated] = useState(false)
 
   async function run() {
     setLoading(true)
@@ -563,6 +575,7 @@ export function MemoryPanel({ scopeParams, driverA }: { scopeParams: () => URLSe
     try {
       const params = scopeParams()
       params.set('driver', driverA)
+      if (includeRelated) params.set('include_related', 'true')
       const resp = await fetch(`/api/catalog/engineering-memory?${params}`)
       if (!resp.ok) {
         const detail = await resp.json().catch(() => null)
@@ -578,9 +591,19 @@ export function MemoryPanel({ scopeParams, driverA }: { scopeParams: () => URLSe
 
   return (
     <div>
-      <button className="primary" onClick={run} disabled={loading}>
-        {loading ? 'Retrieving engineering memory…' : 'Retrieve engineering memory'}
-      </button>
+      <div className="controls">
+        <button className="primary" onClick={run} disabled={loading}>
+          {loading ? 'Retrieving engineering memory…' : 'Retrieve engineering memory'}
+        </button>
+        <label>
+          <input
+            type="checkbox"
+            checked={includeRelated}
+            onChange={(e) => setIncludeRelated(e.target.checked)}
+          />{' '}
+          include structurally related items (adjacent seasons, shared drivers)
+        </label>
+      </div>
       {error && <StructuredError code={error.code} message={error.message} />}
       {loading && <LoadingLine label="Retrieving engineering memory…" />}
       {mem && (
@@ -633,6 +656,35 @@ export function MemoryPanel({ scopeParams, driverA }: { scopeParams: () => URLSe
           No memory retrieval run yet. Memory items are evidence-bound and
           scope-limited — a related prior investigation never transfers its
           conclusion.
+        </div>
+      )}
+      {mem?.related_memory_items && mem.related_memory_items.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <p className="muted small">
+            structurally related items ({mem.related_match_count}) — pointers,
+            not conclusions: each keeps its own scope and provenance and is
+            never evidence about the current scope.
+          </p>
+          <table className="catalog-table">
+            <thead>
+              <tr>
+                <th scope="col">Memory ID</th>
+                <th scope="col">Structural match</th>
+                <th scope="col">Statement</th>
+                <th scope="col">Validity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mem.related_memory_items.map((m) => (
+                <tr key={m.memory_id}>
+                  <td className="small"><code>{m.memory_id.slice(0, 12)}</code></td>
+                  <td className="small">{(m.match_reasons || []).join(', ')}</td>
+                  <td className="small">{m.statement}</td>
+                  <td className="small">{m.validity_status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       <ProvenanceDrawer target={prov} onClose={() => setProv(null)} />

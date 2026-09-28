@@ -25,6 +25,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
   const [lapNumber, setLapNumber] = useState(() => Number(presetParams?.get('lap_number') || 6))
   const [stintNumber, setStintNumber] = useState(() => Number(presetParams?.get('stint_number') || 1))
   const [patternId, setPatternId] = useState(() => presetParams?.get('pattern_id') || '')
+  const [sessionType, setSessionType] = useState(() => presetParams?.get('session_type') || 'RACE')
   const [hypothesesFilter] = useState(() => presetParams?.get('hypotheses') || '')
 
   const [result, setResult] = useState<InvestigationResult | null>(null)
@@ -68,13 +69,14 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
       driver_b: driverB.trim(),
       season: String(season),
       round: String(round),
+      session_type: sessionType,
     })
     if (inputs.includes('lap_number') && lapNumber >= 1) params.set('lap_number', String(lapNumber))
     if (inputs.includes('stint_number') && stintNumber >= 1) params.set('stint_number', String(stintNumber))
     if (inputs.includes('pattern_id') && patternId.trim()) params.set('pattern_id', patternId.trim())
     if (hypothesesFilter) params.set('hypotheses', hypothesesFilter)
     return params
-  }, [questionType, driverA, driverB, season, round, lapNumber, stintNumber, patternId, hypothesesFilter, inputs])
+  }, [questionType, driverA, driverB, season, round, lapNumber, stintNumber, patternId, hypothesesFilter, inputs, sessionType])
 
   const run = useCallback(async () => {
     setLoading(true)
@@ -212,6 +214,22 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
             round:{' '}
             <input type="number" min={1} max={99} value={round} style={{ width: 60 }}
                    onChange={(e) => setRound(Number(e.target.value))} />
+          </label>
+          <label>
+            session:{' '}
+            <select
+              value={sessionType}
+              onChange={(e) => {
+                setSessionType(e.target.value)
+                /* a qualifying session has no stint semantics */
+                if (e.target.value === 'QUALIFYING' && questionType === 'STINT_PERFORMANCE') {
+                  setQuestionType('LAP_PERFORMANCE')
+                }
+              }}
+            >
+              <option value="RACE">Race</option>
+              <option value="QUALIFYING">Qualifying (2018+)</option>
+            </select>
           </label>
           <label>
             driver A:{' '}

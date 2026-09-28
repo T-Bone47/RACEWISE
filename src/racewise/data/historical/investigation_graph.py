@@ -288,13 +288,15 @@ def _add_scope_nodes(g: _Graph, queries: CanonicalQueries, scope: dict[str, Any]
         # no canonical race row: the race node cannot exist
         pass
 
-    session = queries.resolve_session(season, round_num, "RACE")
+    session_type = str(scope.get("session_type") or "RACE")
+    session = queries.resolve_session(season, round_num, session_type)
     if session is not None and "race" in ids:
-        sess_id = _session_id(season, round_num, "RACE")
-        g.node(sess_id, "SESSION", f"{season} R{round_num} RACE session",
+        sess_id = _session_id(season, round_num, session_type)
+        g.node(sess_id, "SESSION",
+               f"{season} R{round_num} {session_type} session",
                canonical_reference={
                    "season": season, "round": round_num,
-                   "session_type": "RACE",
+                   "session_type": session_type,
                    "date_start": session["date_start"],
                    "laps_total": session["laps_total"]},
                provenance={"source_table": "canonical_sessions",
@@ -302,7 +304,7 @@ def _add_scope_nodes(g: _Graph, queries: CanonicalQueries, scope: dict[str, Any]
         ids["session"] = sess_id
         g.edge(ids["race"], sess_id, "CONTAINS",
                provenance={"source_table": "canonical_sessions"},
-               source_reference={"session_type": "RACE"})
+               source_reference={"session_type": session_type})
 
     for role, key in (("a", driver_a), ("b", driver_b)):
         d = queries.get_driver(key)
@@ -328,7 +330,7 @@ def _add_scope_nodes(g: _Graph, queries: CanonicalQueries, scope: dict[str, Any]
                 g.node(l_id, "LAP", f"{key} lap {lap}",
                        canonical_reference={
                            "season": season, "round": round_num,
-                           "session_type": "RACE", "driver_key": key,
+                           "session_type": session_type, "driver_key": key,
                            "lap_number": int(lap)},
                        provenance={"source_table": "canonical_lap_times"})
                 ids[f"lap_{role}"] = l_id
@@ -341,7 +343,8 @@ def _add_scope_nodes(g: _Graph, queries: CanonicalQueries, scope: dict[str, Any]
                        source_reference={"lap_number": int(lap)})
             stint = scope.get("stint_number")
             if stint is not None:
-                st_rows = queries.get_stints(season, round_num, "RACE", key)
+                st_rows = queries.get_stints(season, round_num,
+                                             session_type, key)
                 row = next((s for s in st_rows
                             if s["stint_number"] == int(stint)), None)
                 if row is not None:

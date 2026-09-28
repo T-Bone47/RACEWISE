@@ -675,3 +675,282 @@ def fuse_lap_evidence(
             "provider": "fastf1",
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# qualifying-session fusion (Phase 6S GAP 2)
+# ---------------------------------------------------------------------------
+
+QUALIFYING_FUSION_VERSION = "1.0"
+
+
+def fuse_qualifying_lap_evidence(
+    queries: CanonicalQueries,
+    season: int,
+    round_num: int,
+    driver_a: str,
+    driver_b: str,
+    lap_number: int,
+    session_type: str = "QUALIFYING",
+) -> dict[str, Any]:
+    """Fuse measured lap evidence for one qualifying lap comparison.
+
+    Phase 6S GAP 2: extends the 6F chain to qualifying sessions under
+    explicit single-lap comparability semantics. The fusion reuses the 6E
+    context classification and the documented hypothesis rules; no telemetry
+    exists for canonical qualifying sessions, so telemetry-dependent
+    hypotheses are NOT_TESTABLE by the same formal rules that keep RACE
+    laps honest outside probe coverage.
+
+    Evidence per lap (measured, canonical):
+    - the lap-time delta itself (FACT);
+    - the authoritative sector decomposition (FACT; sector splits are
+      complete for canonical qualifying lap times 2018+ and sum exactly to
+      the lap delta);
+    - compound/age confound check (FACT) and weather-window check (FACT);
+    - the absence of a pit-stop phase is a scope fact, not a silent drop.
+
+    Deterministic; INSUFFICIENT/UNAVAILABLE propagate honestly.
+    """
+    if session_type != "QUALIFYING":
+        return {
+            "analysis": "fuse_qualifying_lap_evidence",
+            "version": QUALIFYING_FUSION_VERSION,
+            "season": season, "round": round_num,
+            "session_type": session_type, "lap_number": lap_number,
+            "driver_a": driver_a, "driver_b": driver_b,
+            "status": "INVALID",
+            "reason": "fuse_qualifying_lap_evidence applies to QUALIFYING only",
+        }
+
+    base: dict[str, Any] = {
+        "analysis": "fuse_qualifying_lap_evidence",
+        "version": QUALIFYING_FUSION_VERSION,
+        "season": season, "round": round_num,
+        "session_type": session_type, "lap_number": lap_number,
+        "driver_a": driver_a, "driver_b": driver_b,
+        "quality_dimensions": list(QUALITY_DIMENSIONS),
+        "comparability": {
+            "model": "single-lap comparison (qualifying semantics)",
+            "no_stint_context": True,
+            "no_pit_phase": True,
+            "session_relative_timing": "not published for canonical "
+                                       "qualifying sessions",
+        },
+    }
+
+    laps_a = {r["lap_number"]: r for r in queries.get_lap_times(
+        season, round_num, "QUALIFYING", driver_a)}
+    laps_b = {r["lap_number"]: r for r in queries.get_lap_times(
+        season, round_num, "QUALIFYING", driver_b)}
+    lap_a, lap_b = laps_a.get(lap_number), laps_b.get(lap_number)
+    if lap_a is None or lap_b is None:
+        return {
+            **base,
+            "status": "UNAVAILABLE",
+            "reason": ("lap missing from canonical qualifying lap facts for "
+                       f"{driver_a if lap_a is None else driver_b}"),
+        }
+    t_a, t_b = lap_a.get("time_s"), lap_b.get("time_s")
+    if t_a is None or t_b is None:
+        return {**base, "status": "INSUFFICIENT_EVIDENCE",
+                "reason": "one or both laps lack a measured lap time"}
+
+    observed = round(t_b - t_a, 4)
+
+    # context classification reuses the exact 6E rules (pit laps, flags,
+    # deleted, inaccurate laps are excluded from a clean comparison)
+    from racewise.data.historical.loss_attribution import _classify_lap
+    ctx_a = _classify_lap(lap_a, False)
+    ctx_b = _classify_lap(lap_b, False)
+    caveats: list[str] = []
+    caveats.extend(f"driver_a:{r}" for r in ctx_a["reasons"])
+    caveats.extend(f"driver_b:{r}" for r in ctx_b["reasons"])
+    if not ctx_a["comparable"] or not ctx_b["comparable"]:
+        return {
+            **base,
+            "status": "INSUFFICIENT_EVIDENCE",
+            "reason": ("lap context prevents a clean comparison (pit laps, "
+                       "flags, deleted, inaccurate)"),
+            "observed_delta_s": observed,
+            "context": {"driver_a": ctx_a, "driver_b": ctx_b,
+                        "caveats": caveats},
+        }
+
+    # ---- evidence collection --------------------------------------------
+    evidence: list[dict[str, Any]] = []
+
+    # (1) measured lap delta (FACT)
+    lap_time_s = {"driver_a": t_a, "driver_b": t_b}
+    evidence.append(_evidence(
+        source_id=f"qualifying_delta:{season}:{round_num}:{lap_number}",
+        source_type="canonical_qualifying_lap_delta",
+        statement=(f"Qualifying lap {lap_number} delta (B \u2212 A): "
+                   f"{observed}s (measured lap times)"),
+        values={"delta_s": observed, "lap_time_s": lap_time_s},
+        evidence_type="FACT",
+        relationship=DOES_NOT_TEST,
+        hypotheses=list(HYPOTHESES.keys()),
+        tables=["canonical_lap_times"],
+    ))
+
+    # (2) authoritative sector decomposition (FACT; sums to the lap delta)
+    s1, s2, s3 = (lap_a.get(f"sector{i}_s") for i in (1, 2, 3))
+    r1, r2, r3 = (lap_b.get(f"sector{i}_s") for i in (1, 2, 3))
+    have_sectors = None not in (s1, s2, s3, r1, r2, r3)
+    sector_rows: list[dict[str, Any]] = []
+    sector_sum = 0.0
+    if have_sectors:
+        for idx, (sa, sb) in enumerate(((s1, r1), (s2, r2), (s3, r3)),
+                                       start=1):
+            d = round(sb - sa, 4)
+            sector_sum = round(sector_sum + d, 4)
+            sector_rows.append({"sector": idx, "delta_s": d,
+                                "driver_a_s": sa, "driver_b_s": sb})
+            evidence.append(_evidence(
+                source_id=(f"qualifying_sector:{season}:{round_num}:"
+                           f"{lap_number}:{idx}"),
+                source_type="canonical_sector_split",
+                statement=(f"Sector {idx} delta (B \u2212 A): {d}s "
+                           "(measured)"),
+                values={"sector": idx, "delta_s": d,
+                        "driver_a_s": sa, "driver_b_s": sb},
+                evidence_type="FACT",
+                # sector splits LOCATE the measured delta; they are not
+                # mechanism evidence and never support a hypothesis by
+                # themselves (no telemetry exists in this scope)
+                relationship=DOES_NOT_TEST,
+                hypotheses=[],
+                tables=["canonical_lap_times"],
+            ))
+
+    # (3) tyre-state confound check (FACT, from canonical stints)
+    evidence += _tyre_evidence(
+        queries, {"season": season, "round": round_num,
+                  "lap_number": lap_number, "driver_a": driver_a,
+                  "driver_b": driver_b,
+                  "context": {"driver_a": {"compound": ctx_a.get("compound"),
+                                           "tyre_life": ctx_a.get("tyre_life")},
+                              "driver_b": {"compound": ctx_b.get("compound"),
+                                           "tyre_life": ctx_b.get("tyre_life")}}})
+
+    # (4) weather-window confound check (FACT)
+    evidence += _weather_evidence(queries, {"season": season,
+                                            "round": round_num,
+                                            "lap_number": lap_number,
+                                            "driver_a": driver_a,
+                                            "driver_b": driver_b},
+                                  laps_a, laps_b)
+
+    # (5) pit-phase scope fact (no canonical pit rows for qualifying)
+    evidence.append(_evidence(
+        source_id=f"pit_phase:{season}:{round_num}:{lap_number}",
+        source_type="canonical_pit_stop_scope",
+        statement=("no pit-stop phase exists in a qualifying session; pit "
+                   "interference is structurally excluded from this scope"),
+        values={"pit_stops_in_session": 0},
+        evidence_type="FACT",
+        relationship=CONTRADICTS,
+        hypotheses=["H5_race_control"],
+        tables=["canonical_pit_stops"],
+    ))
+
+    ids = [e["source_id"] for e in evidence]
+    assert len(ids) == len(set(ids)), \
+        "duplicate evidence source_id (double-counting)"
+
+    premise = "deficit" if observed > 0 else (
+        "parity" if observed == 0 else "favourable")
+    if premise == "deficit":
+        hypotheses_out = [evaluate_hypothesis(h, evidence)
+                          for h in HYPOTHESES]
+    else:
+        hypotheses_out = [
+            {
+                "hypothesis_id": h,
+                "statement": HYPOTHESES[h]["statement"],
+                "status": NOT_TESTABLE,
+                "reason": (
+                    f"observed delta is {observed}s (B not slower); "
+                    "deficit-explanation premise is vacuous for this lap"),
+                "supporting": [], "contradicting": [],
+                "untestable": [e["source_id"] for e in evidence],
+            }
+            for h in HYPOTHESES
+        ]
+
+    supported = [h for h in hypotheses_out
+                 if h["status"] in (SUPPORTED, PARTIALLY_SUPPORTED)]
+    contradicted = [h for h in hypotheses_out
+                    if h["status"] in (CONTRADICTED, NOT_SUPPORTED)]
+    untestable = [h for h in hypotheses_out if h["status"] == NOT_TESTABLE]
+
+    residual = round(observed - sector_sum, 4) if have_sectors else observed
+    residual_class = ("EXPLAINED_BY_SECTOR_SPLITS"
+                      if have_sectors else "UNRESOLVED")
+    conclusion = (
+        "Qualifying single-lap comparison measured on canonical lap times "
+        "and sector splits. ")
+    if supported:
+        conclusion += ("Evidence is consistent with: "
+                       + "; ".join(h["hypothesis_id"] for h in supported)
+                       + ". ")
+    else:
+        conclusion += ("No candidate hypothesis meets the support rules for "
+                       "this lap. ")
+    if contradicted:
+        conclusion += ("Contradicted/not supported: "
+                       + ", ".join(h["hypothesis_id"] for h in contradicted)
+                       + ". ")
+    if untestable:
+        conclusion += ("Not testable without session telemetry: "
+                       + ", ".join(h["hypothesis_id"] for h in untestable)
+                       + ". ")
+    conclusion += (
+        f"Unexplained component {residual}s ({residual_class}); the residual "
+        "is reported, never assigned.")
+
+    return {
+        **base,
+        "status": "VALID",
+        "observed_delta_s": observed,
+        "lap_times": lap_time_s,
+        "authoritative_sector_decomposition": sector_rows,
+        "estimated_pace_component_s": None,
+        "residual_s": residual,
+        "residual_class": residual_class,
+        "evidence_items": evidence,
+        "evidence_chain": {
+            "sources_used": sorted({e["source_type"] for e in evidence}),
+            "providers": sorted({e["provider"] for e in evidence}),
+            "tables": sorted({t for e in evidence for t in e["tables"]}),
+        },
+        "hypotheses": hypotheses_out,
+        "supported": [h["hypothesis_id"] for h in supported],
+        "contradicted_or_not_supported":
+            [h["hypothesis_id"] for h in contradicted],
+        "untestable": [h["hypothesis_id"] for h in untestable],
+        "conclusion": conclusion,
+        "assumptions": [
+            "hypothesis statuses follow the documented formal rules "
+            "(no weighted scores)",
+            "sector deltas are measured facts and sum to the lap delta",
+            "evidence items sharing a source_id would be double-counting; "
+            "dedup enforced",
+        ],
+        "limitations": [
+            "no session telemetry exists for canonical qualifying sessions; "
+            "telemetry-dependent hypotheses are NOT_TESTABLE here",
+            "session-relative timing is not published for qualifying, so "
+            "weather windows use the documented lap-index approximation",
+            "traffic/dirty-air evidence not measurable with current signals",
+            "consistency of evidence with a hypothesis is not causation",
+        ],
+        "methodology_version": QUALIFYING_FUSION_VERSION,
+        "provenance": {
+            "fusion_version": QUALIFYING_FUSION_VERSION,
+            "attribution_version": None,
+            "tables": sorted({t for e in evidence for t in e["tables"]}),
+            "provider": "fastf1",
+        },
+    }

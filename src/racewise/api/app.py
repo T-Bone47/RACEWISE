@@ -914,9 +914,18 @@ def catalog_engineering_investigation(
         raise HTTPException(status_code=422,
                             detail=(f"max_counterfactuals out of bounds "
                                     f"[0, {MAX_COUNTERFACTUALS}]"))
-    if session_type != "RACE":
-        raise HTTPException(status_code=422,
-                            detail="session_type must be 'RACE'")
+    if session_type not in ("RACE", "QUALIFYING"):
+        # Phase 6S GAP 2: qualifying is investigable (single-lap
+        # comparability semantics); anything else stays closed-vocabulary
+        raise HTTPException(
+            status_code=422,
+            detail="session_type must be one of ['RACE', 'QUALIFYING']")
+    if session_type == "QUALIFYING" and stint_number:
+        raise HTTPException(
+            status_code=422,
+            detail=("STINT numbers have no qualifying comparability "
+                    "semantics: a qualifying session is a sequence of "
+                    "independent single-lap comparisons, not race stints"))
     hyp_list: Optional[list[str]] = None
     if hypotheses.strip():
         hyp_list = [h.strip() for h in hypotheses.split(",") if h.strip()]
@@ -928,6 +937,14 @@ def catalog_engineering_investigation(
             hyp_list = None
     queries = get_canonical_queries()
     if not driver_a or not driver_b:
+        if session_type != "RACE":
+            # default-pair policy derives from canonical telemetry coverage,
+            # which exists for race sessions only; do not silently reuse a
+            # race pair for a different session type
+            raise HTTPException(
+                status_code=422,
+                detail=("driver_a and driver_b are required for "
+                        f"session_type={session_type}"))
         # default pair: canonical telemetry pair of the requested season's
         # first telemetry-capable round (same Phase 6D-derived policy as the
         # other /catalog endpoints)
@@ -974,9 +991,12 @@ def _investigation_input_from_params(
     stint_number: int,
     pattern_id: str,
     hypotheses: str,
+    session_type: str = "RACE",
 ) -> dict[str, Any]:
-    """Shared query-param parsing + validation for 6O endpoints that take
-    a structured 6N investigation input (``prefix`` is 'a' or 'b')."""
+    """Shared query-param parsing + validation for 6O/6P/6S endpoints that
+    take a structured 6N investigation input (``prefix`` is 'a', 'b' or
+    ''). ``session_type`` must already be closed-vocabulary-validated by the
+    caller; RACE remains the default for every existing route."""
     from racewise.data.historical.investigation_synthesis import (
         HYPOTHESIS_IDS, QUESTION_TYPES,
     )
@@ -1009,7 +1029,7 @@ def _investigation_input_from_params(
         "round_num": int(round_num),
         "lap_number": int(lap_number) if lap_number else None,
         "stint_number": int(stint_number) if stint_number else None,
-        "session_type": "RACE",
+        "session_type": session_type,
         "pattern_id": pattern_id if pattern_id.strip() else None,
         "hypotheses": hyp_list,
     }
@@ -1026,6 +1046,7 @@ def catalog_engineering_investigation_replay(
     stint_number: int = 0,
     pattern_id: str = "",
     hypotheses: str = "",
+    session_type: str = "RACE",
 ) -> dict[str, Any]:
     """Phase 6O: deterministic replay of an engineering investigation.
 
@@ -1044,7 +1065,7 @@ def catalog_engineering_investigation_replay(
 
     spec = _investigation_input_from_params(
         "", question_type, driver_a, driver_b, season, round, lap_number,
-        stint_number, pattern_id, hypotheses)
+        stint_number, pattern_id, hypotheses, session_type)
     queries = get_canonical_queries()
     inv = run_engineering_investigation(queries, **spec)
     if inv.get("status") == "INVALID":
@@ -1073,6 +1094,7 @@ def catalog_engineering_investigation_compare(
     a_stint_number: int = 0,
     a_pattern_id: str = "",
     a_hypotheses: str = "",
+    a_session_type: str = "RACE",
     b_question_type: str = "",
     b_driver_a: str = "",
     b_driver_b: str = "",
@@ -1082,6 +1104,7 @@ def catalog_engineering_investigation_compare(
     b_stint_number: int = 0,
     b_pattern_id: str = "",
     b_hypotheses: str = "",
+    b_session_type: str = "RACE",
 ) -> dict[str, Any]:
     """Phase 6O: dimension-wise comparison of two 6N investigations.
 
@@ -1102,11 +1125,12 @@ def catalog_engineering_investigation_compare(
     sides: list[dict[str, Any]] = []
     for prefix, args in (("a", (a_question_type, a_driver_a, a_driver_b,
                                a_season, a_round, a_lap_number,
-                               a_stint_number, a_pattern_id, a_hypotheses)),
+                               a_stint_number, a_pattern_id, a_hypotheses,
+                               a_session_type)),
                          ("b", (b_question_type, b_driver_a, b_driver_b,
                                 b_season, b_round, b_lap_number,
                                 b_stint_number, b_pattern_id,
-                                b_hypotheses))):
+                                b_hypotheses, b_session_type))):
         spec = _investigation_input_from_params(prefix, *args)
         inv = run_engineering_investigation(queries, **spec)
         if inv.get("status") == "INVALID":
@@ -1128,9 +1152,11 @@ def catalog_engineering_memory(
     stint_number: int = 0,
     pattern_id: str = "",
     hypotheses: str = "",
+    session_type: str = "RACE",
     driver: str = "",
     hypothesis: str = "",
     include_invalidated: bool = False,
+    include_related: bool = False,
 ) -> dict[str, Any]:
     """Phase 6O: evidence-bound engineering memory by exact scope.
 
@@ -1150,7 +1176,7 @@ def catalog_engineering_memory(
 
     spec = _investigation_input_from_params(
         "", question_type, driver_a, driver_b, season, round, lap_number,
-        stint_number, pattern_id, hypotheses)
+        stint_number, pattern_id, hypotheses, session_type)
     if hypothesis and hypothesis not in HYPOTHESIS_IDS:
         raise HTTPException(status_code=422,
                             detail=f"hypothesis must be one of {list(HYPOTHESIS_IDS)}")
@@ -1163,7 +1189,7 @@ def catalog_engineering_memory(
         return {"status": inv.get("status"), "reason": inv.get("reason"),
                 "matching_memory_items": [], "match_count": 0}
     items = derive_memory_items(inv)
-    return retrieve_engineering_memory(
+    exact = retrieve_engineering_memory(
         items,
         season=int(season) if season else None,
         round_num=int(round) if round else None,
@@ -1173,6 +1199,54 @@ def catalog_engineering_memory(
         scope_type=None,
         include_invalidated=bool(include_invalidated),
     )
+    if not include_related:
+        return exact
+
+    # Phase 6S GAP 4: structural related-memory retrieval. The pool is
+    # expanded deterministically and boundedly: the same investigation
+    # spec in the adjacent seasons (±1), each contributing at most
+    # MAX_MEMORY_ITEMS_PER_INVESTIGATION items. Neighbors that are not
+    # VALID contribute zero items (no fabrication from absence).
+    from racewise.data.historical.investigation_memory import (
+        retrieve_related_engineering_memory,
+    )
+
+    pool = list(items)
+    neighbor_runs: list[dict[str, Any]] = []
+    base_season = int(season)
+    for nb_season in (base_season - 1, base_season + 1):
+        if not 1950 <= nb_season <= 2100:
+            continue
+        nb_spec = dict(spec)
+        nb_spec["season"] = nb_season
+        nb_inv = run_engineering_investigation(queries, **nb_spec)
+        neighbor_runs.append({
+            "season": nb_season,
+            "status": nb_inv.get("status"),
+            "investigation_id": nb_inv.get("investigation_id"),
+            "items_derived": (len(derive_memory_items(nb_inv))
+                              if nb_inv.get("status") == "VALID" else 0),
+        })
+        if nb_inv.get("status") == "VALID":
+            pool.extend(derive_memory_items(nb_inv))
+    related = retrieve_related_engineering_memory(
+        pool,
+        season=base_season if season else None,
+        round_num=int(round) if round else None,
+        driver=driver if driver.strip() else None,
+        driver_pair=([spec["driver_a"], spec["driver_b"]]
+                     if include_related else None),
+        hypothesis=hypothesis if hypothesis.strip() else None,
+        scope_type=None,
+        include_invalidated=bool(include_invalidated),
+    )
+    exact["related_memory_items"] = related["related_memory_items"]
+    exact["related_match_count"] = related["related_match_count"]
+    exact["related_match_reason_vocabulary"] = \
+        related["match_reason_vocabulary"]
+    exact["related_policy"] = related["policy"]
+    exact["related_neighbor_runs"] = neighbor_runs
+    return exact
 
 
 @app.get("/api/catalog/investigation-graph")
@@ -1186,6 +1260,8 @@ def catalog_investigation_graph(
     stint_number: int = 0,
     pattern_id: str = "",
     hypotheses: str = "",
+    session_type: str = "RACE",
+    investigation_id: str = "",
     max_depth: int = 4,
     max_nodes: int = 200,
     max_edges: int = 800,
@@ -1199,6 +1275,19 @@ def catalog_investigation_graph(
     zero storage growth. Traversal inputs are bounded and rejected (never
     clamped) beyond the safe caps: max_depth <= 8, max_nodes <= 500,
     max_edges <= 1500.
+
+    Addressing: by scope (default) or by investigation id. The 6N
+    investigation id is a content hash of the canonical input and no stored
+    investigation registry exists, so ``investigation_id`` must be supplied
+    together with the full scope: the endpoint deterministically re-runs the
+    investigation for that scope, recomputes the id, and verifies the
+    binding. On match the graph is built by the unchanged builder — it is
+    byte-identical to the scope-addressed graph of the same investigation.
+    On mismatch (or a non-VALID investigation for the scope) the response is
+    404: no investigation exists with that id for the requested scope. An id
+    without a resolvable scope is rejected with 422 before any scope is
+    parsed; no registry is invented and no silent fallback to a different
+    investigation ever occurs.
     """
     from racewise.data.historical.canonical_queries import get_canonical_queries
     from racewise.data.historical.investigation_graph import (
@@ -1208,9 +1297,26 @@ def catalog_investigation_graph(
         run_engineering_investigation,
     )
 
+    req_id = investigation_id.strip()
+    has_scope = bool(
+        question_type.strip() and driver_a.strip() and driver_b.strip()
+        and int(season) > 0 and int(round) > 0)
+    if session_type not in ("RACE", "QUALIFYING"):
+        raise HTTPException(
+            status_code=422,
+            detail="session_type must be one of ['RACE', 'QUALIFYING']")
+    if req_id and not has_scope:
+        # id without a resolvable scope cannot be deterministically
+        # reconstructed (no stored investigation registry exists)
+        raise HTTPException(
+            status_code=422,
+            detail=("investigation_id requires the full scope (question_type, "
+                    "drivers, season, round [, lap/stint/pattern]): the id is "
+                    "a content hash of the canonical input and is "
+                    "deterministically reconstructed, never looked up"))
     spec = _investigation_input_from_params(
         "", question_type, driver_a, driver_b, season, round, lap_number,
-        stint_number, pattern_id, hypotheses)
+        stint_number, pattern_id, hypotheses, session_type)
     if not 1 <= int(max_depth) <= 8:
         raise HTTPException(status_code=422,
                             detail="max_depth out of bounds [1, 8]")
@@ -1225,11 +1331,21 @@ def catalog_investigation_graph(
     if inv.get("status") == "INVALID":
         raise HTTPException(status_code=422,
                             detail=f"invalid investigation input: {inv.get('reason')}")
+    if investigation_id.strip():
+        # id-addressed retrieval: verify the scope→id binding, never fall
+        # back silently to a different investigation
+        inv_id = str(inv.get("investigation_id") or "")
+        if inv.get("status") != "VALID" or inv_id != req_id:
+            raise HTTPException(
+                status_code=404,
+                detail=(f"no investigation exists with id {req_id!r} for the "
+                        "requested scope"))
     graph = build_investigation_graph(queries, inv)
     if graph.get("status") == "INVALID":
         raise HTTPException(status_code=422,
                             detail=("graph build rejected the investigation: "
                                     f"{graph.get('reason')}"))
+    graph["addressing"] = "INVESTIGATION_ID" if req_id else "SCOPE"
     graph["requested_bounds"] = {"max_depth": int(max_depth),
                                  "max_nodes": int(max_nodes),
                                  "max_edges": int(max_edges)}
@@ -1247,6 +1363,7 @@ def catalog_investigation_graph_path(
     stint_number: int = 0,
     pattern_id: str = "",
     hypotheses: str = "",
+    session_type: str = "RACE",
     target_node_type: str = "",
     target_key: str = "",
     max_depth: int = 8,
@@ -1267,7 +1384,7 @@ def catalog_investigation_graph_path(
 
     spec = _investigation_input_from_params(
         "", question_type, driver_a, driver_b, season, round, lap_number,
-        stint_number, pattern_id, hypotheses)
+        stint_number, pattern_id, hypotheses, session_type)
     if not 1 <= int(max_depth) <= 8:
         raise HTTPException(status_code=422,
                             detail="max_depth out of bounds [1, 8]")
@@ -1344,6 +1461,7 @@ def catalog_investigation_graph_evidence(
     stint_number: int = 0,
     pattern_id: str = "",
     hypotheses: str = "",
+    session_type: str = "RACE",
     evidence_id: str = "",
 ) -> dict[str, Any]:
     """Phase 6P: evidence -> analytical source provenance trace.
@@ -1362,7 +1480,7 @@ def catalog_investigation_graph_evidence(
 
     spec = _investigation_input_from_params(
         "", question_type, driver_a, driver_b, season, round, lap_number,
-        stint_number, pattern_id, hypotheses)
+        stint_number, pattern_id, hypotheses, session_type)
     if not evidence_id.strip():
         raise HTTPException(status_code=422, detail="evidence_id is required")
     queries = get_canonical_queries()
@@ -1392,6 +1510,7 @@ def catalog_investigation_graph_hypothesis(
     stint_number: int = 0,
     pattern_id: str = "",
     hypotheses: str = "",
+    session_type: str = "RACE",
     hypothesis: str = "",
 ) -> dict[str, Any]:
     """Phase 6P: supporting / contradicting / non-decisive evidence for one
@@ -1410,7 +1529,7 @@ def catalog_investigation_graph_hypothesis(
 
     spec = _investigation_input_from_params(
         "", question_type, driver_a, driver_b, season, round, lap_number,
-        stint_number, pattern_id, hypotheses)
+        stint_number, pattern_id, hypotheses, session_type)
     if hypothesis not in HYPOTHESIS_IDS:
         raise HTTPException(status_code=422,
                             detail=f"hypothesis must be one of {list(HYPOTHESIS_IDS)}")

@@ -87,3 +87,31 @@ def test_runner_importable_and_self_consistent() -> None:
     # structural vocabularies used by the runner must stay non-empty
     assert mod.ENGINE_STATUS_SET
     assert mod.TRACE_TYPES
+
+
+def test_corpus_phase_6s_extension_is_wellformed() -> None:
+    """Phase 6S gap-closure families: 18 new cases with per-gap minimums."""
+    data = _load(CORPUS)
+    cases = data["cases"]
+    # L/M/N/O families exist with >=4 cases each (master prompt minimum)
+    for fam, minimum in (("EQ-L", 4), ("EQ-M", 4), ("EQ-N", 4),
+                         ("EQ-O", 4)):
+        members = [c for c in cases
+                   if c["benchmark_id"].startswith(fam)
+                   and c["benchmark_id"][4].isdigit()]
+        assert len(members) >= minimum, f"{fam}* has {len(members)} < {minimum}"
+    # every 6S family exercises the gap's session/probe semantics
+    kinds = {c.get("memory_probe", {}).get("kind")
+             for c in cases if c.get("memory_probe")}
+    assert {"graph_by_id", "qualifying_honesty",
+            "related_memory_probes", "related_memory_api"} <= kinds
+    qualifying = [c for c in cases
+                  if c.get("session_type") == "QUALIFYING"]
+    assert len(qualifying) >= 5
+    assert any(c.get("limitation_case") for c in qualifying)
+    # new probes reference implemented runner kinds (import check)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("phase6r_runner", RUNNER)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert hasattr(mod, "retrieve_related_engineering_memory")

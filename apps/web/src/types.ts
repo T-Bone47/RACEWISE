@@ -179,6 +179,12 @@ export interface ReplayResult {
   snapshot?: { snapshot_hash: string; investigation_id: string; output_hash: string }
 }
 
+export interface RelatedMemoryItem extends MemoryItem {
+  match_class: 'STRUCTURAL'
+  match_reasons: string[]
+  transfer_policy: string
+}
+
 export interface MemoryItem {
   memory_id: string
   statement: string
@@ -196,6 +202,10 @@ export interface MemoryResult {
   match_count: number
   matching_memory_items: MemoryItem[]
   policy: string
+  related_memory_items?: RelatedMemoryItem[]
+  related_match_count?: number
+  related_policy?: string
+  related_neighbor_runs?: Array<{ season: number; status: string; items_derived: number }>
 }
 
 export interface EvidenceDelta {
