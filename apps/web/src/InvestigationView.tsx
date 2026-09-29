@@ -10,10 +10,113 @@ import { GraphPanel, ReplayPanel, ComparePanel, MemoryPanel } from './panels'
 import { saveRecent } from './CommandCenterView'
 import type { RecentInvestigation } from './CommandCenterView'
 
-/* ============ 6Q — Investigation Workspace (upgraded InvestigationView) ============
-   One screen: header → hypothesis matrix → evidence ledger + decision trace →
-   graph → counterfactuals → provenance. Cross-navigation between all blocks.
-   ================================================================================= */
+/* ============ 6Q — Investigation Workspace (Stitch flagship) ============
+   Hero question → metric strip → phase timeline → hypothesis matrix →
+   telemetry deltas → evidence ledger + decision trace → graph →
+   counterfactuals → synthesis → replay/compare/memory. All values from
+   the deterministic backend; the UI never computes conclusions.
+   ========================================================================= */
+
+/* telemetry window mirror of /api/catalog/telemetry-comparison */
+interface TelemetryWindow {
+  t_start_s: number
+  speed_delta_kmh: number
+  throttle_delta_pct: number
+  brake_delta_frac: number
+  est_time_loss_s: number
+}
+
+/* §10 signature interaction: contextual telemetry deltas for the same
+   canonical scope, from the real comparison endpoint. Hovering a window
+   highlights telemetry-sourced evidence rows (a REAL relationship: same
+   source class, same scope) — no invented per-window evidence mapping. */
+function TelemetryDeltaPanel({
+  season, round, driverA, driverB, lapNumber,
+  active, onHover,
+}: {
+  season: number
+  round: number
+  driverA: string
+  driverB: string
+  lapNumber: number
+  active: boolean
+  onHover: (hovering: boolean) => void
+}) {
+  const [windows, setWindows] = useState<TelemetryWindow[] | null>(null)
+  const [verdict, setVerdict] = useState<string | null>(null)
+  const [reason, setReason] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!active) return
+    let cancelled = false
+    setWindows(null)
+    setVerdict(null)
+    setReason(null)
+    const params = new URLSearchParams({ driver_a: driverA, driver_b: driverB })
+    if (lapNumber >= 1) params.set('lap', String(lapNumber))
+    fetch(`/api/catalog/telemetry-comparison/${season}/${round}?${params}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j: { verdict?: string; reason?: string; top_windows?: TelemetryWindow[] }) => {
+        if (cancelled) return
+        setVerdict(j.verdict || null)
+        setReason(j.reason || null)
+        setWindows(j.top_windows || [])
+      })
+      .catch(() => { if (!cancelled) setVerdict('UNAVAILABLE') })
+    return () => { cancelled = true }
+  }, [active, season, round, driverA, driverB])
+
+  if (!active) return null
+  const maxLoss = windows?.length ? Math.max(...windows.map((w) => Math.abs(w.est_time_loss_s))) : 0
+
+  return (
+    <section
+      className="panel"
+      aria-label="Telemetry deltas"
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+    >
+      <h2>Telemetry deltas — same scope (hover to highlight telemetry-sourced evidence)</h2>
+      {verdict === 'PASS' && windows && windows.length > 0 && (
+        <table className="catalog-table">
+          <thead>
+            <tr>
+              <th scope="col">Window [s]</th>
+              <th scope="col">Speed Δ [km/h]</th>
+              <th scope="col">Throttle Δ [%]</th>
+              <th scope="col">Brake Δ</th>
+              <th scope="col">Est. loss [s]</th>
+            </tr>
+          </thead>
+          <tbody>
+            {windows.map((w) => (
+              <tr key={w.t_start_s}>
+                <td className="mono small">{w.t_start_s}</td>
+                <td className="mono small">{w.speed_delta_kmh}</td>
+                <td className="mono small">{w.throttle_delta_pct}</td>
+                <td className="mono small">{w.brake_delta_frac}</td>
+                <td>
+                  <span className="mono small">{w.est_time_loss_s}</span>
+                  {maxLoss > 0 && (
+                    <div className="tv-bar" style={{ width: `${(Math.abs(w.est_time_loss_s) / maxLoss) * 100}%` }} />
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {verdict && verdict !== 'PASS' && (
+        <div className="empty-state">{verdict}{reason ? ` — ${reason}` : ''}</div>
+      )}
+      <p className="muted small">
+        Deterministic per-window comparison for this canonical scope
+        (lap {lapNumber >= 1 ? lapNumber : 'selected by the engine'}). The UI
+        renders the engine's windows — it never computes losses itself.
+      </p>
+    </section>
+  )
+}
 
 export default function InvestigationView({ presetParams }: { presetParams?: URLSearchParams }) {
   /* question state (from launcher preset when present) */
@@ -40,6 +143,9 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
      (evidence → trace-to-source → BACK returns to the evidence) */
   const [inspector, setInspector] = useState<InspectorEntry | null>(null)
   const [inspectorHistory, setInspectorHistory] = useState<InspectorEntry[]>([])
+  /* §10 telemetry ↔ evidence cross-highlight state */
+  const [telemetryHover, setTelemetryHover] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   function pushInspector(next: InspectorEntry) {
     setInspectorHistory((h) => {
@@ -172,14 +278,61 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
   return (
     <div className={inspector ? 'inv-layout with-inspector' : 'inv-layout'}>
       <div className="inv-main">
-      {/* ================= INVESTIGATION HEADER (§8) ================= */}
-      <div className="inv-header">
+      {/* ================= STITCH HERO: the question is dominant (§9) ================= */}
+      <div className="inv-hero">
         <div className="inv-title">
-          <strong>Investigation workspace</strong>
+          <span className="t-microlabel">Engineering investigation</span>
           {result && <span className="qid mono">{result.investigation_id}</span>}
           {result && <StateChip state={result.synthesis.conclusion_state} />}
           <span className="spacer" />
           {/* §35: investigation → catalog handoff preserving season/round/session */}
+          {result && (
+            <button
+              onClick={() => {
+                /* clipboard API with execCommand fallback — feedback reflects
+                   the real copy outcome, never a fake success */
+                const id = result.investigation_id
+                const done = () => {
+                  setCopied(true)
+                  window.setTimeout(() => setCopied(false), 1600)
+                }
+                const fallback = () => {
+                  try {
+                    const ta = document.createElement('textarea')
+                    ta.value = id
+                    ta.style.position = 'fixed'
+                    ta.style.opacity = '0'
+                    document.body.appendChild(ta)
+                    ta.select()
+                    if (document.execCommand('copy')) done()
+                    document.body.removeChild(ta)
+                  } catch { /* genuinely unavailable — no false feedback */ }
+                }
+                if (navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(id).then(done).catch(fallback)
+                } else fallback()
+              }}
+              title="Copy the canonical investigation id"
+            >
+              {copied ? 'Copied ✓' : 'Copy ID'}
+            </button>
+          )}
+          {result && (
+            <button
+              onClick={() => {
+                /* export the REAL engine response verbatim — no display-only data */
+                const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `racewise-investigation-${result.investigation_id}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+              }}
+            >
+              Export
+            </button>
+          )}
           {result && (
             <button
               onClick={() => {
@@ -197,72 +350,231 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
             {loading ? 'Investigating…' : result ? 'Re-run investigation' : 'Run investigation'}
           </button>
         </div>
-
-        <div className="controls" style={{ marginBottom: result ? 6 : 0 }}>
-          <label>
-            question type:{' '}
-            <select value={questionType} onChange={(e) => setQuestionType(e.target.value)}>
-              {QUESTION_TYPES.map((q) => <option key={q} value={q}>{q}</option>)}
-            </select>
-          </label>
-          <label>
-            season:{' '}
-            <input type="number" min={1950} max={2100} value={season} style={{ width: 80 }}
-                   onChange={(e) => setSeason(Number(e.target.value))} />
-          </label>
-          <label>
-            round:{' '}
-            <input type="number" min={1} max={99} value={round} style={{ width: 60 }}
-                   onChange={(e) => setRound(Number(e.target.value))} />
-          </label>
-          <label>
-            session:{' '}
-            <select
-              value={sessionType}
-              onChange={(e) => {
-                setSessionType(e.target.value)
-                /* a qualifying session has no stint semantics */
-                if (e.target.value === 'QUALIFYING' && questionType === 'STINT_PERFORMANCE') {
-                  setQuestionType('LAP_PERFORMANCE')
-                }
-              }}
+        <h2 className="inv-question" aria-label="Investigation question">
+          {questionType.replace(/_/g, ' ').toLowerCase()} —{' '}
+          <span className="q-em">{driverA.trim() || 'driver A'}</span>
+          {' '}vs{' '}
+          <span className="q-em">{driverB.trim() || 'driver B'}</span>
+          {' '}· {season} R{round}
+          {inputs.includes('lap_number') && lapNumber >= 1 ? ` · lap ${lapNumber}` : ''}
+          {inputs.includes('stint_number') && stintNumber >= 1 ? ` · stint ${stintNumber}` : ''}
+          {sessionType === 'QUALIFYING' ? ' · qualifying' : ''}
+        </h2>
+        {result && (
+          <>
+            {/* metric strip: only values that exist in the real result */}
+            <div className="metric-strip" role="list" aria-label="Investigation metrics">
+              <div role="listitem">
+                <span className="m-label">Evidence items</span>
+                <span className="m-value">{result.evidence_ledger.length}</span>
+                <span className="m-sub">{result.evidence_ledger.filter((it) => it.state != null).length} evaluated</span>
+              </div>
+              <div role="listitem">
+                <span className="m-label">Hypotheses tested</span>
+                <span className="m-value">{Object.keys(result.hypothesis_evaluations).length}</span>
+                <span className="m-sub">deterministic states</span>
+              </div>
+              <div role="listitem">
+                <span className="m-label">Preserved contradictions</span>
+                <span className="m-value">{result.evidence_conflicts.length}</span>
+                <span className="m-sub">never resolved away</span>
+              </div>
+              <div role="listitem">
+                <span className="m-label">Counterfactuals</span>
+                <span className="m-value">{result.executed_counterfactuals.length}</span>
+                <span className="m-sub">modelled, not historical</span>
+              </div>
+              <div role="listitem">
+                <span className="m-label">Unresolved</span>
+                <span className="m-value">{result.synthesis.unresolved_questions.length}</span>
+                <span className="m-sub">honest residual</span>
+              </div>
+            </div>
+            {/* deterministic chain phases — each derived from real result content */}
+            <div className="phase-timeline" aria-label="Deterministic chain phases">
+              {[
+                ['Question', true],
+                ['Context', true],
+                ['Evidence', result.evidence_ledger.length > 0],
+                ['Hypotheses', Object.keys(result.hypothesis_evaluations).length > 0],
+                ['Falsification', result.falsification_gate != null],
+                ['Counterfactual', result.counterfactual_candidates.length > 0],
+                ['Conclusion', result.synthesis != null],
+              ].map(([label, done], i) => (
+                <span key={label as string} className={`phase ${done ? 'done' : ''}`}>
+                  <span className="ph-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                  <span>{label as string}</span>
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+        {result && (
+          <div className="inv-meta">
+            <span>{result.question_type}</span>
+            <span>{result.question.scope.season} R{result.question.scope.round}</span>
+            <span>{result.question.scope.driver_a} vs {result.question.scope.driver_b}</span>
+            {result.question.scope.lap_number != null && <span>lap {result.question.scope.lap_number}</span>}
+            {result.question.scope.stint_number != null && <span>stint {result.question.scope.stint_number}</span>}
+            <span>session {result.question.scope.session_type}</span>
+            <span title={`output hash ${result.output_hash}`}>hash <code>{result.output_hash.slice(0, 10)}</code></span>
+            <button
+              className="linklike small"
+              onClick={() => openProvenance({
+                kind: 'INVESTIGATION',
+                id: result.investigation_id,
+                provenance: result.provenance as unknown as Record<string, unknown>,
+                canonicalReference: {
+                  investigation_version: result.investigation_version,
+                  output_hash: result.output_hash,
+                  snapshot_evidence_ids: result.investigation_snapshot.evidence_ids.length,
+                },
+                limitations: result.synthesis.limitations,
+              })}
             >
-              <option value="RACE">Race</option>
-              <option value="QUALIFYING">Qualifying (2018+)</option>
-            </select>
-          </label>
-          <label>
-            driver A:{' '}
-            <input type="text" value={driverA} style={{ width: 145 }}
-                   onChange={(e) => setDriverA(e.target.value)} />
-          </label>
-          <label>
-            driver B:{' '}
-            <input type="text" value={driverB} style={{ width: 145 }}
-                   onChange={(e) => setDriverB(e.target.value)} />
-          </label>
-          {inputs.includes('lap_number') && (
+              provenance drawer
+            </button>
+          </div>
+        )}
+      </div>
+
+        {result && (
+          <div className="controls" style={{ marginBottom: 6 }}>
+            <span className="t-microlabel" style={{ width: '100%' }}>Change context</span>
             <label>
-              lap:{' '}
-              <input type="number" min={1} value={lapNumber} style={{ width: 60 }}
-                     onChange={(e) => setLapNumber(Number(e.target.value))} />
+              question type:{' '}
+              <select value={questionType} onChange={(e) => setQuestionType(e.target.value)}>
+                {QUESTION_TYPES.map((q) => <option key={q} value={q}>{q}</option>)}
+              </select>
             </label>
-          )}
-          {inputs.includes('stint_number') && (
             <label>
-              stint:{' '}
-              <input type="number" min={1} value={stintNumber} style={{ width: 60 }}
-                     onChange={(e) => setStintNumber(Number(e.target.value))} />
+              season:{' '}
+              <input type="number" min={1950} max={2100} value={season} style={{ width: 80 }}
+                     onChange={(e) => setSeason(Number(e.target.value))} />
             </label>
-          )}
-          {inputs.includes('pattern_id') && (
             <label>
-              pattern id:{' '}
-              <input type="text" value={patternId} style={{ minWidth: 210 }}
-                     onChange={(e) => setPatternId(e.target.value)} />
+              round:{' '}
+              <input type="number" min={1} max={99} value={round} style={{ width: 60 }}
+                     onChange={(e) => setRound(Number(e.target.value))} />
             </label>
-          )}
-        </div>
+            <label>
+              session:{' '}
+              <select
+                value={sessionType}
+                onChange={(e) => {
+                  setSessionType(e.target.value)
+                  /* a qualifying session has no stint semantics */
+                  if (e.target.value === 'QUALIFYING' && questionType === 'STINT_PERFORMANCE') {
+                    setQuestionType('LAP_PERFORMANCE')
+                  }
+                }}
+              >
+                <option value="RACE">Race</option>
+                <option value="QUALIFYING">Qualifying (2018+)</option>
+              </select>
+            </label>
+            <label>
+              driver A:{' '}
+              <input type="text" value={driverA} style={{ width: 145 }}
+                     onChange={(e) => setDriverA(e.target.value)} />
+            </label>
+            <label>
+              driver B:{' '}
+              <input type="text" value={driverB} style={{ width: 145 }}
+                     onChange={(e) => setDriverB(e.target.value)} />
+            </label>
+            {inputs.includes('lap_number') && (
+              <label>
+                lap:{' '}
+                <input type="number" min={1} value={lapNumber} style={{ width: 60 }}
+                       onChange={(e) => setLapNumber(Number(e.target.value))} />
+              </label>
+            )}
+            {inputs.includes('stint_number') && (
+              <label>
+                stint:{' '}
+                <input type="number" min={1} value={stintNumber} style={{ width: 60 }}
+                       onChange={(e) => setStintNumber(Number(e.target.value))} />
+              </label>
+            )}
+            {inputs.includes('pattern_id') && (
+              <label>
+                pattern id:{' '}
+                <input type="text" value={patternId} style={{ minWidth: 210 }}
+                       onChange={(e) => setPatternId(e.target.value)} />
+              </label>
+            )}
+          </div>
+        )}
+
+        {!result && (
+          <div className="controls" style={{ marginBottom: 0 }}>
+            <span className="t-microlabel" style={{ width: '100%' }}>Change context</span>
+            <label>
+              question type:{' '}
+              <select value={questionType} onChange={(e) => setQuestionType(e.target.value)}>
+                {QUESTION_TYPES.map((q) => <option key={q} value={q}>{q}</option>)}
+              </select>
+            </label>
+            <label>
+              season:{' '}
+              <input type="number" min={1950} max={2100} value={season} style={{ width: 80 }}
+                     onChange={(e) => setSeason(Number(e.target.value))} />
+            </label>
+            <label>
+              round:{' '}
+              <input type="number" min={1} max={99} value={round} style={{ width: 60 }}
+                     onChange={(e) => setRound(Number(e.target.value))} />
+            </label>
+            <label>
+              session:{' '}
+              <select
+                value={sessionType}
+                onChange={(e) => {
+                  setSessionType(e.target.value)
+                  /* a qualifying session has no stint semantics */
+                  if (e.target.value === 'QUALIFYING' && questionType === 'STINT_PERFORMANCE') {
+                    setQuestionType('LAP_PERFORMANCE')
+                  }
+                }}
+              >
+                <option value="RACE">Race</option>
+                <option value="QUALIFYING">Qualifying (2018+)</option>
+              </select>
+            </label>
+            <label>
+              driver A:{' '}
+              <input type="text" value={driverA} style={{ width: 145 }}
+                     onChange={(e) => setDriverA(e.target.value)} />
+            </label>
+            <label>
+              driver B:{' '}
+              <input type="text" value={driverB} style={{ width: 145 }}
+                     onChange={(e) => setDriverB(e.target.value)} />
+            </label>
+            {inputs.includes('lap_number') && (
+              <label>
+                lap:{' '}
+                <input type="number" min={1} value={lapNumber} style={{ width: 60 }}
+                       onChange={(e) => setLapNumber(Number(e.target.value))} />
+              </label>
+            )}
+            {inputs.includes('stint_number') && (
+              <label>
+                stint:{' '}
+                <input type="number" min={1} value={stintNumber} style={{ width: 60 }}
+                       onChange={(e) => setStintNumber(Number(e.target.value))} />
+              </label>
+            )}
+            {inputs.includes('pattern_id') && (
+              <label>
+                pattern id:{' '}
+                <input type="text" value={patternId} style={{ minWidth: 210 }}
+                       onChange={(e) => setPatternId(e.target.value)} />
+              </label>
+            )}
+          </div>
+        )}
 
         {result && (
           <div className="inv-meta">
@@ -292,7 +604,6 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
             </button>
           </div>
         )}
-      </div>
 
       {error && (
         <StructuredError
@@ -386,6 +697,20 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
             </button>
           </section>
 
+          {/* ================= TELEMETRY DELTAS (§10) ================= */}
+          <TelemetryDeltaPanel
+            season={result.question.scope.season}
+            round={result.question.scope.round}
+            driverA={result.question.scope.driver_a}
+            driverB={result.question.scope.driver_b}
+            lapNumber={result.question.scope.lap_number ?? 0}
+            active={result.evidence_ledger.some((it) =>
+              it.source_tool.includes('telemetry') ||
+              it.source_phase === '6E' ||
+              it.source_phase === '6F')}
+            onHover={setTelemetryHover}
+          />
+
           {/* ================= EVIDENCE LEDGER + DECISION TRACE (§10/§12) ================= */}
           <div className="split">
             <section className="panel" aria-label="Evidence ledger">
@@ -415,7 +740,9 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                   {filteredLedger.map((it) => (
                     <tr
                       key={it.evidence_id}
-                      className={`clickable ${conflictIds.has(it.evidence_id) ? 'selected' : ''}`}
+                      className={`clickable ${conflictIds.has(it.evidence_id) ? 'selected' : ''} ${
+                        telemetryHover && (it.source_phase === '6E' || it.source_phase === '6F') ? 'linked' : ''
+                      }`}
                       onClick={() => {
                         pushInspector({ kind: 'evidence', item: it })
                         focusEvidence(it.evidence_id)

@@ -4,14 +4,14 @@ import {
   IconDatabase, IconActivity, IconChartBar, IconChartLine, IconStack2,
   IconBoxMultiple, IconChartHistogram, IconListNumbers, IconMathFunction, IconTable,
 } from '@tabler/icons-react'
-import '@fontsource-variable/geist'
-import '@fontsource-variable/geist-mono'
+import '@fontsource-variable/inter'
+import '@fontsource-variable/jetbrains-mono'
 import './App.css'
 import CommandCenterView from './CommandCenterView'
+import CommandPalette from './CommandPalette'
 import InvestigationView from './InvestigationView'
 import { GraphPanel, ReplayPanel, ComparePanel, MemoryPanel } from './panels'
 import { LoadingLine } from './workspace'
-import type { SearchResponse } from './types'
 
 const CatalogExplorer = lazy(() => import('./CatalogExplorer'))
 const TelemetryView = lazy(() => import('./TelemetryView'))
@@ -29,29 +29,32 @@ const AutonomousView = lazy(() => import('./AutonomousView'))
 /* ============ Phase 6Q — application shell ============ */
 
 type ViewId =
-  | 'command' | 'investigate' | 'graph' | 'replay' | 'compare' | 'memory'
+  | 'command' | 'autonomous' | 'investigate' | 'falsification' | 'graph' | 'replay' | 'compare' | 'memory'
   | 'catalog' | 'telemetry' | 'attribution' | 'fusion' | 'stint'
   | 'racegap' | 'counterfactual' | 'envelope' | 'regime' | 'patterns'
-  | 'patternevidence' | 'autonomous' | 'legacy'
+  | 'patternevidence' | 'legacy'
 
-/* one professional icon family (tabler, §44) — no emoji as functional UI */
+/* one professional icon family (tabler) — no emoji as functional UI.
+   Stitch navigation vocabulary: Active Investigation, Falsification
+   Matrix, Sessions & Drivers map onto real routes/views. */
 const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon: typeof IconGauge }> }> = [
   {
     group: 'Command center',
     items: [
       { id: 'command', label: 'Overview', icon: IconGauge },
-      { id: 'autonomous', label: 'Autonomous', icon: IconSearch },
-      { id: 'investigate', label: 'Investigate', icon: IconSearch },
-      { id: 'graph', label: 'Graph', icon: IconGraph },
+      { id: 'autonomous', label: 'Active Investigation', icon: IconSearch },
+      { id: 'investigate', label: 'Investigation Workspace', icon: IconSearch },
+      { id: 'falsification', label: 'Falsification Matrix', icon: IconListNumbers },
+      { id: 'graph', label: 'Investigation Graph', icon: IconGraph },
       { id: 'compare', label: 'Compare', icon: IconGitCompare },
-      { id: 'memory', label: 'Memory', icon: IconHistory },
+      { id: 'memory', label: 'Engineering Memory', icon: IconHistory },
       { id: 'replay', label: 'Replay', icon: IconReload },
     ],
   },
   {
     group: 'Data',
     items: [
-      { id: 'catalog', label: 'Catalog', icon: IconDatabase },
+      { id: 'catalog', label: 'Sessions & Drivers', icon: IconDatabase },
     ],
   },
   {
@@ -62,9 +65,9 @@ const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon
       { id: 'fusion', label: 'Evidence Fusion', icon: IconChartLine },
       { id: 'stint', label: 'Stint Analysis', icon: IconStack2 },
       { id: 'racegap', label: 'Race Gap', icon: IconArrowsExchange },
-      { id: 'counterfactual', label: 'Counterfactuals', icon: IconBoxMultiple },
+      { id: 'counterfactual', label: 'Counterfactual Lab', icon: IconBoxMultiple },
       { id: 'envelope', label: 'Performance Envelope', icon: IconChartHistogram },
-      { id: 'regime', label: 'Performance Regimes', icon: IconListNumbers },
+      { id: 'regime', label: 'Regime Timeline', icon: IconListNumbers },
       { id: 'patterns', label: 'Cross-Race Patterns', icon: IconMathFunction },
       { id: 'patternevidence', label: 'Pattern Evidence', icon: IconTable },
     ],
@@ -140,10 +143,17 @@ export default function App() {
 
   return (
     <div className="shell">
-      {/* ================= HEADER ================= */}
+      {/* ================= HEADER — Stitch topbar with context crumb ================= */}
       <header className="shell-header">
         <h1>RACE<span>WISE</span></h1>
-        <span className="shell-tagline">evidence-driven race engineering — investigations, not answers</span>
+        <span className="shell-tagline">evidence-driven race engineering</span>
+        {[...params.keys()].length > 0 && params.get('season') && (
+          <span className="shell-tagline" aria-label="current scope">
+            {params.get('season')} R{params.get('round') ?? '·'}
+            {params.get('driver_a') ? ` · ${params.get('driver_a')} vs ${params.get('driver_b') ?? '—'}` : ''}
+            {params.get('lap_number') ? ` · lap ${params.get('lap_number')}` : ''}
+          </span>
+        )}
         <span className="spacer" />
         <button
           className="search-trigger"
@@ -156,8 +166,15 @@ export default function App() {
         </button>
       </header>
 
-      {/* ================= SIDEBAR ================= */}
+      {/* ================= SIDEBAR — Stitch Navigation Deck ================= */}
       <nav className="shell-sidebar" aria-label="Workspace navigation">
+        <button
+          className="primary"
+          style={{ width: '100%', marginBottom: 10 }}
+          onClick={() => navigate('command')}
+        >
+          + New investigation
+        </button>
         {NAV.map((group) => (
           <div key={group.group}>
             <div className="nav-group-label">{group.group}</div>
@@ -184,6 +201,27 @@ export default function App() {
           <Suspense fallback={<div className="panel"><LoadingLine label="autonomous workspace" /></div>}>
             <AutonomousView />
           </Suspense>
+        )}
+
+        {view === 'falsification' && (
+          /* Stitch Falsification Matrix → the real hypothesis-evaluation
+             investigation (H1–H6 with falsification gate); a real route
+             mapping, not a mock screen */
+          <InvestigationView
+            key="falsification"
+            presetParams={
+              [...params.keys()].length > 0
+                ? params
+                : new URLSearchParams({
+                    question_type: 'HYPOTHESIS_EVALUATION',
+                    driver_a: 'max-verstappen',
+                    driver_b: 'sergio-perez',
+                    season: '2023',
+                    round: '1',
+                    lap_number: '6',
+                  })
+            }
+          />
         )}
 
         {view === 'investigate' && (
@@ -344,147 +382,3 @@ export default function App() {
   )
 }
 
-/* ---------- command palette: only real application actions ---------- */
-
-function CommandPalette({
-  onClose,
-  onNavigate,
-}: {
-  onClose: () => void
-  onNavigate: (v: string) => void
-  currentView: string
-}) {
-  const [q, setQ] = useState('')
-  const [idx, setIdx] = useState(0)
-  const [search, setSearch] = useState<SearchResponse | null>(null)
-
-  /* global search (§25): exact/structured matching via /api/catalog/search —
-     no semantic search, deterministic retrieval only */
-  useEffect(() => {
-    const term = q.trim()
-    if (term.length < 2) {
-      setSearch(null)
-      return
-    }
-    let cancelled = false
-    const t = setTimeout(async () => {
-      try {
-        const resp = await fetch(`/api/catalog/search?q=${encodeURIComponent(term)}`)
-        if (resp.ok && !cancelled) setSearch(await resp.json())
-      } catch {
-        /* search stays silent on transport errors — commands still work */
-      }
-    }, 200)
-    return () => {
-      cancelled = true
-      clearTimeout(t)
-    }
-  }, [q])
-
-  const commands = [
-    { label: 'New investigation', view: 'command' },
-    { label: 'Open investigation workspace', view: 'investigate' },
-    { label: 'Open investigation graph', view: 'graph' },
-    { label: 'Compare investigations', view: 'compare' },
-    { label: 'Open engineering memory', view: 'memory' },
-    { label: 'Replay investigation', view: 'replay' },
-    { label: 'Open data catalog', view: 'catalog' },
-    { label: 'Open lap comparison', view: 'telemetry' },
-    { label: 'Open lap attribution', view: 'attribution' },
-    { label: 'Open evidence fusion', view: 'fusion' },
-    { label: 'Open stint analysis', view: 'stint' },
-    { label: 'Open race gap decomposition', view: 'racegap' },
-    { label: 'Open counterfactual simulator', view: 'counterfactual' },
-    { label: 'Open performance envelope', view: 'envelope' },
-    { label: 'Open performance regimes', view: 'regime' },
-    { label: 'Open cross-race patterns', view: 'patterns' },
-    { label: 'Open pattern evidence', view: 'patternevidence' },
-  ]
-  const filtered = commands.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()))
-  /* keyboard selection spans commands first, then typed search results */
-  const entries = [
-    ...filtered.map((c) => ({ kind: 'COMMAND' as const, view: c.view, label: c.label, detail: '', type: 'COMMAND' })),
-    ...(search?.results || []).map((r) => ({
-      kind: 'RESULT' as const,
-      view: r.result_type === 'RACE' || r.result_type === 'DRIVER'
-        ? `investigate?season=${r.ref.season ?? 2023}&round=${r.ref.round ?? 1}&driver_a=${r.ref.driver_key ?? r.ref.hypothesis_id ?? ''}`
-        : r.result_type === 'HYPOTHESIS'
-          ? `investigate?question_type=HYPOTHESIS_EVALUATION&hypotheses=${r.ref.hypothesis_id ?? ''}&driver_a=max-verstappen&driver_b=sergio-perez&season=2023&round=1&lap_number=6`
-          : r.result_type === 'INVESTIGATION' || r.result_type === 'MEMORY'
-            ? `memory`
-            : r.result_type === 'PATTERN'
-              ? `patternevidence`
-              : `investigate`,
-      label: r.label,
-      detail: r.detail,
-      type: r.result_type,
-    })),
-  ]
-  const active = Math.min(idx, Math.max(0, entries.length - 1))
-
-  return (
-    <>
-      <input
-        autoFocus
-        value={q}
-        placeholder="Type a command…"
-        aria-label="Command search"
-        onChange={(e) => { setQ(e.target.value); setIdx(0) }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
-          if (e.key === 'ArrowDown') { e.preventDefault(); setIdx((i) => Math.min(i + 1, filtered.length - 1)) }
-          if (e.key === 'ArrowUp') { e.preventDefault(); setIdx((i) => Math.max(i - 1, 0)) }
-          if (e.key === 'Enter' && entries[active]) onNavigate(entries[active].view)
-        }}
-      />
-      <div className="palette-list">
-        {entries.length === 0 && (
-          <div className="palette-empty">No command matches “{q}”.</div>
-        )}
-        {filtered.map((c, i) => (
-          <button
-            key={`cmd-${c.view}`}
-            className={`palette-item ${i === active ? 'active' : ''}`}
-            onMouseEnter={() => setIdx(i)}
-            onClick={() => onNavigate(c.view)}
-          >
-            <span className="p-type">COMMAND</span>
-            <span>{c.label}</span>
-          </button>
-        ))}
-        {(search?.results || []).map((r, j) => {
-          const i = filtered.length + j
-          const view =
-            r.result_type === 'RACE' && typeof r.ref.season === 'number'
-              ? `investigate?season=${r.ref.season}&round=${r.ref.round ?? 1}`
-              : r.result_type === 'DRIVER' && typeof r.ref.driver_key === 'string'
-                ? `investigate?season=2023&round=1&driver_a=${encodeURIComponent(r.ref.driver_key)}&driver_b=sergio-perez&lap_number=6`
-                : r.result_type === 'HYPOTHESIS'
-                  ? `investigate?question_type=HYPOTHESIS_EVALUATION&hypotheses=${r.ref.hypothesis_id ?? ''}`
-                  : r.result_type === 'INVESTIGATION' || r.result_type === 'MEMORY'
-                    ? 'memory'
-                    : r.result_type === 'PATTERN'
-                      ? 'patternevidence'
-                      : 'investigate'
-          return (
-            <button
-              key={`res-${r.result_type}-${r.label}-${i}`}
-              className={`palette-item ${i === active ? 'active' : ''}`}
-              onMouseEnter={() => setIdx(i)}
-              onClick={() => onNavigate(view)}
-            >
-              <span className="p-type">{r.result_type}</span>
-              <span>{r.label}{r.detail ? <em className="muted"> — {r.detail}</em> : null}</span>
-            </button>
-          )
-        })}
-      </div>
-      <div className="palette-hint">
-        <span><kbd>↑↓</kbd> navigate</span>
-        <span><kbd>Enter</kbd> run</span>
-        <span><kbd>Esc</kbd> close</span>
-        <span>search is also here — types: RACE / DRIVER / HYPOTHESIS / ids</span>
-      </div>
-    </>
-  )
-}
