@@ -24,6 +24,7 @@ const PerformanceEnvelopeView = lazy(() => import('./PerformanceEnvelopeView'))
 const PerformanceRegimeView = lazy(() => import('./PerformanceRegimeView'))
 const PerformancePatternView = lazy(() => import('./PerformancePatternView'))
 const PatternEvidenceView = lazy(() => import('./PatternEvidenceView'))
+const AutonomousView = lazy(() => import('./AutonomousView'))
 
 /* ============ Phase 6Q — application shell ============ */
 
@@ -31,7 +32,7 @@ type ViewId =
   | 'command' | 'investigate' | 'graph' | 'replay' | 'compare' | 'memory'
   | 'catalog' | 'telemetry' | 'attribution' | 'fusion' | 'stint'
   | 'racegap' | 'counterfactual' | 'envelope' | 'regime' | 'patterns'
-  | 'patternevidence' | 'legacy'
+  | 'patternevidence' | 'autonomous' | 'legacy'
 
 /* one professional icon family (tabler, §44) — no emoji as functional UI */
 const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon: typeof IconGauge }> }> = [
@@ -39,6 +40,7 @@ const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon
     group: 'Command center',
     items: [
       { id: 'command', label: 'Overview', icon: IconGauge },
+      { id: 'autonomous', label: 'Autonomous', icon: IconSearch },
       { id: 'investigate', label: 'Investigate', icon: IconSearch },
       { id: 'graph', label: 'Graph', icon: IconGraph },
       { id: 'compare', label: 'Compare', icon: IconGitCompare },
@@ -177,6 +179,12 @@ export default function App() {
       {/* ================= WORKSPACE ================= */}
       <main className="shell-workspace">
         {view === 'command' && <CommandCenterView onNavigated={navigate} />}
+
+        {view === 'autonomous' && (
+          <Suspense fallback={<div className="panel"><LoadingLine label="autonomous workspace" /></div>}>
+            <AutonomousView />
+          </Suspense>
+        )}
 
         {view === 'investigate' && (
           <InvestigationView key={params.toString()} presetParams={presetParams} />

@@ -2040,3 +2040,214 @@ def add_evidence_relationship(inv_id: str, req: EvidenceRelationshipRequest) -> 
         provenance=req.provenance,
     )
     return {"relationship_id": rel_id, "status": "created"}
+
+
+# ===========================================================================
+# Phase 6T: autonomous engineering investigation
+# ===========================================================================
+
+class AutonomousInvestigationRequest(BaseModel):
+    question: str
+    context: dict[str, Any] = Field(default_factory=dict)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+
+
+class AutonomousContinueRequest(BaseModel):
+    additional_tool_calls: int = Field(default=30, ge=1, le=200)
+
+
+def _get_autonomous_store():
+    from racewise.data.historical.autonomous_run_store import (
+        get_autonomous_run_store,
+    )
+    return get_autonomous_run_store()
+
+
+@app.post("/api/investigations/autonomous")
+def run_autonomous_investigation_endpoint(
+    req: AutonomousInvestigationRequest,
+) -> dict[str, Any]:
+    """Phase 6T: natural language in, evidence-bound engineering answer out.
+
+    The orchestrator autonomously progresses the question through the
+    canonical lifecycle (parse -> context -> data check -> hypotheses ->
+    plan -> collection -> falsification -> counterfactual -> synthesis ->
+    verification) by invoking the deterministic Phase 6E-6S engine, which
+    remains the sole authority for evidence, hypothesis states and
+    provenance. Question text is data: instruction-like content is
+    quarantined and cannot redirect the pipeline.
+    """
+    from racewise.data.historical.autonomous_investigator import (
+        run_autonomous_investigation,
+    )
+    from racewise.data.historical.canonical_queries import (
+        get_canonical_queries,
+    )
+
+    queries = get_canonical_queries()
+    run = run_autonomous_investigation(
+        queries, req.question,
+        context=dict(req.context or {}),
+        constraints=dict(req.constraints or {}),
+    )
+    try:
+        _get_autonomous_store().upsert_run(run)
+    except Exception:  # noqa: BLE001 - persistence must never fake a result
+        pass
+    if run["status"] in ("INVALID_QUESTION", "UNSUPPORTED_QUESTION"):
+        raise HTTPException(status_code=422, detail={
+            "status": run["status"], "reason": run.get("reason"),
+            "supported_question_types":
+                (run.get("question") or {}).get("supported_question_types")})
+    if run["status"] == "CONTEXT_UNRESOLVED":
+        raise HTTPException(status_code=409, detail={
+            "status": run["status"], "reason": run.get("reason"),
+            "clarification": run.get("clarification")})
+    # data unavailable / insufficient evidence / budget exhausted are
+    # honest in-band results (200 with a failure state), not transport
+    # errors
+    return run
+
+
+@app.get("/api/investigations/autonomous/runs")
+def list_autonomous_investigations(limit: int = 50) -> dict[str, Any]:
+    """List persisted autonomous runs (bounded, most recent first).
+
+    Note: the bare ``/api/investigations/autonomous`` path is GET-shadowed
+    by the legacy ``/api/investigations/{inv_id}`` route (registered
+    earlier), so the listing lives under a literal sub-path.
+    """
+    if not 1 <= int(limit) <= 200:
+        raise HTTPException(status_code=422,
+                            detail="limit out of bounds [1, 200]")
+    store = _get_autonomous_store()
+    return {"runs": store.list_runs(limit=int(limit)),
+            "count": store.count_runs()}
+
+
+def _get_run_or_404(run_id: str) -> dict[str, Any]:
+    run = _get_autonomous_store().get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404,
+                            detail="Autonomous investigation not found")
+    return run
+
+
+@app.get("/api/investigations/autonomous/{run_id}")
+def get_autonomous_investigation(run_id: str) -> dict[str, Any]:
+    """Retrieve one autonomous run record (plan, trace, result, memory)."""
+    return _get_run_or_404(run_id)
+
+
+@app.post("/api/investigations/autonomous/{run_id}/continue")
+def continue_autonomous_investigation(
+    run_id: str, req: AutonomousContinueRequest,
+) -> dict[str, Any]:
+    """Continue an interrupted/budget-limited autonomous run.
+
+    Deterministic re-derivation, not hand-editing: the original question
+    text, context and constraints are re-run with an enlarged
+    max_tool_calls budget; the run identity is stable, so the refreshed
+    record replaces the stored one in place.
+    """
+    from racewise.data.historical.autonomous_investigator import (
+        run_autonomous_investigation,
+    )
+    from racewise.data.historical.canonical_queries import (
+        get_canonical_queries,
+    )
+
+    if req.additional_tool_calls <= 0:
+        raise HTTPException(status_code=422,
+                            detail="additional_tool_calls must be positive")
+    prior = _get_run_or_404(run_id)
+    constraints = dict(prior.get("budget") or {}).get("limits") or {}
+    new_max = int(constraints.get("max_tool_calls") or 60) \
+        + int(req.additional_tool_calls)
+    if new_max > 200:
+        raise HTTPException(
+            status_code=422,
+            detail=f"enlarged max_tool_calls {new_max} exceeds the bound 200")
+    queries = get_canonical_queries()
+    run = run_autonomous_investigation(
+        queries, str(prior.get("question_text") or ""),
+        context=dict(prior.get("context") or {}),
+        constraints={**constraints, "max_tool_calls": new_max},
+    )
+    run["continuation_of"] = prior.get("run_id")
+    run["continuation_added_tool_calls"] = int(req.additional_tool_calls)
+    try:
+        _get_autonomous_store().upsert_run(run)
+    except Exception:  # noqa: BLE001
+        pass
+    return run
+
+
+@app.post("/api/investigations/autonomous/{run_id}/replay")
+def replay_autonomous_investigation_endpoint(run_id: str) -> dict[str, Any]:
+    """Replay a stored autonomous run and compare deterministic surfaces."""
+    from racewise.data.historical.autonomous_investigator import (
+        replay_autonomous_investigation,
+    )
+    from racewise.data.historical.canonical_queries import (
+        get_canonical_queries,
+    )
+
+    prior = _get_run_or_404(run_id)
+    queries = get_canonical_queries()
+    return replay_autonomous_investigation(queries, prior)
+
+
+@app.get("/api/investigations/autonomous/{run_id}/stream")
+async def stream_autonomous_investigation(run_id: str) -> StreamingResponse:
+    """SSE stream of the REAL stage progression of one autonomous run.
+
+    The run re-executes with a stage callback; every lifecycle transition
+    is emitted the moment it happens (no timers, no simulated progress).
+    The final event carries the full run record.
+    """
+    import queue as _queue
+    import threading
+    from racewise.data.historical.autonomous_investigator import (
+        run_autonomous_investigation,
+    )
+    from racewise.data.historical.canonical_queries import (
+        get_canonical_queries,
+    )
+
+    prior = _get_run_or_404(run_id)
+    q: "queue.Queue[dict[str, Any]]" = _queue.Queue()
+
+    def on_stage(entry: dict[str, Any]) -> None:
+        q.put({"type": "stage", "stage": entry["stage"],
+               "status": entry["status"], "detail": entry.get("detail")})
+
+    queries = get_canonical_queries()
+
+    def event_stream():
+        yield f"data: {json.dumps({'type': 'run.started', 'run_id': run_id, 'question': prior.get('question_text')})}\n\n"
+
+        def worker() -> None:
+            try:
+                run = run_autonomous_investigation(
+                    queries, str(prior.get("question_text") or ""),
+                    context=dict(prior.get("context") or {}),
+                    constraints=(prior.get("budget") or {}).get("limits") or {},
+                    on_stage=on_stage)
+                try:
+                    _get_autonomous_store().upsert_run(run)
+                except Exception:  # noqa: BLE001
+                    pass
+                q.put({"type": "run.completed", "record": run})
+            except Exception as exc:  # noqa: BLE001
+                q.put({"type": "run.failed", "error": str(exc)})
+
+        threading.Thread(target=worker, daemon=True).start()
+        while True:
+            item = q.get()
+            yield f"data: {json.dumps(item)}\n\n"
+            if item.get("type") in ("run.completed", "run.failed"):
+                break
+        yield "data: {\"type\": \"done\"}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

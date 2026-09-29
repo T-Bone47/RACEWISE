@@ -991,3 +991,39 @@ button.primary:hover:not(:disabled) { background: var(--accent-press); border-co
 
 .rg-widening { color: var(--st-notsupported); }
 .rg-narrowing { color: var(--st-supported); }
+
+/* ============ Phase 6T: autonomous investigation workspace ============ */
+.auto-question textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  background: var(--panel, #16181d);
+  color: inherit;
+  resize: vertical;
+}
+.auto-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 8px 0;
+}
+.auto-stage { display: flex; align-items: center; gap: 5px; opacity: 0.55; }
+.auto-stage.done { opacity: 1; }
+.auto-stage.active { opacity: 1; }
+.auto-stage.active .auto-stage-mark { color: var(--accent, #e8b23a); }
+.auto-stage-label { font-size: 0.72rem; letter-spacing: 0.02em; }
+.auto-stages, .auto-orchestration, .auto-hypotheses, .auto-contradictions,
+.auto-trace, .auto-engine, .auto-memory, .auto-failure {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #2a2d33);
+  border-radius: 8px;
+}
+.auto-failure { border-color: #a33; }
+.auto-facets { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.auto-orchestration { border-left: 3px solid #7a9cc6; }
+.auto-engine { border-left: 3px solid #58a06b; }
+.auto-hypotheses { border-left: 3px solid #58a06b; }
