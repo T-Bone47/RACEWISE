@@ -293,26 +293,62 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
                         <tr key={`${h.hypothesis_id}-detail`} className="fm-detail-row">
                           <td colSpan={5}>
                             <div className="fm-detail">
-                              <strong className="small">
-                                Evaluated evidence for {HYP_LABELS[h.hypothesis_id] ?? h.hypothesis_id} —
-                                click an id above for the full ledger entry
-                              </strong>
-                              {[...h.supporting_evidence, ...h.contradicting_evidence, ...h.non_decisive_evidence]
-                                .map((id) => ledgerById.get(id))
-                                .filter((it): it is LedgerItem => it != null)
-                                .map((it) => (
-                                  <div key={it.evidence_id} className="fm-ev-item small">
-                                    <button className="linklike mono" onClick={() => setDrawerItem(it)}>
-                                      {it.evidence_id}
-                                    </button>
-                                    <span className={`claim-tag tag-${it.claim_class}`}>{it.claim_class}</span>
-                                    <span>{it.claim}</span>
-                                    {it.measured_value != null && (
-                                      <span className="mono"> = {typeof it.measured_value === 'number' ? it.measured_value : JSON.stringify(it.measured_value)} {it.units ?? ''}</span>
-                                    )}
-                                    <StateChip state={it.state} />
-                                  </div>
-                                ))}
+                              {/* mission §15: the scientific test, explicit */}
+                              <div className="fm-detail-sec">
+                                <span className="t-microlabel">Prediction (engine statement)</span>
+                                <span className="small">{statement}</span>
+                              </div>
+                              <div className="fm-detail-sec">
+                                <span className="t-microlabel">Evidence tested</span>
+                                <span className="small muted">
+                                  {h.evidence_coverage.items_total} evaluated item(s) —{' '}
+                                  {h.supporting_evidence.length} supporting · {h.contradicting_evidence.length} contradicting ·{' '}
+                                  {h.non_decisive_evidence.length} non-decisive
+                                </span>
+                              </div>
+                              <div className="fm-detail-sec">
+                                <span className="t-microlabel">Observation (evaluated evidence)</span>
+                                {[...h.supporting_evidence, ...h.contradicting_evidence, ...h.non_decisive_evidence]
+                                  .map((id) => ledgerById.get(id))
+                                  .filter((it): it is LedgerItem => it != null)
+                                  .map((it) => (
+                                    <div key={it.evidence_id} className="fm-ev-item small">
+                                      <button className="linklike mono" onClick={() => setDrawerItem(it)}>
+                                        {it.evidence_id}
+                                      </button>
+                                      <span className={`claim-tag tag-${it.claim_class}`}>{it.claim_class}</span>
+                                      <span>{it.claim}</span>
+                                      {it.measured_value != null && (
+                                        <span className="mono"> = {typeof it.measured_value === 'number' ? it.measured_value : JSON.stringify(it.measured_value)} {it.units ?? ''}</span>
+                                      )}
+                                      <StateChip state={it.state} />
+                                    </div>
+                                  ))}
+                              </div>
+                              <div className="fm-detail-sec">
+                                <span className="t-microlabel">Contradictions</span>
+                                {h.contradicting_evidence.length > 0 ? (
+                                  <span className="small rg-warn">
+                                    {h.contradicting_evidence.join(', ')} — preserved, never resolved away
+                                  </span>
+                                ) : (
+                                  <span className="small muted">
+                                    none found in the evaluated evidence — an observation about this ledger, not a confirmation
+                                  </span>
+                                )}
+                              </div>
+                              <div className="fm-detail-sec">
+                                <span className="t-microlabel">Result</span>
+                                <span className="small">
+                                  <StateChip state={h.aggregate_state} /> · falsification gate: {h.falsification_status.toLowerCase()}
+                                </span>
+                              </div>
+                              <div className="fm-detail-sec">
+                                <span className="t-microlabel">What would falsify this</span>
+                                <span className="small muted">
+                                  requires: {rule?.required ?? '—'} — {rule?.criterion ?? '—'}
+                                </span>
+                              </div>
                               {h.supporting_evidence.length + h.contradicting_evidence.length + h.non_decisive_evidence.length === 0 && (
                                 <div className="empty-state">
                                   No evaluated evidence for this hypothesis — the state stays

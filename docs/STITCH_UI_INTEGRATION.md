@@ -46,14 +46,14 @@ design without selector churn. A design-system contract test pins this.
 | Stitch screen | Production surface |
 | --- | --- |
 | Engineering Command Center | `#/command` (CommandCenterView) — template pills, autonomous query console (real 6T), launcher, recents ledger, focused trace preview, real system status |
-| Active Investigation Workspace (v1–v3) | `#/investigate` (InvestigationView) — flagship: hero question, measured context strip, metric strip with observed delta + unassigned residual, aligned telemetry canvas, degradation context, evidence ledger, decision trace, graph, synthesis with real actions |
-| Falsification Matrix | `#/falsification` (FalsificationMatrixView) — dedicated matrix over the real hypothesis-evaluation investigation: statement, engine evaluation rule, evaluated evidence ids (drawer), canonical verdicts, decision-trace rail, synthesis bar; CONTRADICTED filter; export |
-| Counterfactual Lab | `#/counterfactual` (CounterfactualView) — real 6I simulation with driver/lap/fraction controls, MODELLED labelling, real validation gates, aligned profile canvas (opt-in samples), real Phase 6J sensitivity sweep, epistemics/provenance |
-| Navigation Deck (sidebar) | App shell sidebar with Stitch vocabulary: Active Investigation, Falsification Matrix, Sessions & Drivers, Counterfactual Lab, Regime Timeline, Engineering Memory, Investigation Graph, Replay, Compare |
+| Active Investigation Workspace (v1–v3) | `#/investigate` (InvestigationView) — **the engineering workstation**: hero question, measured context strip, observation band, stage rail (Observation → Hypotheses → Evidence → Falsification → Counterfactual → Synthesis → Verification), dominant telemetry instrument, persistent decision-trace strip, contextual inspector |
+| Falsification Matrix | `#/falsification` (FalsificationMatrixView) — dedicated matrix over the real hypothesis-evaluation investigation: statement, engine evaluation rule, evaluated evidence ids (drawer), canonical verdicts, decision-trace rail, synthesis bar; CONTRADICTED filter; export; expanded rows follow the scientific test structure |
+| Counterfactual Lab | `#/counterfactual` (CounterfactualView) — real 6I simulation with driver/lap/fraction controls, MODELLED labelling, real validation gates, zoomable aligned profile canvas, real Phase 6J sensitivity sweep, epistemics/provenance |
+| Navigation Deck (sidebar) | App shell sidebar grouped by workflow — **Investigation** (Command Center, Active Investigation, Falsification, Counterfactual Lab) · **Knowledge** (Graph, Memory, Patterns, Pattern Evidence) · **Analysis** (Lap Comparison, Attribution, Fusion, Stint, Race Gap, Envelope, Regimes) · **Data** (Sessions & Drivers) · **Workspace** (Autonomous Query, Compare, Replay) |
 
 See `docs/STITCH_RACEWISE_FEATURE_RECONCILIATION.md` for the complete
-feature-by-feature reconciliation matrix (the integration contract) with
-per-item statuses.
+feature-by-feature reconciliation matrix (the integration contract), and
+`docs/RACEWISE_DESIGN_SYSTEM.md` for the component inventory and conventions.
 
 ### Flagship upgrades (InvestigationView)
 

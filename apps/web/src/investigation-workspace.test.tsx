@@ -1,10 +1,10 @@
-/* ============ Investigation Workspace (Stitch flagship) tests ============
-   The flagship renders the real 6N payload: the measured KPI strip
-   (observed delta + unassigned residual extracted from the evidence
-   ledger), the measured context strip, the aligned telemetry canvas and
-   the degradation context — with honest states everywhere. */
+/* ============ Investigation Workstation tests (mission §35) ============
+   The flagship renders the real 6N payload through the workstation layout:
+   header observation band (observed delta + unassigned residual from the
+   ledger), measured context strip, stage rail + dominant center canvas,
+   persistent decision-trace strip — with honest states everywhere. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import InvestigationView from './InvestigationView'
 import { counterfactualPayload, investigationPayload, mockFetch, sessionContextPayload } from './test-utils'
 
@@ -19,7 +19,7 @@ function preset(): URLSearchParams {
   })
 }
 
-describe('InvestigationView (Stitch Active Investigation Workspace)', () => {
+describe('InvestigationView (Active Investigation workstation)', () => {
   beforeEach(() => {
     mockFetch({
       '/api/catalog/engineering-investigation?': investigationPayload(),
@@ -27,10 +27,12 @@ describe('InvestigationView (Stitch Active Investigation Workspace)', () => {
       '/api/catalog/counterfactual/2023/1': counterfactualPayload(),
       '/api/catalog/telemetry-comparison/2023/1': {
         verdict: 'PASS',
+        window_s: 5,
         top_windows: [
           { t_start_s: 10, speed_delta_kmh: -4, throttle_delta_pct: 1, brake_delta_frac: 0, est_time_loss_s: 0.1 },
         ],
       },
+      '/api/catalog/attribution/2023/1': { status: 'VALID_COMPARISON' },
       '/api/catalog/stint-evidence/2023/1': {
         status: 'VALID_COMPARISON',
         stint_metadata: {
@@ -71,6 +73,13 @@ describe('InvestigationView (Stitch Active Investigation Workspace)', () => {
     expect(screen.getByText(/UNRESOLVED — never assigned to a mechanism/i)).toBeTruthy()
   })
 
+  it('renders the real 6E comparability verdict in the observation band', async () => {
+    render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getAllByText(/VALID COMPARISON/i).length).toBeGreaterThan(0)
+    })
+  })
+
   it('renders the measured context strip with real compounds and positions', async () => {
     render(<InvestigationView presetParams={preset()} />)
     await waitFor(() => {
@@ -79,12 +88,28 @@ describe('InvestigationView (Stitch Active Investigation Workspace)', () => {
     expect(screen.getByText(/6L tyre life/i)).toBeTruthy()
   })
 
+  it('renders the stage rail with lifecycle-true stages and real statuses', async () => {
+    render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^observation/i })).toBeTruthy()
+    })
+    expect(screen.getByRole('button', { name: /^hypotheses/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^evidence/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^falsification/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^counterfactual/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^synthesis/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^verification/i })).toBeTruthy()
+    /* real per-stage status from the payload */
+    expect(screen.getByText(/6 evaluated/i)).toBeTruthy()
+    expect(screen.getByText(/4 items · 0 conflicts/i)).toBeTruthy()
+  })
+
   it('fetches the aligned traces at the identity fraction with profile samples', async () => {
     const fn = mockFetch({
       '/api/catalog/engineering-investigation?': investigationPayload(),
       '/api/catalog/session-context/2023/1': sessionContextPayload(),
       '/api/catalog/counterfactual/2023/1': counterfactualPayload(),
-      '/api/catalog/telemetry-comparison/2023/1': { verdict: 'PASS', top_windows: [] },
+      '/api/catalog/telemetry-comparison/2023/1': { verdict: 'PASS', window_s: 5, top_windows: [] },
       '/api/catalog/stint-evidence/2023/1': { status: 'UNAVAILABLE' },
     })
     render(<InvestigationView presetParams={preset()} />)
@@ -99,6 +124,17 @@ describe('InvestigationView (Stitch Active Investigation Workspace)', () => {
     expect(calls[0]).toContain('reference_driver=max-verstappen')
   })
 
+  it('renders the zoomable instrument with controls and the honest grid badge', async () => {
+    render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getByTestId('speed-profile-canvas')).toBeTruthy()
+    })
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Reset zoom to full lap' })).toBeTruthy()
+    expect(screen.getByText('0.25 S ANALYSIS GRID')).toBeTruthy()
+  })
+
   it('renders the degradation context from the real 6G stint evidence', async () => {
     render(<InvestigationView presetParams={preset()} />)
     await waitFor(() => {
@@ -107,29 +143,84 @@ describe('InvestigationView (Stitch Active Investigation Workspace)', () => {
     expect(screen.getByText(/\+0\.042 s \/ stint-lap/i)).toBeTruthy()
   })
 
-  it('renders the real hypothesis matrix with canonical states and coverage counts', async () => {
+  it('the Hypotheses stage renders hypothesis rows with canonical states — never ranked', async () => {
     render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^observation/i })).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^hypotheses/i }))
     await waitFor(() => {
       expect(screen.getByText(/Hypothesis matrix \(never ranked\)/i)).toBeTruthy()
     })
     expect(screen.getAllByText(/H1 Corner Speed/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/H4 Tyre State/i).length).toBeGreaterThan(0)
+    /* expanding a hypothesis reveals its real evidence relations */
+    fireEvent.click(screen.getAllByText(/H2 Throttle/i)[0])
+    await waitFor(() => {
+      expect(screen.getByText(/no supporting evidence|no contradicting evidence/i)).toBeTruthy()
+    })
   })
 
-  it('renders the decision trace with basis links to real evidence ids', async () => {
+  it('the Evidence stage renders the ledger with the hypothesis filter', async () => {
+    render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^evidence/i })).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^evidence/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/Evidence ledger \(4\/4\)/i)).toBeTruthy()
+    })
+    expect(screen.getByText('evidence_001')).toBeTruthy()
+  })
+
+  it('the persistent decision-trace strip is always present and expandable', async () => {
     render(<InvestigationView presetParams={preset()} />)
     await waitFor(() => {
       expect(screen.getByText('TRACE-001')).toBeTruthy()
     })
-    expect(screen.getByText(/observed lap delta recorded from canonical facts/i)).toBeTruthy()
+    fireEvent.click(screen.getByText('TRACE-001'))
+    await waitFor(() => {
+      expect(screen.getByText(/observed lap delta recorded from canonical facts/i)).toBeTruthy()
+    })
+    /* basis links to real evidence ids */
+    expect(screen.getByText('basis:')).toBeTruthy()
   })
 
-  it('renders the synthesis conclusion state and its real limitation', async () => {
+  it('the Synthesis stage renders the engineering report with the conclusion state', async () => {
     render(<InvestigationView presetParams={preset()} />)
     await waitFor(() => {
-      expect(screen.getAllByText(/MIXED EVIDENCE/i).length).toBeGreaterThan(0)
+      expect(screen.getByRole('button', { name: /^synthesis/i })).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^synthesis/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/Engineering conclusion — mixed evidence/i)).toBeTruthy()
     })
     expect(screen.getAllByText(/unresolved contradictions block an established explanation/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Unresolved residual/i)).toBeTruthy()
+  })
+
+  it('the Falsification stage renders the honest gate state', async () => {
+    render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^falsification/i })).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^falsification/i }))
+    await waitFor(() => {
+      expect(screen.getAllByText(/contradictions preserved|contradictions block/i).length).toBeGreaterThan(0)
+    })
+  })
+
+  it('the Verification stage exposes graph, replay and memory for the scope', async () => {
+    render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^verification/i })).toBeTruthy()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^verification/i }))
+    await waitFor(() => {
+      expect(screen.getAllByText(/Engineering graph/i).length).toBeGreaterThan(0)
+    })
+    expect(screen.getAllByText(/Replay/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Engineering memory/i).length).toBeGreaterThan(0)
   })
 
   it('renders a structured error state on engine UNAVAILABLE — nothing broadened silently', async () => {
@@ -165,7 +256,7 @@ describe('InvestigationView (Stitch Active Investigation Workspace)', () => {
       />,
     )
     await waitFor(() => {
-      expect(screen.getByText(/Aligned speed profiles and window comparisons are computed for RACE/i)).toBeTruthy()
+      expect(screen.getByText(/Aligned speed profiles are computed for RACE sessions only/i)).toBeTruthy()
     })
     /* no race-scoped telemetry fetch was made for a qualifying scope */
     const raceFetches = fn.mock.calls.map((c) => String(c[0]))

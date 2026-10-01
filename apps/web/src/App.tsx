@@ -36,21 +36,37 @@ type ViewId =
   | 'patternevidence' | 'legacy'
 
 /* one professional icon family (tabler) — no emoji as functional UI.
-   Stitch navigation vocabulary maps 1:1 onto real routes/views:
-   Active Investigation = the 6N flagship workspace; every destination in
-   the Stitch nav deck is a real RACEWISE view. */
+   Navigation IA (mission §7): grouped by workflow stage — INVESTIGATION,
+   KNOWLEDGE, ANALYSIS, DATA, WORKSPACE — every existing route preserved. */
 const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon: typeof IconGauge }> }> = [
   {
-    group: 'Command center',
+    group: 'Investigation',
     items: [
-      { id: 'command', label: 'Overview', icon: IconGauge },
+      { id: 'command', label: 'Command Center', icon: IconGauge },
       { id: 'investigate', label: 'Active Investigation', icon: IconSearch },
-      { id: 'falsification', label: 'Falsification Matrix', icon: IconListNumbers },
-      { id: 'autonomous', label: 'Autonomous Query (6T)', icon: IconSearch },
+      { id: 'falsification', label: 'Falsification', icon: IconListNumbers },
+      { id: 'counterfactual', label: 'Counterfactual Lab', icon: IconBoxMultiple },
+    ],
+  },
+  {
+    group: 'Knowledge',
+    items: [
       { id: 'graph', label: 'Investigation Graph', icon: IconGraph },
-      { id: 'compare', label: 'Compare', icon: IconGitCompare },
       { id: 'memory', label: 'Engineering Memory', icon: IconHistory },
-      { id: 'replay', label: 'Replay', icon: IconReload },
+      { id: 'patterns', label: 'Cross-Race Patterns', icon: IconMathFunction },
+      { id: 'patternevidence', label: 'Pattern Evidence', icon: IconTable },
+    ],
+  },
+  {
+    group: 'Analysis',
+    items: [
+      { id: 'telemetry', label: 'Lap Comparison', icon: IconActivity },
+      { id: 'attribution', label: 'Lap Attribution', icon: IconChartBar },
+      { id: 'fusion', label: 'Evidence Fusion', icon: IconChartLine },
+      { id: 'stint', label: 'Stint Analysis', icon: IconStack2 },
+      { id: 'racegap', label: 'Race Gap', icon: IconArrowsExchange },
+      { id: 'envelope', label: 'Performance Envelope', icon: IconChartHistogram },
+      { id: 'regime', label: 'Regime Timeline', icon: IconListNumbers },
     ],
   },
   {
@@ -60,18 +76,11 @@ const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon
     ],
   },
   {
-    group: 'Engineering',
+    group: 'Workspace',
     items: [
-      { id: 'telemetry', label: 'Lap Comparison', icon: IconActivity },
-      { id: 'attribution', label: 'Lap Attribution', icon: IconChartBar },
-      { id: 'fusion', label: 'Evidence Fusion', icon: IconChartLine },
-      { id: 'stint', label: 'Stint Analysis', icon: IconStack2 },
-      { id: 'racegap', label: 'Race Gap', icon: IconArrowsExchange },
-      { id: 'counterfactual', label: 'Counterfactual Lab', icon: IconBoxMultiple },
-      { id: 'envelope', label: 'Performance Envelope', icon: IconChartHistogram },
-      { id: 'regime', label: 'Regime Timeline', icon: IconListNumbers },
-      { id: 'patterns', label: 'Cross-Race Patterns', icon: IconMathFunction },
-      { id: 'patternevidence', label: 'Pattern Evidence', icon: IconTable },
+      { id: 'autonomous', label: 'Autonomous Query', icon: IconSearch },
+      { id: 'compare', label: 'Compare', icon: IconGitCompare },
+      { id: 'replay', label: 'Replay', icon: IconReload },
     ],
   },
 ]
@@ -100,6 +109,15 @@ export default function App() {
   const [{ view, params }, setRoute] = useState(parseHash)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [recentsCount, setRecentsCount] = useState(0)
+  /* honest engine status: one real /api/health probe — the bar never claims
+     readiness the engine did not confirm (UX audit §16) */
+  const [engineUp, setEngineUp] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => { setEngineUp(r.ok) })
+      .catch(() => { setEngineUp(false) })
+  }, [])
 
   useEffect(() => {
     function onHash() {
@@ -121,6 +139,10 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPaletteOpen(true)
+      }
+      /* Esc closes the palette from anywhere (no keyboard traps, §28) */
+      if (e.key === 'Escape') {
+        setPaletteOpen(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -350,12 +372,15 @@ export default function App() {
       {/* ================= STATUS BAR (§33 — only real state) ================= */}
       <footer className="shell-statusbar">
         <span className="statusbar-item">
-          <span className="status-dot" aria-hidden="true" />
-          DETERMINISTIC CHAIN READY
+          <span
+            className={`status-dot ${engineUp === false ? 'status-dot-down' : ''}`}
+            aria-hidden="true"
+          />
+          {engineUp == null ? 'ENGINE PROBE…' : engineUp ? 'ENGINE REACHABLE · DETERMINISTIC CHAIN' : 'ENGINE UNREACHABLE — VIEWS DEGRADE HONESTLY'}
         </span>
-        <span className="statusbar-item">EVIDENCE-DRIVEN · ZERO STORAGE GROWTH</span>
+        {engineUp !== false && <span className="statusbar-item">EVIDENCE-DRIVEN · ZERO STORAGE GROWTH</span>}
         {recentsCount > 0 && <span className="statusbar-item">{recentsCount} RECENT INVESTIGATION(S)</span>}
-        <span className="statusbar-item" style={{ marginLeft: 'auto' }}>RACEWISE ENGINEERING WORKSPACE</span>
+        <span className="statusbar-item" style={{ marginLeft: 'auto' }}>RACEWISE ENGINEERING WORKSTATION</span>
       </footer>
 
       {/* ================= COMMAND PALETTE (§26) ================= */}
@@ -371,6 +396,7 @@ export default function App() {
             onClose={() => setPaletteOpen(false)}
             onNavigate={(v) => { setPaletteOpen(false); navigate(v) }}
             currentView={view}
+            currentParams={params}
           />
         </div>
       )}

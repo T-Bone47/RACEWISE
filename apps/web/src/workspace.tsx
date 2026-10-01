@@ -348,6 +348,74 @@ export function LoadingLine({ label }: { label: string }) {
   return <div className="loading-line" role="status">{label}</div>
 }
 
+/* ---------- unified honest-state panel (audit §12, mission §23) ----------
+   One component for every non-success surface: loading, empty, insufficient
+   evidence, unavailable, error. States name the condition, the reason and
+   the recovery — AVAILABLE/MISSING lists come from real engine facts. */
+
+export type StatePanelKind = 'loading' | 'empty' | 'insufficient' | 'unavailable' | 'error'
+
+const STATE_PANEL_META: Record<StatePanelKind, { cls: string; label: string }> = {
+  loading: { cls: 'sp-loading', label: 'LOADING' },
+  empty: { cls: 'sp-empty', label: 'EMPTY' },
+  insufficient: { cls: 'sp-insufficient', label: 'INSUFFICIENT EVIDENCE' },
+  unavailable: { cls: 'sp-unavailable', label: 'UNAVAILABLE' },
+  error: { cls: 'sp-error', label: 'ERROR' },
+}
+
+export function StatePanel({
+  kind,
+  title,
+  reason,
+  available,
+  missing,
+  action,
+}: {
+  kind: StatePanelKind
+  title: string
+  reason?: string
+  available?: string[]
+  missing?: string[]
+  action?: ReactNode
+}) {
+  const meta = STATE_PANEL_META[kind]
+  return (
+    <div
+      className={`state-panel ${meta.cls}`}
+      role={kind === 'error' ? 'alert' : 'status'}
+      aria-live={kind === 'error' ? 'assertive' : undefined}
+    >
+      <div className="sp-head">
+        <span className={`sp-dot ${meta.cls}`} aria-hidden="true" />
+        <span className="sp-kind mono">{meta.label}</span>
+        <span className="sp-title">{title}</span>
+      </div>
+      {reason && <p className="sp-reason muted small">{reason}</p>}
+      {(available && available.length > 0) || (missing && missing.length > 0) ? (
+        <div className="sp-lists">
+          {available && available.length > 0 && (
+            <div className="sp-list sp-list-available">
+              <span className="t-microlabel">Available</span>
+              <ul>
+                {available.map((a) => <li key={a}>{a}</li>)}
+              </ul>
+            </div>
+          )}
+          {missing && missing.length > 0 && (
+            <div className="sp-list sp-list-missing">
+              <span className="t-microlabel">Missing</span>
+              <ul>
+                {missing.map((m) => <li key={m}>{m}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : null}
+      {action && <div className="sp-action">{action}</div>}
+    </div>
+  )
+}
+
 /* ---------- structural skeleton loaders (§36): shapes mirror the real
    workspace layout, so the page never jumps when data lands ---------- */
 

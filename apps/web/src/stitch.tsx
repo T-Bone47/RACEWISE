@@ -150,7 +150,16 @@ export function ContextStrip({
 
 const PAD = { left: 44, right: 12, top: 14, bottom: 22 }
 const W = 860
-const H = 260
+const H = 300
+
+/* highlighted region on the time axis — display-only derivation of real
+   engine windows (e.g. per-window estimated-loss spans) */
+export interface TraceRegion {
+  id: string
+  t_start: number
+  t_end: number
+  highlight?: boolean
+}
 
 function buildPath(
   xs: number[], ys: number[], xScale: (v: number) => number, yScale: (v: number) => number,
@@ -171,6 +180,7 @@ export function SpeedProfileCanvas({
   counterfactualLabel,
   emptyReason,
   caption,
+  regions,
 }: {
   samples: ProfileSamples | null
   referenceLabel?: string
@@ -179,14 +189,28 @@ export function SpeedProfileCanvas({
   counterfactualLabel?: string
   emptyReason?: string
   caption?: ReactNode
+  regions?: TraceRegion[]
 }) {
   const [hover, setHover] = useState<number | null>(null)
+  /* zoom/region view — display state only; never affects any model value */
+  const [view, setView] = useState<[number, number] | null>(null)
+  const [drag, setDrag] = useState<{ t0: number; t1: number } | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
+
+  /* reset the view when the payload changes */
+  const sampleKey = samples ? `${samples.n_total_points}:${samples.t_s[0]}:${samples.t_s[samples.t_s.length - 1]}` : 'none'
+  useEffect(() => { setView(null); setDrag(null) }, [sampleKey])
 
   const geo = useMemo(() => {
     if (!samples || samples.t_s.length === 0) return null
-    const t0 = samples.t_s[0]
-    const t1 = samples.t_s[samples.t_s.length - 1]
+    const full0 = samples.t_s[0]
+    const full1 = samples.t_s[samples.t_s.length - 1]
+    const [t0, t1] = view ?? [full0, full1]
+    const visible = samples.t_s
+      .map((t, i) => ({ t, i }))
+      .filter((p) => p.t >= t0 - 1e-9 && p.t <= t1 + 1e-9)
+      .map((p) => p.i)
+    const idxs = visible.length > 0 ? visible : [0, samples.t_s.length - 1]
     const all = [...samples.target_kmh,
       ...(samples.reference_kmh ?? []),
       ...(showCounterfactual ? samples.counterfactual_kmh : [])]
@@ -197,8 +221,9 @@ export function SpeedProfileCanvas({
     const yHi = hi + span * 0.08
     const xScale = (v: number) => PAD.left + ((v - t0) / Math.max(t1 - t0, 1e-6)) * (W - PAD.left - PAD.right)
     const yScale = (v: number) => H - PAD.bottom - ((v - yLo) / Math.max(yHi - yLo, 1e-6)) * (H - PAD.top - PAD.bottom)
-    return { t0, t1, yLo, yHi, xScale, yScale }
-  }, [samples, showCounterfactual])
+    const sub = (arr: number[]) => idxs.map((i) => arr[i])
+    return { t0, t1, yLo, yHi, xScale, yScale, idxs, sub }
+  }, [samples, showCounterfactual, view])
 
   if (!samples || !geo) {
     return (
@@ -209,20 +234,55 @@ export function SpeedProfileCanvas({
   }
 
   const n = samples.t_s.length
-  const idx = hover != null ? Math.max(0, Math.min(n - 1, hover)) : null
   const fmt = (v: number | null | undefined, d = 1) =>
     v === null || v === undefined ? '—' : v.toFixed(d)
+  const tAt = (clientX: number, rect: DOMRect) => {
+    const relX = ((clientX - rect.left) / rect.width) * W
+    return geo.t0 + ((relX - PAD.left) / (W - PAD.left - PAD.right)) * (geo.t1 - geo.t0)
+  }
+  const idxAt = (clientX: number, rect: DOMRect) => {
+    const t = tAt(clientX, rect)
+    let best = geo.idxs[0]
+    let bestD = Infinity
+    for (const i of geo.idxs) {
+      const d = Math.abs(samples.t_s[i] - t)
+      if (d < bestD) { bestD = d; best = i }
+    }
+    return best
+  }
+  const zoom = (factor: number) => {
+    const c = (geo.t0 + geo.t1) / 2
+    const half = ((geo.t1 - geo.t0) / 2) * factor
+    const lo = Math.max(samples.t_s[0], c - half)
+    const hi = Math.min(samples.t_s[n - 1], c + half)
+    setView(hi - lo < 0.5 ? null : [lo, hi])
+  }
 
   const yTicks = 5
   const xTicks = 6
 
   return (
     <div className="tv-canvas" data-testid="speed-profile-canvas">
-      <div className="tv-badges">
-        <span className="tv-badge">0.25 S ANALYSIS GRID</span>
-        <span className="tv-badge tv-badge-dim">
-          {n} OF {samples.n_total_points} POINTS (DETERMINISTIC DECIMATION, DISPLAY ONLY)
-        </span>
+      <div className="tv-toolbar">
+        <div className="tv-badges">
+          <span className="tv-badge">0.25 S ANALYSIS GRID</span>
+          <span className="tv-badge tv-badge-dim">
+            {geo.idxs.length} OF {samples.n_total_points} POINTS (DETERMINISTIC DECIMATION, DISPLAY ONLY)
+          </span>
+        </div>
+        <div className="tv-zoom" role="group" aria-label="Chart zoom controls">
+          <button type="button" onClick={() => zoom(0.6)} aria-label="Zoom in" title="Zoom in">+</button>
+          <button type="button" onClick={() => zoom(1 / 0.6)} aria-label="Zoom out" title="Zoom out">−</button>
+          <button
+            type="button"
+            onClick={() => setView(null)}
+            disabled={view == null}
+            aria-label="Reset zoom to full lap"
+            title="Reset zoom to full lap"
+          >
+            reset
+          </button>
+        </div>
       </div>
       <svg
         ref={svgRef}
@@ -232,12 +292,37 @@ export function SpeedProfileCanvas({
         aria-label="Aligned speed profiles on the lap-relative analysis grid"
         onMouseMove={(e) => {
           const rect = e.currentTarget.getBoundingClientRect()
-          const relX = ((e.clientX - rect.left) / rect.width) * W
-          const frac = (relX - PAD.left) / (W - PAD.left - PAD.right)
-          setHover(Math.round(frac * (n - 1)))
+          if (drag) setDrag({ ...drag, t1: tAt(e.clientX, rect) })
+          setHover(idxAt(e.clientX, rect))
         }}
-        onMouseLeave={() => setHover(null)}
+        onMouseDown={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const t = tAt(e.clientX, rect)
+          setDrag({ t0: t, t1: t })
+        }}
+        onMouseUp={() => {
+          if (drag && Math.abs(drag.t1 - drag.t0) > 1.0) {
+            setView([Math.min(drag.t0, drag.t1), Math.max(drag.t0, drag.t1)])
+          }
+          setDrag(null)
+        }}
+        onMouseLeave={() => { setHover(null); setDrag(null) }}
+        onDoubleClick={() => setView(null)}
       >
+        {/* engine windows on the time axis (real comparison windows) */}
+        {(regions ?? []).map((r) => {
+          const x0 = geo.xScale(Math.max(r.t_start, geo.t0))
+          const x1 = geo.xScale(Math.min(r.t_end, geo.t1))
+          return (
+            <rect
+              key={`reg-${r.id}`}
+              x={x0} y={PAD.top}
+              width={Math.max(x1 - x0, 0.5)}
+              height={H - PAD.top - PAD.bottom}
+              className={`tv-region ${r.highlight ? 'tv-region-hot' : ''}`}
+            />
+          )
+        })}
         {/* horizontal grid + y ticks */}
         {Array.from({ length: yTicks + 1 }, (_, i) => {
           const v = geo.yLo + ((geo.yHi - geo.yLo) * i) / yTicks
@@ -265,7 +350,7 @@ export function SpeedProfileCanvas({
         {samples.reference_kmh && (() => {
           const spans: Array<[number, number]> = []
           let start: number | null = null
-          for (let i = 0; i < n; i++) {
+          for (const i of geo.idxs) {
             const deficit = samples.reference_kmh[i] > samples.target_kmh[i]
             if (deficit && start === null) start = samples.t_s[i]
             if (!deficit && start !== null) {
@@ -273,7 +358,7 @@ export function SpeedProfileCanvas({
               start = null
             }
           }
-          if (start !== null) spans.push([start, samples.t_s[n - 1]])
+          if (start !== null) spans.push([start, samples.t_s[geo.idxs[geo.idxs.length - 1]]])
           return spans.map(([s, e], k) => (
             <rect
               key={k}
@@ -284,38 +369,47 @@ export function SpeedProfileCanvas({
             />
           ))
         })()}
+        {/* drag-to-zoom selection */}
+        {drag && Math.abs(drag.t1 - drag.t0) > 0.2 && (
+          <rect
+            x={geo.xScale(Math.min(drag.t0, drag.t1))} y={PAD.top}
+            width={Math.abs(geo.xScale(drag.t1) - geo.xScale(drag.t0))}
+            height={H - PAD.top - PAD.bottom}
+            className="tv-drag-region"
+          />
+        )}
         {/* reference trace */}
         {samples.reference_kmh && (
           <path
-            d={buildPath(samples.t_s, samples.reference_kmh, geo.xScale, geo.yScale)}
+            d={buildPath(geo.sub(samples.t_s), geo.sub(samples.reference_kmh), geo.xScale, geo.yScale)}
             className="tv-trace tv-trace-ref"
           />
         )}
         {/* target trace */}
         <path
-          d={buildPath(samples.t_s, samples.target_kmh, geo.xScale, geo.yScale)}
+          d={buildPath(geo.sub(samples.t_s), geo.sub(samples.target_kmh), geo.xScale, geo.yScale)}
           className="tv-trace tv-trace-target"
         />
         {/* counterfactual trace */}
         {showCounterfactual && (
           <path
-            d={buildPath(samples.t_s, samples.counterfactual_kmh, geo.xScale, geo.yScale)}
+            d={buildPath(geo.sub(samples.t_s), geo.sub(samples.counterfactual_kmh), geo.xScale, geo.yScale)}
             className="tv-trace tv-trace-cf"
           />
         )}
         {/* crosshair */}
-        {idx != null && (
+        {hover != null && (
           <g>
             <line
-              x1={geo.xScale(samples.t_s[idx])} x2={geo.xScale(samples.t_s[idx])}
+              x1={geo.xScale(samples.t_s[hover])} x2={geo.xScale(samples.t_s[hover])}
               y1={PAD.top} y2={H - PAD.bottom} className="tv-crosshair"
             />
-            <circle cx={geo.xScale(samples.t_s[idx])} cy={geo.yScale(samples.target_kmh[idx])} r={3.5} className="tv-dot tv-dot-target" />
+            <circle cx={geo.xScale(samples.t_s[hover])} cy={geo.yScale(samples.target_kmh[hover])} r={3.5} className="tv-dot tv-dot-target" />
             {samples.reference_kmh && (
-              <circle cx={geo.xScale(samples.t_s[idx])} cy={geo.yScale(samples.reference_kmh[idx])} r={3} className="tv-dot tv-dot-ref" />
+              <circle cx={geo.xScale(samples.t_s[hover])} cy={geo.yScale(samples.reference_kmh[hover])} r={3} className="tv-dot tv-dot-ref" />
             )}
             {showCounterfactual && (
-              <circle cx={geo.xScale(samples.t_s[idx])} cy={geo.yScale(samples.counterfactual_kmh[idx])} r={3} className="tv-dot tv-dot-cf" />
+              <circle cx={geo.xScale(samples.t_s[hover])} cy={geo.yScale(samples.counterfactual_kmh[hover])} r={3} className="tv-dot tv-dot-cf" />
             )}
           </g>
         )}
@@ -324,22 +418,22 @@ export function SpeedProfileCanvas({
       <div className="tv-hud" aria-label="Trace readout">
         <span className="tv-hud-item">
           <span className="ctx-label">T</span>
-          <span className="mono">{idx != null ? `${samples.t_s[idx].toFixed(2)} s` : '—'}</span>
+          <span className="mono">{hover != null ? `${samples.t_s[hover].toFixed(2)} s` : '—'}</span>
         </span>
         <span className="tv-hud-item">
           <span className="tv-dot tv-dot-target" aria-hidden="true" />
-          <span className="mono">{targetLabel || 'target'} {idx != null ? `${fmt(samples.target_kmh[idx])} km/h` : '—'}</span>
+          <span className="mono">{targetLabel || 'target'} {hover != null ? `${fmt(samples.target_kmh[hover])} km/h` : '—'}</span>
         </span>
         {samples.reference_kmh && (
           <span className="tv-hud-item">
             <span className="tv-dot tv-dot-ref" aria-hidden="true" />
-            <span className="mono">{referenceLabel || 'reference'} {idx != null ? `${fmt(samples.reference_kmh[idx])} km/h` : '—'}</span>
+            <span className="mono">{referenceLabel || 'reference'} {hover != null ? `${fmt(samples.reference_kmh[hover])} km/h` : '—'}</span>
           </span>
         )}
-        {idx != null && samples.reference_kmh && (
+        {hover != null && samples.reference_kmh && (
           <span className="tv-hud-item tv-hud-delta">
             <span className="mono">
-              Δv {fmt(samples.target_kmh[idx] - samples.reference_kmh[idx])} km/h
+              Δv {fmt(samples.target_kmh[hover] - samples.reference_kmh[hover])} km/h
             </span>
           </span>
         )}
@@ -347,7 +441,7 @@ export function SpeedProfileCanvas({
           <span className="tv-hud-item">
             <span className="tv-dot tv-dot-cf" aria-hidden="true" />
             <span className="mono">
-              {counterfactualLabel || 'counterfactual'} {idx != null ? `${fmt(samples.counterfactual_kmh[idx])} km/h · ` : ''}MODELLED
+              {counterfactualLabel || 'counterfactual'} {hover != null ? `${fmt(samples.counterfactual_kmh[hover])} km/h · ` : ''}MODELLED
             </span>
           </span>
         )}

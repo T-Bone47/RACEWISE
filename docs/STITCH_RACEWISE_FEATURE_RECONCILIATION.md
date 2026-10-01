@@ -1,9 +1,9 @@
 # STITCH ↔ RACEWISE Feature Reconciliation Matrix
 
-**Version:** 2.0 — final integration contract (statuses updated at completion)
+**Version:** 3.0 — engineering-workstation refinement complete (statuses final)
 **Stitch source of truth:** `stitch_racewise_telemetry_investigation_platform/` (DESIGN.md + 6 screens)
 **RACEWISE source of truth:** `src/racewise/` (deterministic engine + canonical store), `apps/web/` (React/Vite frontend)
-**Behavioral source of truth:** `tests/` (backend: 801 tests) + `apps/web/src/*.test.ts(x)` (frontend: 70 tests)
+**Behavioral source of truth:** `tests/` (backend: 801 tests) + `apps/web/src/*.test.ts(x)` (frontend: 88 tests)
 
 ## Governing rules
 
@@ -172,3 +172,29 @@ No existing endpoint, vocabulary, payload, hash or behavior changed otherwise.
 - Recents are per-browser (real runs saved client-side); there is no server-side investigation registry by design (scope-addressed content hashes).
 
 **Final status: READY_FOR_STITCH_INTEGRATED_RACEWISE**
+
+---
+
+## V3.0 ADDENDUM — engineering-workstation refinement (mission "ultrawork")
+
+The second design pass (UX audit → restructure → impeccable/UUPM loops)
+refined the shipped Stitch integration into the engineering workstation.
+Every change is frontend-only; the deterministic engine, its APIs and all
+golden hashes are untouched (backend: 801 tests green, replay IDENTICAL).
+
+| Workstation change | Reconciliation impact |
+|---|---|
+| Flagship restructured into stage rail (Observation → Hypotheses → Evidence → Falsification → Counterfactual → Synthesis → Verification) + dominant center + persistent bottom decision-trace strip + right inspector | Stitch AIW layout implemented with progressive disclosure; all previous panels preserved per stage; no data path changed |
+| Telemetry instrument upgraded: 300px viewport, zoom (±/reset), drag-to-region, engine windows as linked time-axis bands, honest "Speed — target vs reference, lap N" title | §2.12 extended; still only real aligned profiles; display-only interactivity |
+| Sidebar regrouped into Investigation / Knowledge / Analysis / Data / Workspace — all 19 routes preserved 1:1 | §1.2 refined; labeled groups pin the workflow |
+| Command palette: grouped commands, context actions built from the live route scope (run counterfactual / falsify / graph / memory / replay with this scope), keyboard reaches every entry (bug fixed), ARIA listbox | §6.1 extended with real, scope-aware commands |
+| Unified `StatePanel` (loading/empty/insufficient/unavailable/error with AVAILABLE/MISSING lists, `role="alert"`) | §23 states standardized; honest states remain first-class results |
+| Falsification matrix expanded rows restructured to the scientific test: Prediction → Evidence tested → Observation → Contradictions → Result → What would falsify this | §3.4 refined per mission §15 |
+| Craft pass: 8 AI-tell side-tab borders removed (epistemic chips now use the status-dot language), width-transition removed, kicker eyebrows deleted from headings, `color-scheme: dark`, unified focus ring, thin themed scrollbars, 8px target gaps, reduced-motion honored | Impeccable detector: **0 findings** on `apps/web/src` |
+| Status bar reports real engine reachability from a live `/api/health` probe | §1.4/§16 honesty fix — no static readiness claim |
+| Responsive: rail→chips (≤1280), inspector→drawer, single column, mobile loop-stack | §24 verified at breakpoints |
+
+New docs: `docs/UX_AUDIT_RACEWISE.md` (17 audited problems with fixes),
+`docs/RACEWISE_DESIGN_SYSTEM.md` (RWS component inventory + conventions),
+regenerated root `PRODUCT.md` / `DESIGN.md` (visual authority now matches the
+shipped system; the pre-Stitch red/Geist doc was stale).

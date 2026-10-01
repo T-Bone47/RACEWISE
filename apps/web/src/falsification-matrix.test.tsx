@@ -74,14 +74,16 @@ describe('FalsificationMatrixView', () => {
     expect(screen.getByText(/H1 Corner Speed/i)).toBeTruthy()
   })
 
-  it('expanding a hypothesis row lists the evaluated evidence items', async () => {
+  it('expanding a hypothesis row reveals the scientific test structure', async () => {
     render(<FalsificationMatrixView />)
     await waitFor(() => {
       expect(screen.getByText(/H1 Corner Speed/i)).toBeTruthy()
     })
     fireEvent.click(screen.getByText(/H1 Corner Speed/i))
     await waitFor(() => {
-      expect(screen.getAllByText(/Evaluated evidence for H1 Corner Speed/i).length).toBeGreaterThan(0)
+      expect(screen.getByText(/Prediction \(engine statement\)/i)).toBeTruthy()
+      expect(screen.getByText(/What would falsify this/i)).toBeTruthy()
+      expect(screen.getAllByText(/Contradictions/i).length).toBeGreaterThan(0)
     })
   })
 
