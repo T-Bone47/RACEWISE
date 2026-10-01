@@ -112,6 +112,9 @@ export default function App() {
   /* honest engine status: one real /api/health probe — the bar never claims
      readiness the engine did not confirm (UX audit §16) */
   const [engineUp, setEngineUp] = useState<boolean | null>(null)
+  /* analysis focus mode (mission): hide navigation and metadata, maximize
+     the analytical workspace — Ctrl/Cmd+Shift+F toggles */
+  const [zen, setZen] = useState(false)
 
   useEffect(() => {
     fetch('/api/health')
@@ -133,12 +136,17 @@ export default function App() {
     setRoute(parseHash())
   }, [])
 
-  /* keyboard: Ctrl/Cmd+K opens the command palette */
+  /* keyboard: Ctrl/Cmd+K opens the command palette; Ctrl/Cmd+Shift+F
+     toggles analysis focus mode */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPaletteOpen(true)
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        setZen((z) => !z)
       }
       /* Esc closes the palette from anywhere (no keyboard traps, §28) */
       if (e.key === 'Escape') {
@@ -166,7 +174,7 @@ export default function App() {
   }, [params])
 
   return (
-    <div className="shell">
+    <div className={`shell ${zen ? 'zen' : ''}`}>
       {/* ================= HEADER — Stitch topbar with context crumb ================= */}
       <header className="shell-header">
         <h1>RACE<span>WISE</span></h1>
@@ -179,6 +187,15 @@ export default function App() {
           </span>
         )}
         <span className="spacer" />
+        {zen && (
+          <button
+            className="zen-exit"
+            onClick={() => setZen(false)}
+            title="Exit focus mode (Ctrl/Cmd+Shift+F)"
+          >
+            Exit focus
+          </button>
+        )}
         <button
           className="search-trigger"
           onClick={() => setPaletteOpen(true)}
@@ -394,7 +411,11 @@ export default function App() {
         >
           <CommandPalette
             onClose={() => setPaletteOpen(false)}
-            onNavigate={(v) => { setPaletteOpen(false); navigate(v) }}
+            onNavigate={(v) => {
+              setPaletteOpen(false)
+              if (v === 'zen') { setZen((z) => !z); return }
+              navigate(v)
+            }}
             currentView={view}
             currentParams={params}
           />

@@ -72,6 +72,24 @@ describe('App shell (workstation IA)', () => {
     })
   })
 
+  it('Ctrl/Cmd+Shift+F toggles analysis focus mode', async () => {
+    const { container } = render(<App />)
+    await waitFor(() => {
+      expect(container.querySelector('.shell-sidebar')).toBeTruthy()
+    })
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F', ctrlKey: true, shiftKey: true, bubbles: true }))
+    await waitFor(() => {
+      expect(container.querySelector('.shell.zen')).toBeTruthy()
+      /* CSS hides the sidebar + status bar in zen mode (display:none) and
+         offers an explicit exit affordance */
+      expect(container.querySelector('.zen-exit')).toBeTruthy()
+    })
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F', ctrlKey: true, shiftKey: true, bubbles: true }))
+    await waitFor(() => {
+      expect(container.querySelector('.shell.zen')).toBeNull()
+    })
+  })
+
   it('Ctrl/Cmd+K opens the command palette', async () => {
     const { container } = render(<App />)
     await waitFor(() => {

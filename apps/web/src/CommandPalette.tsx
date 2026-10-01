@@ -47,6 +47,7 @@ const COMMAND_GROUPS: CommandGroup[] = [
       { label: 'Open data catalog', view: 'catalog' },
       { label: 'Compare investigations', view: 'compare' },
       { label: 'Replay investigation', view: 'replay' },
+      { label: 'Toggle focus mode', view: 'zen' },
     ],
   },
 ]

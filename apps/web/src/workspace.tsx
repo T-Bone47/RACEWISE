@@ -232,13 +232,107 @@ export function ProvenanceDrawer({
   )
 }
 
-/* ---------- contextual inspector: evidence/provenance open BESIDE the
-   workspace (sticky right column) instead of over it; a back stack keeps
-   evidence → trace-to-source → back navigable ---------- */
+/* ---------- contextual inspector: evidence/hypothesis/provenance open
+   BESIDE the workspace (sticky right column) instead of over it; a back
+   stack keeps evidence → trace-to-source → back navigable ---------- */
+
+/* hypothesis drawer payload — every field is real engine output */
+export interface HypothesisDetail {
+  hypothesis_id: string
+  label: string
+  statement: string
+  criterion: { required: string; rule: string }
+  aggregate_state: string
+  falsification_status: string
+  supporting: LedgerItem[]
+  contradicting: LedgerItem[]
+  non_decisive: LedgerItem[]
+  limitations: string[]
+}
 
 export type InspectorEntry =
   | { kind: 'evidence'; item: LedgerItem }
   | { kind: 'provenance'; target: ProvenanceTarget }
+  | { kind: 'hypothesis'; hyp: HypothesisDetail }
+
+/* the scientific test, disclosed (mission: prediction → observed →
+   criterion → result, never ranked, never guessed) */
+export function HypothesisDetails({
+  hyp,
+  onOpenEvidence,
+}: {
+  hyp: HypothesisDetail
+  onOpenEvidence?: (item: LedgerItem) => void
+}) {
+  const evidenceChip = (item: LedgerItem, tone: 'sup' | 'con' | 'neu') => (
+    <button
+      key={item.evidence_id}
+      className={`fm-ev-chip`}
+      onClick={() => onOpenEvidence?.(item)}
+      title={item.claim}
+    >
+      {item.evidence_id}
+      {tone === 'sup' && <span className="hd-arrow" aria-hidden="true">→</span>}
+      {tone === 'con' && <span className="hd-arrow hd-arrow-con" aria-hidden="true">↮</span>}
+    </button>
+  )
+  return (
+    <div className="hyp-drawer">
+      <div className="fm-detail-sec">
+        <span className="t-microlabel">Prediction (engine statement)</span>
+        <span className="small">{hyp.statement}</span>
+      </div>
+      <div className="fm-detail-sec">
+        <span className="t-microlabel">Observed evidence</span>
+        <span className="small muted">
+          {hyp.supporting.length + hyp.contradicting.length + hyp.non_decisive.length} evaluated —{' '}
+          {hyp.supporting.length} supporting · {hyp.contradicting.length} contradicting ·{' '}
+          {hyp.non_decisive.length} non-decisive
+        </span>
+        {hyp.supporting.length > 0 && (
+          <div className="fm-ev-chips fm-supporting">
+            {hyp.supporting.map((it) => evidenceChip(it, 'sup'))}
+          </div>
+        )}
+        {hyp.contradicting.length > 0 && (
+          <div className="fm-ev-chips fm-contradicting">
+            {hyp.contradicting.map((it) => evidenceChip(it, 'con'))}
+          </div>
+        )}
+        {hyp.non_decisive.length > 0 && (
+          <div className="fm-ev-chips fm-non-decisive">
+            {hyp.non_decisive.map((it) => evidenceChip(it, 'neu'))}
+          </div>
+        )}
+        {hyp.supporting.length + hyp.contradicting.length + hyp.non_decisive.length === 0 && (
+          <span className="small muted">
+            No evaluated evidence — the state stays honest (NOT_TESTABLE / INSUFFICIENT_EVIDENCE), never guessed.
+          </span>
+        )}
+      </div>
+      <div className="fm-detail-sec">
+        <span className="t-microlabel">Falsification criterion</span>
+        <span className="small muted">
+          requires: {hyp.criterion.required} — {hyp.criterion.rule}
+        </span>
+      </div>
+      <div className="fm-detail-sec">
+        <span className="t-microlabel">Result</span>
+        <span className="small">
+          <StateChip state={hyp.aggregate_state} /> · gate: {hyp.falsification_status.toLowerCase()}
+        </span>
+      </div>
+      {hyp.limitations.length > 0 && (
+        <div className="fm-detail-sec">
+          <span className="t-microlabel">Limitations</span>
+          <ul className="assumptions-list small">
+            {hyp.limitations.map((l, i) => <li key={i}>{l}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function ContextInspector({
   entry,
@@ -246,12 +340,14 @@ export function ContextInspector({
   onBack,
   onClose,
   onTraceToSource,
+  onOpenEvidence,
 }: {
   entry: InspectorEntry | null
   history: InspectorEntry[]
   onBack: () => void
   onClose: () => void
   onTraceToSource?: (item: LedgerItem) => void
+  onOpenEvidence?: (item: LedgerItem) => void
 }) {
   /* the PARENT owns both the current entry and the history list; this
      component renders it and routes Esc/BACK to the parent, so evidence →
@@ -276,10 +372,14 @@ export function ContextInspector({
 
   const title = current.kind === 'evidence'
     ? `Evidence ${current.item.evidence_id}`
-    : `Provenance — ${current.target.kind} ${current.target.id}`
+    : current.kind === 'hypothesis'
+      ? current.hyp.label
+      : `Provenance — ${current.target.kind} ${current.target.id}`
   const subtitle = current.kind === 'evidence'
     ? 'Every field below is imported from the investigation ledger — nothing is derived for display.'
-    : 'The universal “show me why” surface: where this object came from and what bounds its interpretation.'
+    : current.kind === 'hypothesis'
+      ? 'The scientific test: prediction, evaluated evidence, falsification criterion, result — exactly as the engine classified them.'
+      : 'The universal “show me why” surface: where this object came from and what bounds its interpretation.'
 
   return (
     <aside className="context-inspector" role="complementary" aria-label="Contextual inspector">
@@ -302,7 +402,9 @@ export function ContextInspector({
       <div aria-live="polite">
         {current.kind === 'evidence'
           ? <EvidenceDetails item={current.item} onTraceToSource={onTraceToSource} />
-          : <ProvenanceDetails target={current.target} />}
+          : current.kind === 'hypothesis'
+            ? <HypothesisDetails hyp={current.hyp} onOpenEvidence={onOpenEvidence} />
+            : <ProvenanceDetails target={current.target} />}
       </div>
     </aside>
   )

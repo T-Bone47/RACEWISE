@@ -12,6 +12,7 @@ import { saveRecent } from './CommandCenterView'
 import type { RecentInvestigation } from './CommandCenterView'
 import { ComparabilityChip, ContextStrip, DegradationContextPanel, SpeedProfileCanvas } from './stitch'
 import type { LedgerItem, ProfileSamples } from './types'
+import { HYPOTHESIS_STATEMENTS, EVALUATION_RULES } from './types'
 
 /* ============ Active Investigation — the engineering workstation ============
    Layout (mission §10): compact header (question + measured context +
@@ -265,7 +266,6 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
   /* workstation state */
   const [stage, setStage] = useState<StageId>('observation')
   const [hypFilter, setHypFilter] = useState('')
-  const [expandedHyp, setExpandedHyp] = useState<string | null>(null)
   const [focusNode, setFocusNode] = useState<{ type: string; key: string } | null>(null)
   const [openTrace, setOpenTrace] = useState<string | null>(null)
   /* contextual inspector state: single side-by-side surface with a back stack
@@ -317,7 +317,6 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
     setOpenTrace(null)
     setFocusNode(null)
     setStage('observation')
-    setExpandedHyp(null)
     try {
       const resp = await fetch(`/api/catalog/engineering-investigation?${scopeParams()}`)
       if (!resp.ok) {
@@ -373,6 +372,34 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
     setFocusNode({ type: 'EVIDENCE', key: eid })
     const item = result?.evidence_ledger.find((x) => x.evidence_id === eid)
     if (item) pushInspector({ kind: 'evidence', item })
+  }
+
+  /* hypothesis drawer entry: the scientific test, disclosed (§13) */
+  function openHypothesisDrawer(hypId: string) {
+    const h = result?.hypothesis_evaluations[hypId]
+    if (!h) return
+    const byId = (ids: string[]) =>
+      ids.map((id) => result?.evidence_ledger.find((x) => x.evidence_id === id))
+        .filter((it): it is LedgerItem => it != null)
+    focusHypothesis(hypId)
+    pushInspector({
+      kind: 'hypothesis',
+      hyp: {
+        hypothesis_id: hypId,
+        label: HYP_LABELS[hypId] ?? hypId,
+        statement: HYPOTHESIS_STATEMENTS[hypId] ?? hypId,
+        criterion: {
+          required: EVALUATION_RULES[hypId]?.required ?? '—',
+          rule: EVALUATION_RULES[hypId]?.rule ?? '—',
+        },
+        aggregate_state: h.aggregate_state,
+        falsification_status: h.falsification_status,
+        supporting: byId(h.supporting_evidence),
+        contradicting: byId(h.contradicting_evidence),
+        non_decisive: byId(h.non_decisive_evidence),
+        limitations: result?.epistemic_boundaries ?? [],
+      },
+    })
   }
 
   /* evidence ledger filtering */
@@ -811,61 +838,30 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
               <section className="panel stage-panel" aria-label="Hypothesis matrix">
                 <h2>Hypothesis matrix (never ranked)</h2>
                 <div className="hyp-rows">
-                  {Object.values(result.hypothesis_evaluations).map((h) => {
-                    const open = expandedHyp === h.hypothesis_id
-                    return (
-                      <div key={h.hypothesis_id} className={`hyp-row ${open ? 'open' : ''}`}>
-                        <button
-                          className="hyp-row-head"
-                          aria-expanded={open}
-                          onClick={() => {
-                            const next = open ? null : h.hypothesis_id
-                            setExpandedHyp(next)
-                            if (next) focusHypothesis(h.hypothesis_id)
-                            else setHypFilter('')
-                          }}
-                        >
-                          <span className={`ef-badge ${hypStateClass(h.aggregate_state)}`}>
-                            {HYP_LABELS[h.hypothesis_id]?.split(' ')[0] ?? h.hypothesis_id}
-                          </span>
-                          <span className="hyp-row-name">{HYP_LABELS[h.hypothesis_id] ?? h.hypothesis_id}</span>
-                          <span className="hyp-row-counts mono">
-                            <span className="hc-sup" title="supporting evidence">{h.evidence_coverage.supporting}+</span>
-                            <span className="hc-con" title="contradicting evidence">{h.evidence_coverage.contradicting}−</span>
-                            <span className="hc-neu" title="non-decisive evidence">{h.evidence_coverage.non_decisive}~</span>
-                          </span>
-                          <StateChip state={h.aggregate_state} />
-                        </button>
-                        {open && (
-                          <div className="hyp-row-detail">
-                            <div className="small muted">
-                              gate: {h.falsification_status.toLowerCase()}
-                              {h.unresolved_contradictions ? ' · unresolved contradictions preserved' : ''}
-                            </div>
-                            <div className="fm-ev-chips fm-supporting">
-                              {h.supporting_evidence.map((id) => (
-                                <button key={id} className="fm-ev-chip" onClick={() => focusEvidence(id)}>{id}</button>
-                              ))}
-                              {h.supporting_evidence.length === 0 && <span className="muted small">no supporting evidence</span>}
-                            </div>
-                            <div className="fm-ev-chips fm-contradicting">
-                              {h.contradicting_evidence.map((id) => (
-                                <button key={id} className="fm-ev-chip" onClick={() => focusEvidence(id)}>{id}</button>
-                              ))}
-                              {h.contradicting_evidence.length === 0 && <span className="muted small">no contradicting evidence</span>}
-                            </div>
-                            <div className="fm-ev-chips fm-non-decisive">
-                              {h.non_decisive_evidence.map((id) => (
-                                <button key={id} className="fm-ev-chip" onClick={() => focusEvidence(id)}>{id}</button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                  {Object.values(result.hypothesis_evaluations).map((h) => (
+                    <button
+                      key={h.hypothesis_id}
+                      className="hyp-row"
+                      onClick={() => openHypothesisDrawer(h.hypothesis_id)}
+                      title="Open the scientific test in the inspector"
+                    >
+                      <span className={`ef-badge ${hypStateClass(h.aggregate_state)}`}>
+                        {HYP_LABELS[h.hypothesis_id]?.split(' ')[0] ?? h.hypothesis_id}
+                      </span>
+                      <span className="hyp-row-name">{HYP_LABELS[h.hypothesis_id] ?? h.hypothesis_id}</span>
+                      <span className="hyp-row-counts mono">
+                        <span className="hc-sup" title="supporting evidence">{h.evidence_coverage.supporting}+</span>
+                        <span className="hc-con" title="contradicting evidence">{h.evidence_coverage.contradicting}−</span>
+                        <span className="hc-neu" title="non-decisive evidence">{h.evidence_coverage.non_decisive}~</span>
+                      </span>
+                      <StateChip state={h.aggregate_state} />
+                    </button>
+                  ))}
                 </div>
-                <p className="muted small">{result.falsification_gate.rule}</p>
+                <p className="muted small">
+                  Click a hypothesis to open its test in the inspector: prediction, evaluated
+                  evidence, falsification criterion and result. {result.falsification_gate.rule}
+                </p>
                 <button
                   className="linklike small"
                   onClick={() => openProvenance({
@@ -907,8 +903,8 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                     <tr>
                       <th scope="col">ID</th>
                       <th scope="col">Type / class</th>
-                      <th scope="col">Source</th>
                       <th scope="col">Claim</th>
+                      <th scope="col">Effect</th>
                       <th scope="col">State</th>
                     </tr>
                   </thead>
@@ -926,14 +922,19 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                       >
                         <td className="small"><code>{it.evidence_id}</code></td>
                         <td className="small"><ClaimTag claimClass={it.claim_class} />{it.evidence_type}</td>
-                        <td className="muted small" title={`source hash ${it.source_hash}`}>
-                          {it.source_phase} {it.source_tool}
-                        </td>
                         <td className="small">
                           {it.claim}
                           {it.measured_value != null && (
                             <span className="muted"> = {typeof it.measured_value === 'number' ? it.measured_value : '…'} {it.units ?? ''}</span>
                           )}
+                        </td>
+                        <td className="small mono ev-effect">
+                          {it.contradicts
+                            ? <span className="hc-con" title="contradicts">↮ {it.hypothesis_ids.map((h) => h.split('_')[0]).join(' ')}</span>
+                            : it.supports
+                              ? <span className="hc-sup" title="supports">→ {it.hypothesis_ids.map((h) => h.split('_')[0]).join(' ')}</span>
+                              : <span className="hc-neu" title="no decisive hypothesis relation">—</span>}
+                          <span className="muted small"> {it.source_phase}</span>
                         </td>
                         <td><StateChip state={it.state} /></td>
                       </tr>
@@ -1311,6 +1312,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
           setInspectorHistory([])
         }}
         onTraceToSource={inspectorTraceToSource}
+        onOpenEvidence={(item) => pushInspector({ kind: 'evidence', item })}
       />
 
     </div>

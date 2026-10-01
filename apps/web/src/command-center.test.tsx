@@ -57,7 +57,7 @@ describe('CommandCenterView (Stitch Engineering Command Center)', () => {
     window.localStorage.clear()
   })
 
-  it('renders template pills only for the real question types (§26)', () => {
+  it('renders the question-first hero with templates for the real question types (§26)', () => {
     render(<CommandCenterView onNavigated={() => undefined} />)
     for (const label of [
       'Lap performance', 'Stint performance', 'Race gap', 'Performance regimes',
@@ -90,7 +90,7 @@ describe('CommandCenterView (Stitch Engineering Command Center)', () => {
     render(<CommandCenterView onNavigated={() => undefined} />)
     const input = screen.getByLabelText(/Engineering question/i)
     fireEvent.change(input, { target: { value: 'Why did the gap open in Bahrain 2023?' } })
-    fireEvent.click(screen.getByRole('button', { name: /formulate hypotheses/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Investigate' }))
     await waitFor(() => {
       const calls = fn.mock.calls.filter((c) => String(c[0]).includes('/api/investigations/autonomous'))
       expect(calls.length).toBe(1)
@@ -114,7 +114,7 @@ describe('CommandCenterView (Stitch Engineering Command Center)', () => {
     vi.stubGlobal('fetch', fn)
     render(<CommandCenterView onNavigated={() => undefined} />)
     fireEvent.change(screen.getByLabelText(/Engineering question/i), { target: { value: 'What is the meaning of life?' } })
-    fireEvent.click(screen.getByRole('button', { name: /formulate hypotheses/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Investigate' }))
     await waitFor(() => {
       expect(screen.getByText(/UNSUPPORTED_QUESTION/i)).toBeTruthy()
     })

@@ -62,9 +62,10 @@ workflow-shaped, not tool-shaped. Every route above is reachable from the deck
 | InvestigationHeader | `.inv-hero` + `.inv-question` | the question is the product |
 | Metric | `.metric-strip` cells | only payload-derived values |
 | StatusBadge | `StateChip` + `.ef-badge` | canonical 8-state vocabulary, text never omitted |
-| HypothesisRow | `.hyp-row` (flagship) + matrix rows | expandable, evidence relations inline |
-| EvidenceRow | ledger `<tr>` + `ClaimTag` | drawer for provenance detail |
+| HypothesisRow | `.hyp-row` (flagship) — click opens the **HypothesisDetails drawer** (prediction / evidence / criterion / result / limitations) | expandable inline detail removed (round 2) |
+| EvidenceRow | ledger `<tr>` + `ClaimTag` + **EFFECT column** (`→ H1` supports / `↮ H1` contradicts — real relations) | drawer for provenance detail |
 | EvidenceDrawer | `ContextInspector` / `Drawer` + `EvidenceDetails` | back-stack navigation |
+| FocusMode | `.shell.zen` + `.zen-exit` (Ctrl/Cmd+Shift+F) | hides nav/status, maximizes analysis |
 | TelemetryChart | `SpeedProfileCanvas` (`stitch.tsx`) | zoom, drag-region, crosshair HUD, window bands |
 | ChartToolbar | `.tv-toolbar` + `.tv-zoom` | badges + zoom controls |
 | FalsificationPanel | `FalsificationMatrixView` + flagship Falsification stage | §15 structure |

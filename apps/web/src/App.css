@@ -1662,3 +1662,93 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
   .inv-question { font-size: 19px; }
   .inv-meta { gap: 3px 10px; }
 }
+
+/* ============================================================
+   FOCUS MODE + DE-NOISE PASS (research report: hierarchy over
+   cards; elevation over borders; whitespace as structure)
+   ============================================================ */
+
+/* ---- focus/zen mode: hide navigation + metadata, maximize analysis ---- */
+.shell.zen { grid-template-columns: 1fr; }
+.shell.zen .shell-sidebar,
+.shell.zen .shell-statusbar { display: none; }
+.shell.zen .shell-header { grid-template-columns: auto auto 1fr auto auto; height: 40px; }
+.shell.zen .shell-header .shell-tagline { display: none; }
+.shell.zen .shell-workspace { padding-top: 0; }
+.zen-exit {
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  color: var(--st-primary-text);
+  font-family: var(--font-metric);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: var(--st-radius-el);
+  cursor: pointer;
+}
+.zen-exit:hover { background: rgba(0, 229, 255, 0.16); }
+
+/* ---- elevation over borders in the workstation (fewer boxes) ---- */
+.inv-workstation .stage-panel {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+.inv-workstation .stage-panel + .stage-panel { margin-top: var(--sp-sm); }
+.inv-workstation .stage-panel > h2 {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--sp-sm);
+  color: var(--st-text);
+}
+/* the instrument + tables keep ONE frame: the recessed viewport */
+.inv-workstation .stage-panel .tv-canvas,
+.inv-workstation .stage-panel .catalog-table,
+.inv-workstation .stage-panel .deg-grid,
+.inv-workstation .stage-panel .trace-strip-wrap,
+.inv-workstation .stage-panel .hyp-rows { background: var(--st-recessed); }
+
+/* ---- hypothesis rows: quiet buttons, one visual line each ---- */
+.hyp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--st-line);
+  cursor: pointer;
+  text-align: left;
+  color: var(--st-text);
+}
+.hyp-rows { background: var(--st-recessed); border: 1px solid var(--st-line); padding: 2px 12px; }
+.hyp-row:last-child { border-bottom: none; }
+.hyp-row:hover { background: var(--st-hover); }
+.hyp-row:hover .hyp-row-name { color: var(--st-primary-text); }
+.hyp-row-name { transition: color var(--speed) ease; }
+.hd-arrow { margin-left: 4px; color: var(--ep-supported); }
+.hd-arrow-con { color: var(--ep-contradicted); }
+
+/* ---- evidence effect column: supports/contradicts read at a glance ---- */
+.ev-effect { white-space: nowrap; }
+
+/* ---- trace strip: collapsible ---- */
+.trace-strip-head { cursor: default; }
+.trace-collapsed .trace-strip, .trace-collapsed .trace-detail { display: none; }
+
+/* ---- report + residual polish: bigger engineering values ---- */
+.report-block .subhead { margin-top: 10px; }
+.residual-value { font-size: 18px; }
+
+/* ---- readability bumps (research: dense != unreadable) ---- */
+.panel h2 { font-size: 15px; }
+.catalog-table td { font-size: 12.5px; }
+.inv-question { font-size: 26px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .shell.zen .shell-header, .hyp-row, .trace-node { transition: none; }
+}

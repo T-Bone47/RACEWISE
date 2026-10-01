@@ -267,13 +267,83 @@ export default function CommandCenterView({
 
   return (
     <div>
-      {/* ---- NEW INVESTIGATION (primary area) ---- */}
+      {/* ---- THE QUESTION FIRST (mission: "What do you want to investigate?") ---- */}
       <section className="cmd-hero" aria-label="New investigation">
-        <h2>New investigation</h2>
+        <h2>What do you want to investigate?</h2>
+        <div className="nl-console nl-console-hero">
+          <input
+            type="text"
+            value={nlQuestion}
+            placeholder="e.g. Why did Verstappen lose time to Pérez in Bahrain 2023?"
+            onChange={(e) => setNlQuestion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void runAutonomous() }}
+            aria-label="Engineering question"
+          />
+          <button className="primary" onClick={() => void runAutonomous()} disabled={nlRunning || !nlQuestion.trim()}>
+            {nlRunning ? 'Investigating…' : 'Investigate'}
+          </button>
+        </div>
         <p className="muted small">
-          One structured engineering question through the deterministic analytical chain.
-          Closed vocabulary only — no free-form logic, no causal claims.
+          A free-form question runs the real Phase 6T orchestrator — question → context →
+          evidence → falsification → synthesis — with the deterministic engine as the authority.
         </p>
+        {nlError && (
+          <div className="catalog-error" role="alert">{nlError}</div>
+        )}
+        {nlRun && (
+          <div className="nl-result" aria-label="Autonomous run result">
+            <div className="nl-result-head">
+              <span className="ef-badge st-supported">{nlRun.status}</span>
+              {nlRun.reason && <span className="muted small">{nlRun.reason}</span>}
+              {nlRun.run_id && <span className="mono small">run {nlRun.run_id}</span>}
+              {nlRun.engine_result_ref?.investigation_id && (
+                <span className="mono small" title="deterministic engine investigation id">
+                  engine {nlRun.engine_result_ref.investigation_id}
+                </span>
+              )}
+            </div>
+            {nlRun.stage_ledger && nlRun.stage_ledger.length > 0 && (
+              <ol className="nl-stages">
+                {nlRun.stage_ledger.map((s, i) => (
+                  <li key={`${s.stage}-${i}`} className="nl-stage">
+                    <span className="mono small">{String(i + 1).padStart(2, '0')} {s.stage}</span>
+                    <span className="muted small">{s.status}{s.detail ? ` — ${s.detail}` : ''}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <p className="muted small">
+              {nlRun.tool_calls_consumed !== undefined ? `${nlRun.tool_calls_consumed} tool calls · ` : ''}
+              full run record and replay in the <button className="linklike" onClick={() => onNavigated?.('autonomous')}>Autonomous Query view</button>.
+            </p>
+          </div>
+        )}
+
+        {/* fast investigation templates — real question types only */}
+        <div className="template-row" aria-label="Fast investigation templates">
+          <span className="t-microlabel">Templates</span>
+          <div className="template-pills">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                className={`template-pill ${questionType === t.question_type &&
+                  (t.session_type ?? 'RACE') === 'RACE' ? 'selected' : ''}`}
+                title={t.hint}
+                onClick={() => {
+                  setQuestionType(t.question_type)
+                  if (t.session_type === 'QUALIFYING' && t.question_type === 'STINT_PERFORMANCE') {
+                    setQuestionType('LAP_PERFORMANCE')
+                  }
+                }}
+              >
+                <span className="tp-label">{t.label}</span>
+                <span className="tp-hint muted">{t.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ---- structured scope (the deterministic launcher) ---- */}
         <div className="launcher-steps" aria-hidden="true">
           {STEPS.map((s, i) => (
             <span key={s} className={`step ${i < step ? 'done' : i === step ? 'active' : ''}`}>
@@ -358,90 +428,6 @@ export default function CommandCenterView({
         <button className="primary" onClick={launch} disabled={step < 4}>
           {step < 4 ? 'Complete steps 1–4 to investigate' : 'Run investigation →'}
         </button>
-
-        {/* ---- FAST INVESTIGATION TEMPLATES (real question types only) ---- */}
-        <div className="template-row" aria-label="Fast investigation templates">
-          <span className="t-microlabel">Fast investigation templates — real question types</span>
-          <div className="template-pills">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.label}
-                className={`template-pill ${questionType === t.question_type &&
-                  (t.session_type ?? 'RACE') === 'RACE' ? 'selected' : ''}`}
-                title={t.hint}
-                onClick={() => {
-                  setQuestionType(t.question_type)
-                  if (t.session_type) {
-                    /* a qualifying session has no stint semantics */
-                    if (t.session_type === 'QUALIFYING' && t.question_type === 'STINT_PERFORMANCE') {
-                      setQuestionType('LAP_PERFORMANCE')
-                    }
-                  }
-                }}
-              >
-                <span className="tp-label">{t.label}</span>
-                <span className="tp-hint muted">{t.hint}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---- AUTONOMOUS QUERY CONSOLE (real Phase 6T endpoint) ---- */}
-      <section className="panel" aria-label="Autonomous engineering query">
-        <h2>Autonomous engineering query (Phase 6T)</h2>
-        <p className="muted small">
-          A free-form engineering question through the real orchestrator: question →
-          context → plan → evidence → falsification → synthesis. The deterministic
-          engine remains the authority; the run reports its real stage ledger and
-          evidence-bound result (or an honest failure state).
-        </p>
-        <div className="nl-console">
-          <input
-            type="text"
-            value={nlQuestion}
-            placeholder="e.g. Why did Verstappen lose time to Pérez in Bahrain 2023?"
-            onChange={(e) => setNlQuestion(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void runAutonomous() }}
-            aria-label="Engineering question"
-          />
-          <button className="primary" onClick={() => void runAutonomous()} disabled={nlRunning || !nlQuestion.trim()}>
-            {nlRunning ? 'Investigating…' : 'Formulate hypotheses'}
-          </button>
-        </div>
-        {nlError && (
-          <div className="catalog-error" role="alert">
-            {nlError}
-          </div>
-        )}
-        {nlRun && (
-          <div className="nl-result" aria-label="Autonomous run result">
-            <div className="nl-result-head">
-              <span className="ef-badge st-supported">{nlRun.status}</span>
-              {nlRun.reason && <span className="muted small">{nlRun.reason}</span>}
-              {nlRun.run_id && <span className="mono small">run {nlRun.run_id}</span>}
-              {nlRun.engine_result_ref?.investigation_id && (
-                <span className="mono small" title="deterministic engine investigation id">
-                  engine {nlRun.engine_result_ref.investigation_id}
-                </span>
-              )}
-            </div>
-            {nlRun.stage_ledger && nlRun.stage_ledger.length > 0 && (
-              <ol className="nl-stages">
-                {nlRun.stage_ledger.map((s, i) => (
-                  <li key={`${s.stage}-${i}`} className={`nl-stage nl-${s.status?.toLowerCase()}`}>
-                    <span className="mono small">{String(i + 1).padStart(2, '0')} {s.stage}</span>
-                    <span className="muted small">{s.status}{s.detail ? ` — ${s.detail}` : ''}</span>
-                  </li>
-                ))}
-              </ol>
-            )}
-            <p className="muted small">
-              {nlRun.tool_calls_consumed !== undefined ? `${nlRun.tool_calls_consumed} tool calls · ` : ''}
-              full run record and replay in the <button className="linklike" onClick={() => onNavigated?.('autonomous')}>Autonomous Query view</button>.
-            </p>
-          </div>
-        )}
       </section>
 
       {/* ---- RECENT INVESTIGATIONS (real, or explicit empty state) ---- */}

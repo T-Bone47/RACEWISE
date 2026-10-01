@@ -1,10 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { HYP_LABELS, QUESTION_INPUTS } from './types'
 import type { InvestigationResult, LedgerItem } from './types'
+import { EVALUATION_RULES, HYPOTHESIS_STATEMENTS } from './types'
 import { Drawer, EvidenceDetails, LoadingLine, StateChip, StructuredError, WorkspaceSkeleton } from './workspace'
 
 /* ============ Stitch Falsification Matrix — the real 6N hypothesis system ============
-   Renders the canonical H1–H6 falsification protocol from the deterministic
+   Renders the canonical H1—H6 falsification protocol from the deterministic
    engineering investigation. The matrix layout follows the Stitch screen:
    hypothesis + theoretical claim | falsification criterion | empirical
    evidence | verdict. Every verdict, evidence id and count comes from the
@@ -12,40 +13,13 @@ import { Drawer, EvidenceDetails, LoadingLine, StateChip, StructuredError, Works
    deterministic evaluation rules (methodology, not data).
    ==================================================================================== */
 
-/* The six canonical hypothesis statements mirror evidence_fusion.py
-   (HYPOTHESES) — engine methodology constants, pinned by contract tests.
-   The evaluation rules mirror evaluate_hypothesis()'s documented rule set. */
-const HYPOTHESIS_STATEMENTS: Record<string, string> = {
-  H1_corner_speed:
-    "Driver B's deficit arises primarily from lower speed through corners/fast sections",
-  H2_throttle:
-    "Driver B's deficit is associated with later/reduced throttle application",
-  H3_braking:
-    "Driver B's deficit arises from braking differences (more/later braking)",
-  H4_tyre_state:
-    'A tyre-state difference (compound or age) explains part of the deficit',
-  H5_race_control:
-    'Race-control restriction, pit interference or conditions explain the delta',
-  H6_drs:
-    "Lower DRS availability contributed to Driver B's deficit",
-}
-
-const EVALUATION_RULES: Record<string, { required: string; criterion: string }> = {
-  H1_corner_speed: { required: 'speed region / speed metric evidence', criterion: 'contradicted when valid brake-metric evidence conflicts with the speed-region claim' },
-  H2_throttle: { required: 'throttle evidence', criterion: 'contradicted when valid throttle evidence conflicts with the throttle-application claim' },
-  H3_braking: { required: 'brake evidence', criterion: 'contradicted when valid brake evidence conflicts with the braking claim' },
-  H4_tyre_state: { required: 'tyre-state evidence', criterion: 'contradicted when valid tyre-state evidence conflicts with the compound/age claim' },
-  H5_race_control: { required: 'race-control evidence', criterion: 'contradicted by race-control, pit or weather evidence conflicting with the restriction claim' },
-  H6_drs: { required: 'DRS evidence', criterion: 'contradicted when valid DRS evidence conflicts with the DRS-availability claim' },
-}
+type Filter = 'ALL' | 'CONTRADICTED'
 
 const GATE_RULE_SUMMARY =
   'NOT_TESTABLE without required-source evidence · CONTRADICTED on any valid contradiction · ' +
   'SUPPORTED needs supporting evidence and zero contradictions · PARTIALLY_SUPPORTED adds ' +
   'non-decisive evidence · NOT_SUPPORTED when tested evidence fails to support. ' +
   'Evidence-consistency, never proof; causation is never asserted.'
-
-type Filter = 'ALL' | 'CONTRADICTED'
 
 export default function FalsificationMatrixView({ presetParams }: { presetParams?: URLSearchParams }) {
   const [questionType] = useState(() => presetParams?.get('question_type') || 'HYPOTHESIS_EVALUATION')
@@ -159,17 +133,17 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
       <section className="fm-banner" aria-label="Falsification protocol">
         <div className="fm-banner-head">
           <div>
-            <span className="t-microlabel">Falsification protocol · deterministic evaluation rules</span>
+            <span className="t-microlabel">Falsification protocol Â· deterministic evaluation rules</span>
             <h2 className="fm-title">
               Falsification — what empirical evidence refutes each hypothesis?
             </h2>
             <p className="muted small">
-              {questionType.replace(/_/g, ' ').toLowerCase()} · {driverA} vs {driverB} ·{' '}
+              {questionType.replace(/_/g, ' ').toLowerCase()} Â· {driverA} vs {driverB} Â·{' '}
               {season} R{round}
-              {inputs.includes('lap_number') && lapNumber >= 1 ? ` · lap ${lapNumber}` : ''}
+              {inputs.includes('lap_number') && lapNumber >= 1 ? ` Â· lap ${lapNumber}` : ''}
               {result && (
                 <>
-                  {' '}· <span className="mono" title="canonical investigation id">{result.investigation_id}</span>
+                  {' '}Â· <span className="mono" title="canonical investigation id">{result.investigation_id}</span>
                 </>
               )}
             </p>
@@ -182,7 +156,7 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
           <div className="fm-card" role="listitem">
             <span className="m-label">Hypotheses in scope</span>
             <span className="m-value">{counts.total}</span>
-            <span className="m-sub">canonical H1–H6 states</span>
+            <span className="m-sub">canonical H1—H6 states</span>
           </div>
           <div className="fm-card" role="listitem">
             <span className="m-label">Contradicted</span>
@@ -266,7 +240,7 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
                         </td>
                         <td className="small">
                           <div>requires: {rule?.required ?? '—'}</div>
-                          <div className="muted">{rule?.criterion ?? '—'}</div>
+                          <div className="muted">{rule?.rule ?? '—'}</div>
                         </td>
                         <td>
                           <div className="fm-ev">
@@ -293,7 +267,7 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
                         <tr key={`${h.hypothesis_id}-detail`} className="fm-detail-row">
                           <td colSpan={5}>
                             <div className="fm-detail">
-                              {/* mission §15: the scientific test, explicit */}
+                              {/* mission Â§15: the scientific test, explicit */}
                               <div className="fm-detail-sec">
                                 <span className="t-microlabel">Prediction (engine statement)</span>
                                 <span className="small">{statement}</span>
@@ -302,7 +276,7 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
                                 <span className="t-microlabel">Evidence tested</span>
                                 <span className="small muted">
                                   {h.evidence_coverage.items_total} evaluated item(s) —{' '}
-                                  {h.supporting_evidence.length} supporting · {h.contradicting_evidence.length} contradicting ·{' '}
+                                  {h.supporting_evidence.length} supporting Â· {h.contradicting_evidence.length} contradicting Â·{' '}
                                   {h.non_decisive_evidence.length} non-decisive
                                 </span>
                               </div>
@@ -340,13 +314,13 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
                               <div className="fm-detail-sec">
                                 <span className="t-microlabel">Result</span>
                                 <span className="small">
-                                  <StateChip state={h.aggregate_state} /> · falsification gate: {h.falsification_status.toLowerCase()}
+                                  <StateChip state={h.aggregate_state} /> Â· falsification gate: {h.falsification_status.toLowerCase()}
                                 </span>
                               </div>
                               <div className="fm-detail-sec">
                                 <span className="t-microlabel">What would falsify this</span>
                                 <span className="small muted">
-                                  requires: {rule?.required ?? '—'} — {rule?.criterion ?? '—'}
+                                  requires: {rule?.required ?? '—'} — {rule?.rule ?? '—'}
                                 </span>
                               </div>
                               {h.supporting_evidence.length + h.contradicting_evidence.length + h.non_decisive_evidence.length === 0 && (
@@ -434,12 +408,12 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
             <span className="t-microlabel">Synthesis ({result.synthesis.conclusion_state.replace(/_/g, ' ').toLowerCase()})</span>
             <p className="small">
               {result.synthesis.unresolved_questions.length > 0
-                ? result.synthesis.unresolved_questions.join(' · ')
+                ? result.synthesis.unresolved_questions.join(' Â· ')
                 : 'No unresolved question blocks the synthesis for the evaluated evidence — an observation about this ledger, not a confirmation.'}
             </p>
             <p className="muted small">
               Verdicts are evidence-consistency statements. The engine never ranks
-              hypotheses, never isolates a single “primary cause”, and never assigns
+              hypotheses, never isolates a single ”primary cause—, and never assigns
               the residual to a mechanism.
             </p>
           </div>
@@ -469,7 +443,7 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
       {drawerItem && (
         <Drawer
           title={`Evidence ${drawerItem.evidence_id}`}
-          subtitle={`${drawerItem.source_phase} · ${drawerItem.source_tool}`}
+          subtitle={`${drawerItem.source_phase} Â· ${drawerItem.source_tool}`}
           onClose={() => setDrawerItem(null)}
         >
           <EvidenceDetails item={drawerItem} />

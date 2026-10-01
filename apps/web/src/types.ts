@@ -430,6 +430,33 @@ export const HYP_LABELS: Record<string, string> = {
   H6_drs: 'H6 DRS',
 }
 
+/* The six canonical hypothesis statements mirror evidence_fusion.py
+   (HYPOTHESES) — engine methodology constants, pinned by contract tests.
+   The evaluation rules mirror evaluate_hypothesis()'s documented rule set. */
+export const HYPOTHESIS_STATEMENTS: Record<string, string> = {
+  H1_corner_speed:
+    "Driver B's deficit arises primarily from lower speed through corners/fast sections",
+  H2_throttle:
+    "Driver B's deficit is associated with later/reduced throttle application",
+  H3_braking:
+    "Driver B's deficit arises from braking differences (more/later braking)",
+  H4_tyre_state:
+    'A tyre-state difference (compound or age) explains part of the deficit',
+  H5_race_control:
+    'Race-control restriction, pit interference or conditions explain the delta',
+  H6_drs:
+    "Lower DRS availability contributed to Driver B's deficit",
+}
+
+export const EVALUATION_RULES: Record<string, { required: string; rule: string }> = {
+  H1_corner_speed: { required: 'speed region / speed metric evidence', rule: 'contradicted when valid brake-metric evidence conflicts with the speed-region claim' },
+  H2_throttle: { required: 'throttle evidence', rule: 'contradicted when valid throttle evidence conflicts with the throttle-application claim' },
+  H3_braking: { required: 'brake evidence', rule: 'contradicted when valid brake evidence conflicts with the braking claim' },
+  H4_tyre_state: { required: 'tyre-state evidence', rule: 'contradicted when valid tyre-state evidence conflicts with the compound/age claim' },
+  H5_race_control: { required: 'race-control evidence', rule: 'contradicted by race-control, pit or weather evidence conflicting with the restriction claim' },
+  H6_drs: { required: 'DRS evidence', rule: 'contradicted when valid DRS evidence conflicts with the DRS-availability claim' },
+}
+
 export const QUESTION_INPUTS: Record<string, Array<'lap_number' | 'stint_number' | 'pattern_id'>> = {
   LAP_PERFORMANCE: ['lap_number'],
   STINT_PERFORMANCE: ['stint_number'],

@@ -154,11 +154,14 @@ describe('InvestigationView (Active Investigation workstation)', () => {
     })
     expect(screen.getAllByText(/H1 Corner Speed/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/H4 Tyre State/i).length).toBeGreaterThan(0)
-    /* expanding a hypothesis reveals its real evidence relations */
+    /* clicking a hypothesis opens the scientific test in the inspector */
     fireEvent.click(screen.getAllByText(/H2 Throttle/i)[0])
     await waitFor(() => {
-      expect(screen.getByText(/no supporting evidence|no contradicting evidence/i)).toBeTruthy()
+      expect(screen.getByRole('complementary', { name: /contextual inspector/i })).toBeTruthy()
     })
+    expect(screen.getByText(/Prediction \(engine statement\)/i)).toBeTruthy()
+    expect(screen.getAllByText(/Falsification criterion/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/^Result$/i).length).toBeGreaterThan(0)
   })
 
   it('the Evidence stage renders the ledger with the hypothesis filter', async () => {
@@ -171,6 +174,9 @@ describe('InvestigationView (Active Investigation workstation)', () => {
       expect(screen.getByText(/Evidence ledger \(4\/4\)/i)).toBeTruthy()
     })
     expect(screen.getByText('evidence_001')).toBeTruthy()
+    /* EFFECT column: real supports/contradicts relations from the ledger */
+    expect(screen.getByText('\u21ae H1')).toBeTruthy()   /* evidence_006 contradicts H1 */
+    expect(screen.getByText('\u2192 H2')).toBeTruthy()   /* evidence_007 supports H2 */
   })
 
   it('the persistent decision-trace strip is always present and expandable', async () => {
