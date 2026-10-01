@@ -82,3 +82,123 @@ describe('Stitch flagship component classes', () => {
     expect(css).toContain('.auto-engine')
   })
 })
+
+/* ============ Stitch-integration component contracts ============
+   The new screen-pattern components (context strip, telemetry canvas,
+   falsification matrix, counterfactual lab, command-center templates)
+   must stay in the design system, and the fabricated Stitch content must
+   never leak into the product source. */
+
+import { readdirSync, statSync } from 'node:fs'
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((f) => {
+    const p = `${dir}/${f}`
+    if (statSync(p).isDirectory()) return sourceFiles(p)
+    /* production sources only — test fixtures describe fabrications to
+       assert their absence; they are not rendered by the product */
+    if (/\.test\.(ts|tsx)$/.test(f)) return []
+    return /\.(tsx?|css)$/.test(f) ? [p] : []
+  })
+}
+
+const src = sourceFiles(join(here))
+const allSource = src.map((f) => readFileSync(f, 'utf-8')).join('\n')
+
+describe('Stitch integration component classes', () => {
+  it('styles the measured context strip', () => {
+    expect(css).toContain('.ctx-strip')
+    expect(css).toContain('.ctx-chip')
+    expect(css).toContain('.ctx-compound')
+  })
+
+  it('styles the aligned telemetry canvas (traces, crosshair, HUD)', () => {
+    expect(css).toContain('.tv-canvas')
+    expect(css).toContain('.tv-trace-target')
+    expect(css).toContain('.tv-crosshair')
+    expect(css).toContain('.tv-hud')
+    expect(css).toContain('.tv-deficit-region')
+  })
+
+  it('styles the falsification matrix pattern', () => {
+    expect(css).toContain('.fm-table')
+    expect(css).toContain('.fm-ev-chip')
+    expect(css).toContain('.fm-trace-step')
+    expect(css).toContain('.fm-synthesis')
+  })
+
+  it('styles the counterfactual lab ribbons and sweep', () => {
+    expect(css).toContain('.cf-ribbons')
+    expect(css).toContain('.cf-ribbon')
+    expect(css).toContain('.cf-sweep')
+  })
+
+  it('styles the command-center templates, console and focused preview', () => {
+    expect(css).toContain('.template-pill')
+    expect(css).toContain('.nl-console')
+    expect(css).toContain('.nl-stage')
+    expect(css).toContain('.focus-bar')
+    expect(css).toContain('.recent-hyps')
+  })
+
+  it('styles the synthesis action row (real actions only)', () => {
+    expect(css).toContain('.synth-actions')
+  })
+})
+
+describe('Fabrication guard (§7, §9, §10, §11, §17, §19 of the mission)', () => {
+  it('never claims 100 Hz telemetry — the real grid is 0.25 s', () => {
+    expect(allSource).not.toMatch(/100\s?Hz/i)
+    /* the honest grid label is present in the rendered sources */
+    expect(allSource).toContain('0.25 s')
+    expect(allSource).toContain('aligned telemetry')
+  })
+
+  it('never renders fabricated confidence values', () => {
+    expect(allSource).not.toContain('94.2%')
+    expect(allSource).not.toContain('P=0.')
+    expect(allSource).not.toContain('99.4%')
+    expect(allSource).not.toContain('99.8%')
+  })
+
+  it('never renders fabricated solver/branding content', () => {
+    expect(allSource).not.toContain('AeroDelta')
+    expect(allSource).not.toContain('8-CORE')
+    expect(allSource).not.toContain('42k slices')
+    expect(allSource).not.toContain('solved investigations indexed')
+    expect(allSource).not.toContain('Dr. H. Vance')
+    expect(allSource).not.toContain('Sakhir Pitlane LAN')
+  })
+
+  it('never offers unsupported actions or telemetry channels', () => {
+    expect(allSource).not.toContain('PUBLISH CONSENSUS')
+    expect(allSource).not.toContain('Publish Verdict')
+    expect(allSource).not.toContain('Publish verdict')
+    expect(allSource).not.toContain('SIGN OFF')
+    expect(allSource).not.toContain('Sign off')
+    expect(allSource).not.toContain('Falsify Claim')
+    expect(allSource).not.toMatch(/MGU-[kK]/)
+    expect(allSource).not.toContain('state of charge')
+    expect(allSource).not.toMatch(/tyre (carcass|surface) temperature/i)
+    expect(allSource).not.toContain('steering lock')
+    expect(allSource).not.toContain('lateral acceleration')
+    expect(allSource).not.toContain('slip ratio')
+  })
+
+  it('never labels the 6P graph as causal', () => {
+    expect(allSource).not.toMatch(/causal (graph|dag)/i)
+    expect(allSource).toContain('Investigation Graph')
+  })
+
+  it('always labels modelled counterfactuals', () => {
+    expect(allSource).toContain('MODELLED')
+    expect(allSource).toContain('NOT HISTORICAL')
+  })
+
+  it('keeps the canonical hypothesis-state vocabulary in the chip contract', () => {
+    for (const state of ['SUPPORTED', 'PARTIALLY_SUPPORTED', 'NOT_SUPPORTED', 'CONTRADICTED',
+      'NOT_TESTABLE', 'INSUFFICIENT_EVIDENCE', 'MIXED_EVIDENCE', 'NOT_REQUESTED']) {
+      expect(readFileSync(join(here, 'types.ts'), 'utf-8')).toContain(`case '${state}'`)
+    }
+  })
+})

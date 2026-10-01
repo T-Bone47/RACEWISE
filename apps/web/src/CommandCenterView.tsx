@@ -3,7 +3,7 @@ import {
   IconSearch, IconGraph, IconHistory, IconGitCompare, IconDatabase, IconReload,
 } from '@tabler/icons-react'
 import {
-  HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES,
+  HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES, stateChipClass,
 } from './types'
 import type { QuestionScope, SearchResponse } from './types'
 import { LoadingLine, StructuredError } from './workspace'
@@ -27,6 +27,11 @@ export interface RecentInvestigation {
   output_hash: string
   conclusion_state: string
   evidence_count: number
+  /* real per-hypothesis states + measured values saved from the run
+     (rendered by the ledger; never synthesized) */
+  hypothesis_states?: Record<string, string>
+  observed_delta_s?: number | null
+  residual_s?: number | null
   at: number
 }
 
@@ -68,6 +73,34 @@ export function scopeParams(scope: QuestionScope & { question_type?: string }): 
 
 const STEPS = ['QUESTION', 'SCOPE', 'HYPOTHESES', 'EVIDENCE PLAN', 'INVESTIGATE'] as const
 
+/* Stitch "Fast Investigation Templates" mapped 1:1 onto the closed set of
+   real question types (§26). Each pill prefills the launcher — nothing
+   beyond the engine's own vocabulary is offered. */
+interface Template { label: string; hint: string; question_type: string; session_type?: 'RACE' | 'QUALIFYING' }
+const TEMPLATES: Template[] = [
+  { label: 'Lap performance', hint: 'Δt decomposition for one lap', question_type: 'LAP_PERFORMANCE' },
+  { label: 'Stint performance', hint: 'degradation trend over a stint', question_type: 'STINT_PERFORMANCE' },
+  { label: 'Race gap', hint: 'official classification decomposition', question_type: 'RACE_GAP' },
+  { label: 'Performance regimes', hint: 'deterministic slope segmentation', question_type: 'PERFORMANCE_REGIME' },
+  { label: 'Cross-race pattern', hint: 'structural recurrence (needs pattern id)', question_type: 'CROSS_RACE_PATTERN' },
+  { label: 'Hypothesis evaluation', hint: 'H1–H6 falsification protocol', question_type: 'HYPOTHESIS_EVALUATION' },
+  { label: 'Counterfactual eligibility', hint: 'model-scope eligibility check', question_type: 'COUNTERFACTUAL_ELIGIBILITY' },
+  { label: 'Qualifying lap (2018+)', hint: 'lap performance under QUALIFYING', question_type: 'LAP_PERFORMANCE', session_type: 'QUALIFYING' },
+]
+
+/* Phase 6T autonomous run record (subset rendered by the console) */
+interface AutonomousRun {
+  run_id?: string
+  status?: string
+  reason?: string
+  question?: string
+  stage_ledger?: Array<{ stage: string; status: string; detail?: string }>
+  decision_trace?: Array<{ decision_id?: string; decision_type?: string; reason?: string }>
+  tool_calls_consumed?: number
+  engine_result_ref?: { status?: string; investigation_id?: string; output_hash?: string }
+  budget?: Record<string, unknown>
+}
+
 interface CatalogSessionLite {
   season: number
   round: number
@@ -99,6 +132,17 @@ export default function CommandCenterView({
   const [searchQ, setSearchQ] = useState('')
   const [searchRes, setSearchRes] = useState<SearchResponse | null>(null)
   const [searchLoading, setSearchLoading] = useState(false)
+
+  /* autonomous (6T) natural-language console state — real endpoint only */
+  const [nlQuestion, setNlQuestion] = useState('')
+  const [nlRunning, setNlRunning] = useState(false)
+  const [nlRun, setNlRun] = useState<AutonomousRun | null>(null)
+  const [nlError, setNlError] = useState<string | null>(null)
+
+  /* focused trace preview: the selected recent investigation's real windows */
+  const [focusRecent, setFocusRecent] = useState<RecentInvestigation | null>(null)
+  const [focusWindows, setFocusWindows] = useState<Array<{ t_start_s: number; est_time_loss_s: number }> | null>(null)
+  const [focusNote, setFocusNote] = useState<string | null>(null)
 
   const inputs = QUESTION_INPUTS[questionType] || []
   const step = useMemo(() => {
@@ -138,6 +182,62 @@ export default function CommandCenterView({
       setSearchLoading(false)
     }
   }, [])
+
+  /* run the REAL Phase 6T autonomous investigation (question → evidence-bound
+     answer); every failure mode is surfaced honestly */
+  const runAutonomous = useCallback(async () => {
+    const q = nlQuestion.trim()
+    if (!q) return
+    setNlRunning(true)
+    setNlRun(null)
+    setNlError(null)
+    try {
+      const resp = await fetch('/api/investigations/autonomous', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q }),
+      })
+      const body = await resp.json().catch(() => null)
+      if (!resp.ok) {
+        const detail = typeof body?.detail === 'string' ? body.detail
+          : body?.detail ? JSON.stringify(body.detail) : `request failed (${resp.status})`
+        setNlError(detail)
+        return
+      }
+      setNlRun((body ?? {}) as AutonomousRun)
+    } catch (e) {
+      setNlError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setNlRunning(false)
+    }
+  }, [nlQuestion])
+
+  /* focused trace preview — real comparison windows for the selected recent */
+  useEffect(() => {
+    if (!focusRecent) return
+    let cancelled = false
+    setFocusWindows(null)
+    setFocusNote(null)
+    const p = new URLSearchParams({
+      driver_a: focusRecent.scope.driver_a,
+      driver_b: focusRecent.scope.driver_b,
+    })
+    if (focusRecent.scope.lap_number != null) p.set('lap', String(focusRecent.scope.lap_number))
+    fetch(`/api/catalog/telemetry-comparison/${focusRecent.scope.season}/${focusRecent.scope.round}?${p}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j: { verdict?: string; reason?: string; top_windows?: Array<{ t_start_s: number; est_time_loss_s: number }> }) => {
+        if (cancelled) return
+        if (j.verdict === 'PASS' && j.top_windows && j.top_windows.length > 0) {
+          setFocusWindows(j.top_windows)
+        } else {
+          setFocusNote(j.verdict && j.verdict !== 'PASS'
+            ? `${j.verdict}${j.reason ? ` — ${j.reason}` : ''}`
+            : 'no comparison windows for this scope')
+        }
+      })
+      .catch(() => { if (!cancelled) setFocusNote('UNAVAILABLE') })
+    return () => { cancelled = true }
+  }, [focusRecent])
 
   function scope(): QuestionScope & { question_type: string } {
     return {
@@ -258,11 +358,95 @@ export default function CommandCenterView({
         <button className="primary" onClick={launch} disabled={step < 4}>
           {step < 4 ? 'Complete steps 1–4 to investigate' : 'Run investigation →'}
         </button>
+
+        {/* ---- FAST INVESTIGATION TEMPLATES (real question types only) ---- */}
+        <div className="template-row" aria-label="Fast investigation templates">
+          <span className="t-microlabel">Fast investigation templates — real question types</span>
+          <div className="template-pills">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                className={`template-pill ${questionType === t.question_type &&
+                  (t.session_type ?? 'RACE') === 'RACE' ? 'selected' : ''}`}
+                title={t.hint}
+                onClick={() => {
+                  setQuestionType(t.question_type)
+                  if (t.session_type) {
+                    /* a qualifying session has no stint semantics */
+                    if (t.session_type === 'QUALIFYING' && t.question_type === 'STINT_PERFORMANCE') {
+                      setQuestionType('LAP_PERFORMANCE')
+                    }
+                  }
+                }}
+              >
+                <span className="tp-label">{t.label}</span>
+                <span className="tp-hint muted">{t.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---- AUTONOMOUS QUERY CONSOLE (real Phase 6T endpoint) ---- */}
+      <section className="panel" aria-label="Autonomous engineering query">
+        <h2>Autonomous engineering query (Phase 6T)</h2>
+        <p className="muted small">
+          A free-form engineering question through the real orchestrator: question →
+          context → plan → evidence → falsification → synthesis. The deterministic
+          engine remains the authority; the run reports its real stage ledger and
+          evidence-bound result (or an honest failure state).
+        </p>
+        <div className="nl-console">
+          <input
+            type="text"
+            value={nlQuestion}
+            placeholder="e.g. Why did Verstappen lose time to Pérez in Bahrain 2023?"
+            onChange={(e) => setNlQuestion(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void runAutonomous() }}
+            aria-label="Engineering question"
+          />
+          <button className="primary" onClick={() => void runAutonomous()} disabled={nlRunning || !nlQuestion.trim()}>
+            {nlRunning ? 'Investigating…' : 'Formulate hypotheses'}
+          </button>
+        </div>
+        {nlError && (
+          <div className="catalog-error" role="alert">
+            {nlError}
+          </div>
+        )}
+        {nlRun && (
+          <div className="nl-result" aria-label="Autonomous run result">
+            <div className="nl-result-head">
+              <span className="ef-badge st-supported">{nlRun.status}</span>
+              {nlRun.reason && <span className="muted small">{nlRun.reason}</span>}
+              {nlRun.run_id && <span className="mono small">run {nlRun.run_id}</span>}
+              {nlRun.engine_result_ref?.investigation_id && (
+                <span className="mono small" title="deterministic engine investigation id">
+                  engine {nlRun.engine_result_ref.investigation_id}
+                </span>
+              )}
+            </div>
+            {nlRun.stage_ledger && nlRun.stage_ledger.length > 0 && (
+              <ol className="nl-stages">
+                {nlRun.stage_ledger.map((s, i) => (
+                  <li key={`${s.stage}-${i}`} className={`nl-stage nl-${s.status?.toLowerCase()}`}>
+                    <span className="mono small">{String(i + 1).padStart(2, '0')} {s.stage}</span>
+                    <span className="muted small">{s.status}{s.detail ? ` — ${s.detail}` : ''}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <p className="muted small">
+              {nlRun.tool_calls_consumed !== undefined ? `${nlRun.tool_calls_consumed} tool calls · ` : ''}
+              full run record and replay in the <button className="linklike" onClick={() => onNavigated?.('autonomous')}>Autonomous Query view</button>.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* ---- RECENT INVESTIGATIONS (real, or explicit empty state) ---- */}
       <section className="panel" aria-label="Recent investigations">
-        <h2>Recent investigations</h2>
+        <h2>Investigations ledger</h2>
         {recents.length === 0 ? (
           <div className="empty-state">
             No investigation has been run in this browser yet. Completed
@@ -274,14 +458,19 @@ export default function CommandCenterView({
             {recents.map((r) => (
               <button
                 key={r.investigation_id}
-                className="recent-item"
+                className={`recent-item ${focusRecent?.investigation_id === r.investigation_id ? 'selected' : ''}`}
                 onClick={() => {
+                  setFocusRecent((cur) =>
+                    cur?.investigation_id === r.investigation_id ? null : r)
+                }}
+                onDoubleClick={() => {
                   const params = scopeParams(r.scope)
                   params.set('question_type', r.question_type)
                   window.location.hash = `#/investigate?${params.toString()}`
                   window.dispatchEvent(new HashChangeEvent('hashchange'))
                   onNavigated?.('investigate')
                 }}
+                title="Click: focus (trace preview). Double-click: open the workspace."
               >
                 <span className={`ef-badge ${r.conclusion_state === 'SUPPORTED_BY_AVAILABLE_EVIDENCE' ? 'st-supported' : r.conclusion_state === 'MIXED_EVIDENCE' ? 'st-mixed' : 'st-untestable'}`}>
                   {r.conclusion_state.replace(/_/g, ' ')}
@@ -292,11 +481,76 @@ export default function CommandCenterView({
                   {r.scope.lap_number != null ? ` · lap ${r.scope.lap_number}` : ''}
                   {r.scope.stint_number != null ? ` · stint ${r.scope.stint_number}` : ''}
                 </span>
+                {r.observed_delta_s != null && (
+                  <span className="mono small" title="measured observed delta from the run">
+                    Δ {r.observed_delta_s} s
+                  </span>
+                )}
+                {r.residual_s != null && (
+                  <span className="mono small" title="unassigned residual (UNRESOLVED)">
+                    residual {r.residual_s} s
+                  </span>
+                )}
+                {r.hypothesis_states && (
+                  <span className="recent-hyps" title="real per-hypothesis states from the run">
+                    {Object.entries(r.hypothesis_states).map(([id, st]) => (
+                      <span key={id} className={`hyp-dot ${stateChipClass(st)}`} title={`${id}: ${st}`}>
+                        {id.split('_')[0]}
+                      </span>
+                    ))}
+                  </span>
+                )}
                 <span className="muted small mono" style={{ marginLeft: 'auto' }}>
                   {r.investigation_id.slice(0, 10)} · {r.evidence_count} evidence items
                 </span>
               </button>
             ))}
+          </div>
+        )}
+        {/* ---- FOCUSED TRACE PREVIEW (real windows for the selected run) ---- */}
+        {focusRecent && (
+          <div className="focus-preview" aria-label="Focused trace preview">
+            <div className="focus-preview-head">
+              <span className="t-microlabel">
+                Focused trace preview — {focusRecent.investigation_id.slice(0, 10)} ·{' '}
+                {focusRecent.scope.driver_a} vs {focusRecent.scope.driver_b}
+                {focusRecent.scope.lap_number != null ? ` · lap ${focusRecent.scope.lap_number}` : ''}
+              </span>
+              <button
+                className="linklike small"
+                onClick={() => {
+                  const params = scopeParams(focusRecent.scope)
+                  params.set('question_type', focusRecent.question_type)
+                  window.location.hash = `#/investigate?${params.toString()}`
+                  window.dispatchEvent(new HashChangeEvent('hashchange'))
+                  onNavigated?.('investigate')
+                }}
+              >
+                open workspace →
+              </button>
+            </div>
+            {focusWindows && focusWindows.length > 0 ? (
+              <div className="focus-bars" role="img"
+                aria-label={`${focusWindows.length} comparison windows, largest estimated loss highlighted`}>
+                {(() => {
+                  const maxLoss = Math.max(...focusWindows.map((w) => Math.abs(w.est_time_loss_s)))
+                  return focusWindows.map((w) => (
+                    <div
+                      key={w.t_start_s}
+                      className="focus-bar"
+                      style={{ height: `${Math.max((Math.abs(w.est_time_loss_s) / maxLoss) * 100, 3)}%` }}
+                      title={`window t=${w.t_start_s}s · est loss ${w.est_time_loss_s}s`}
+                    />
+                  ))
+                })()}
+              </div>
+            ) : (
+              <div className="empty-state">{focusNote || 'no comparison windows for this scope'}</div>
+            )}
+            <p className="muted small">
+              Per-window estimated time loss from the deterministic comparison engine for
+              this scope — the same evidence class the investigation evaluated.
+            </p>
           </div>
         )}
       </section>

@@ -323,6 +323,83 @@ export interface SearchResponse {
   provenance: { method: string; note?: string }
 }
 
+/* ---------- Stitch-integration contracts (session-context, profiles, 6J sweep) ---------- */
+
+export interface StintWindow {
+  stint_number: number
+  compound: string | null
+  lap_start: number | null
+  lap_end: number | null
+  lap_count: number | null
+  provider: string | null
+}
+
+export interface LapFact {
+  lap_number: number
+  position: number | null
+  time_s: number | null
+  compound: string | null
+  tyre_life: number | null
+}
+
+export interface SessionContext {
+  season: number
+  round: number
+  session_type: string
+  session?: Record<string, unknown> | null
+  stints_by_driver: Record<string, StintWindow[]>
+  laps_by_driver?: Record<string, LapFact[]>
+  weather: {
+    status: string
+    reason?: string
+    observations?: number
+    air_temp_c_first?: number | null
+    air_temp_c_last?: number | null
+    track_temp_c_first?: number | null
+    track_temp_c_last?: number | null
+    rainfall_observations?: number
+  }
+  telemetry: {
+    available: boolean
+    sample_count: number
+    drivers: number
+    covered_laps: number[]
+    analysis_grid_s: number
+    policy: string
+  }
+  provenance: { tables: string[]; method: string }
+}
+
+/* opt-in bounded profile samples (include_profile=true on the counterfactual) */
+export interface ProfileSamples {
+  n_total_points: number
+  n_samples: number
+  cap: number
+  unit: string
+  sampling: string
+  t_s: number[]
+  target_kmh: number[]
+  reference_kmh: number[] | null
+  counterfactual_kmh: number[]
+}
+
+/* Phase 6J performance-envelope scenario sweep point */
+export interface ScenarioPoint {
+  parameter: number
+  status: string
+  delta_s: number | null
+  modeled_lap_time_s?: number
+  label?: string
+  reason?: string
+  [k: string]: unknown
+}
+
+export interface EnvelopeSensitivity {
+  response?: { status: string; total_range_s?: number; classification?: string; [k: string]: unknown }
+  note?: string
+  [k: string]: unknown
+}
+
 /* ---------- closed vocabularies (mirrors of the backend) ---------- */
 
 export const QUESTION_TYPES = [

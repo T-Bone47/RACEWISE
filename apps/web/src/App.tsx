@@ -20,6 +20,7 @@ const EvidenceFusionView = lazy(() => import('./EvidenceFusionView'))
 const StintEvidenceView = lazy(() => import('./StintEvidenceView'))
 const RaceGapView = lazy(() => import('./RaceGapView'))
 const CounterfactualView = lazy(() => import('./CounterfactualView'))
+const FalsificationMatrixView = lazy(() => import('./FalsificationMatrixView'))
 const PerformanceEnvelopeView = lazy(() => import('./PerformanceEnvelopeView'))
 const PerformanceRegimeView = lazy(() => import('./PerformanceRegimeView'))
 const PerformancePatternView = lazy(() => import('./PerformancePatternView'))
@@ -35,16 +36,17 @@ type ViewId =
   | 'patternevidence' | 'legacy'
 
 /* one professional icon family (tabler) — no emoji as functional UI.
-   Stitch navigation vocabulary: Active Investigation, Falsification
-   Matrix, Sessions & Drivers map onto real routes/views. */
+   Stitch navigation vocabulary maps 1:1 onto real routes/views:
+   Active Investigation = the 6N flagship workspace; every destination in
+   the Stitch nav deck is a real RACEWISE view. */
 const NAV: Array<{ group: string; items: Array<{ id: ViewId; label: string; icon: typeof IconGauge }> }> = [
   {
     group: 'Command center',
     items: [
       { id: 'command', label: 'Overview', icon: IconGauge },
-      { id: 'autonomous', label: 'Active Investigation', icon: IconSearch },
-      { id: 'investigate', label: 'Investigation Workspace', icon: IconSearch },
+      { id: 'investigate', label: 'Active Investigation', icon: IconSearch },
       { id: 'falsification', label: 'Falsification Matrix', icon: IconListNumbers },
+      { id: 'autonomous', label: 'Autonomous Query (6T)', icon: IconSearch },
       { id: 'graph', label: 'Investigation Graph', icon: IconGraph },
       { id: 'compare', label: 'Compare', icon: IconGitCompare },
       { id: 'memory', label: 'Engineering Memory', icon: IconHistory },
@@ -204,24 +206,15 @@ export default function App() {
         )}
 
         {view === 'falsification' && (
-          /* Stitch Falsification Matrix → the real hypothesis-evaluation
-             investigation (H1–H6 with falsification gate); a real route
-             mapping, not a mock screen */
-          <InvestigationView
-            key="falsification"
-            presetParams={
-              [...params.keys()].length > 0
-                ? params
-                : new URLSearchParams({
-                    question_type: 'HYPOTHESIS_EVALUATION',
-                    driver_a: 'max-verstappen',
-                    driver_b: 'sergio-perez',
-                    season: '2023',
-                    round: '1',
-                    lap_number: '6',
-                  })
-            }
-          />
+          /* Stitch Falsification Matrix → the dedicated matrix view over the
+             real hypothesis-evaluation investigation (H1–H6 with engine
+             verdicts, evidence links and the decision trace) */
+          <Suspense fallback={<LoadingLine label="Loading falsification matrix…" />}>
+            <FalsificationMatrixView
+              key={params.toString()}
+              presetParams={[...params.keys()].length > 0 ? params : undefined}
+            />
+          </Suspense>
         )}
 
         {view === 'investigate' && (
@@ -326,7 +319,10 @@ export default function App() {
         )}
         {view === 'counterfactual' && (
           <Suspense fallback={<LoadingLine label="Loading counterfactual view…" />}>
-            <CounterfactualView />
+            <CounterfactualView
+              key={params.toString()}
+              presetParams={[...params.keys()].length > 0 ? params : undefined}
+            />
           </Suspense>
         )}
         {view === 'envelope' && (

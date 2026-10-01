@@ -45,11 +45,15 @@ design without selector churn. A design-system contract test pins this.
 
 | Stitch screen | Production surface |
 | --- | --- |
-| Engineering Command Center | `#/command` (CommandCenterView) — query console, launcher, real system status |
-| Active Investigation Workspace (v1–v3) | `#/autonomous` (AutonomousView) + flagship hero upgrades in `#/investigate` (InvestigationView) |
-| Falsification Matrix | `#/falsification` — new route mapping to the real hypothesis-evaluation investigation (H1–H6 + falsification gate); no mock |
-| Counterfactual Lab | `#/counterfactual` (CounterfactualView, real simulation) |
-| Navigation Deck (sidebar) | App shell sidebar with Stitch vocabulary: Active Investigation, Falsification Matrix, Sessions & Drivers, Counterfactual Lab, Regime Timeline |
+| Engineering Command Center | `#/command` (CommandCenterView) — template pills, autonomous query console (real 6T), launcher, recents ledger, focused trace preview, real system status |
+| Active Investigation Workspace (v1–v3) | `#/investigate` (InvestigationView) — flagship: hero question, measured context strip, metric strip with observed delta + unassigned residual, aligned telemetry canvas, degradation context, evidence ledger, decision trace, graph, synthesis with real actions |
+| Falsification Matrix | `#/falsification` (FalsificationMatrixView) — dedicated matrix over the real hypothesis-evaluation investigation: statement, engine evaluation rule, evaluated evidence ids (drawer), canonical verdicts, decision-trace rail, synthesis bar; CONTRADICTED filter; export |
+| Counterfactual Lab | `#/counterfactual` (CounterfactualView) — real 6I simulation with driver/lap/fraction controls, MODELLED labelling, real validation gates, aligned profile canvas (opt-in samples), real Phase 6J sensitivity sweep, epistemics/provenance |
+| Navigation Deck (sidebar) | App shell sidebar with Stitch vocabulary: Active Investigation, Falsification Matrix, Sessions & Drivers, Counterfactual Lab, Regime Timeline, Engineering Memory, Investigation Graph, Replay, Compare |
+
+See `docs/STITCH_RACEWISE_FEATURE_RECONCILIATION.md` for the complete
+feature-by-feature reconciliation matrix (the integration contract) with
+per-item statuses.
 
 ### Flagship upgrades (InvestigationView)
 
@@ -112,3 +116,30 @@ Hash routes are unchanged (`#/investigate?…` deep links incl.
   cross-highlight, orchestrator-vs-engine distinction).
 - Run: `npm --prefix apps/web test` (vitest, jsdom).
 - Frontend build (`tsc -b && vite build`) type-checks everything.
+
+## 4. Backend extensions added by the Stitch integration
+
+Both are additive; no existing endpoint, vocabulary, hash or behavior changed.
+
+1. `GET /api/catalog/session-context/{season}/{round}` — measured context
+   (stints, per-lap compound/tyre-life/position for requested drivers,
+   weather summary, telemetry coverage) composed from existing canonical
+   queries. Powers the context strip and degradation context with real
+   rows instead of Stitch's invented ones.
+2. Opt-in `include_profile` on `GET /api/catalog/counterfactual` — bounded
+   (cap 192) deterministic decimation of the aligned speed profiles the 6I
+   engine already computes. Default OFF keeps the canonical payload hash
+   unchanged (the hash covers the payload). Powers the aligned telemetry
+   canvas and the lab trace; display only — the model integrates the full
+   grid.
+
+## 5. Fabrication guard
+
+`apps/web/src/design-system.test.ts` includes a fabrication-guard suite
+that scans every production source file (excluding tests) and fails the
+build tests if any of the Stitch fabrications appear: 100 Hz claims,
+`94.2%`/`P=0.`-style confidence values, `AeroDelta`, `8-CORE`, `42k
+slices`, `1,420 solved investigations`, `Dr. H. Vance`, publish/sign-off
+buttons, `Falsify Claim`, MGU-K / steering-lock / lateral-acceleration /
+slip-ratio / tyre-temperature channels, or any causal-graph label. The
+honest grid label (`0.25 s`, `aligned telemetry`) is pinned instead.

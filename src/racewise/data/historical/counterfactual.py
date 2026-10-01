@@ -71,6 +71,13 @@ from racewise.data.historical.loss_attribution import (
 
 COUNTERFACTUAL_VERSION = "1.0"
 
+# Opt-in bounded profile serialization (frontend trace canvas). Evenly
+# spaced deterministic decimation of the shared grid; display only - the
+# model always integrates the FULL grid, never the samples. The default
+# (opt-out) payload is byte-identical to the pre-extension output, so all
+# golden hashes remain valid; the version is NOT bumped.
+PROFILE_SAMPLE_CAP = 192
+
 VALID = "VALID"
 INSUFFICIENT = "INSUFFICIENT_EVIDENCE"
 UNAVAILABLE = "UNAVAILABLE"
@@ -333,12 +340,19 @@ def simulate_telemetry_counterfactual(
     reference_driver: Optional[str] = None,
     session_type: str = "RACE",
     segment_s: float = SEGMENT_S_DEFAULT,
+    include_profile: bool = False,
 ) -> dict[str, Any]:
     """Validated single-lap telemetry counterfactual.
 
     Returns a deterministic evidence-bounded result; every failure mode has
     an explicit status (UNAVAILABLE / INSUFFICIENT_EVIDENCE / UNSUPPORTED).
     The predicted delta measures MODEL SENSITIVITY to the intervention.
+
+    include_profile=True additionally serializes a bounded, evenly spaced
+    sample of the aligned speed profiles for display. Default False keeps
+    the canonical payload (and therefore output_hash) byte-identical to
+    previous versions; the model NEVER integrates the samples - only the
+    full grid.
     """
     base: dict[str, Any] = {
         "analysis": "simulate_telemetry_counterfactual",
@@ -585,10 +599,45 @@ def simulate_telemetry_counterfactual(
             "alignment": "loss_attribution.ALPHA_RESAMPLE grid (0.25 s)",
         },
     }
+    if include_profile:
+        out["profile_samples"] = _profile_samples(grid, target_vals, ref_vals, cf_vals)
     out["output_hash"] = hashlib.sha256(
         json.dumps(out, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()[:16]
     return out
+
+
+def _profile_samples(
+    grid: list[float],
+    target_vals: list[float],
+    ref_vals: Optional[list[float]],
+    cf_vals: list[float],
+) -> dict[str, Any]:
+    """Bounded, deterministic, evenly spaced profile samples for display.
+
+    Decimation is a fixed function of the grid length (same input -> same
+    samples -> same output_hash). The samples carry no analytical weight:
+    every model quantity is computed from the full grid.
+    """
+    n = len(grid)
+    if n <= PROFILE_SAMPLE_CAP:
+        idx = list(range(n))
+    else:
+        step = (n - 1) / (PROFILE_SAMPLE_CAP - 1)
+        idx = sorted({int(round(i * step)) for i in range(PROFILE_SAMPLE_CAP)})
+    return {
+        "n_total_points": n,
+        "n_samples": len(idx),
+        "cap": PROFILE_SAMPLE_CAP,
+        "unit": "km/h",
+        "sampling": "deterministic evenly spaced decimation of the 0.25 s "
+                    "lap-relative grid; display only - the model integrates "
+                    "the full grid",
+        "t_s": [round(grid[i], 4) for i in idx],
+        "target_kmh": [round(target_vals[i], 3) for i in idx],
+        "reference_kmh": [round(ref_vals[i], 3) for i in idx] if ref_vals else None,
+        "counterfactual_kmh": [round(cf_vals[i], 3) for i in idx],
+    }
 
 
 def _intervention_definition(intervention_type: str) -> str:

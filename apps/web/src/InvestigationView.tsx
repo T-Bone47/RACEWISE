@@ -2,20 +2,37 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES,
 } from './types'
-import type { InvestigationResult, LedgerItem } from './types'
+import type { InvestigationResult } from './types'
 import { StructuredError, WorkspaceSkeleton } from './workspace'
 import { ClaimTag, ContextInspector, StateChip } from './workspace'
 import type { InspectorEntry, ProvenanceTarget } from './workspace'
 import { GraphPanel, ReplayPanel, ComparePanel, MemoryPanel } from './panels'
 import { saveRecent } from './CommandCenterView'
 import type { RecentInvestigation } from './CommandCenterView'
-
+import { ComparabilityChip, ContextStrip, DegradationContextPanel, SpeedProfileCanvas } from './stitch'
+import type { LedgerItem, ProfileSamples } from './types'
 /* ============ 6Q — Investigation Workspace (Stitch flagship) ============
-   Hero question → metric strip → phase timeline → hypothesis matrix →
-   telemetry deltas → evidence ledger + decision trace → graph →
-   counterfactuals → synthesis → replay/compare/memory. All values from
-   the deterministic backend; the UI never computes conclusions.
+   Hero question → context strip → metric strip → phase timeline →
+   hypothesis matrix → telemetry canvas + deltas → evidence ledger +
+   decision trace → graph → counterfactuals → synthesis →
+   replay/compare/memory. All values from the deterministic backend; the
+   UI never computes conclusions.
    ========================================================================= */
+
+/* real KPI extraction from the 6N evidence ledger (engine-generated stable
+   claims; the frontend never recomputes an engineering quantity) */
+function observedDeltaItem(ledger: LedgerItem[]): LedgerItem | null {
+  return ledger.find((it) =>
+    it.state === 'OBSERVED' &&
+    typeof it.measured_value === 'number' &&
+    (it.claim.startsWith('observed lap delta') ||
+     it.claim.startsWith('official classified time difference') ||
+     it.claim.startsWith('analytical cumulative comparable gap'))) ?? null
+}
+
+function residualItem(ledger: LedgerItem[]): LedgerItem | null {
+  return ledger.find((it) => it.claim.startsWith('unexplained residual component')) ?? null
+}
 
 /* telemetry window mirror of /api/catalog/telemetry-comparison */
 interface TelemetryWindow {
@@ -27,11 +44,13 @@ interface TelemetryWindow {
 }
 
 /* §10 signature interaction: contextual telemetry deltas for the same
-   canonical scope, from the real comparison endpoint. Hovering a window
-   highlights telemetry-sourced evidence rows (a REAL relationship: same
-   source class, same scope) — no invented per-window evidence mapping. */
+   canonical scope, from the real comparison endpoint. The canvas above the
+   windows renders the REAL aligned speed traces (opt-in profile samples,
+   0.25 s grid) - never a synthetic series. Hovering a window highlights
+   telemetry-sourced evidence rows (a REAL relationship: same source class,
+   same scope) — no invented per-window evidence mapping. */
 function TelemetryDeltaPanel({
-  season, round, driverA, driverB, lapNumber,
+  season, round, driverA, driverB, lapNumber, sessionType,
   active, onHover,
 }: {
   season: number
@@ -39,19 +58,26 @@ function TelemetryDeltaPanel({
   driverA: string
   driverB: string
   lapNumber: number
+  sessionType: string
   active: boolean
   onHover: (hovering: boolean) => void
 }) {
   const [windows, setWindows] = useState<TelemetryWindow[] | null>(null)
   const [verdict, setVerdict] = useState<string | null>(null)
   const [reason, setReason] = useState<string | null>(null)
+  const [samples, setSamples] = useState<ProfileSamples | null>(null)
+  const [samplesNote, setSamplesNote] = useState<string | null>(null)
+
+  const raceScoped = sessionType === 'RACE'
 
   useEffect(() => {
-    if (!active) return
+    if (!active || !raceScoped) return
     let cancelled = false
     setWindows(null)
     setVerdict(null)
     setReason(null)
+    setSamples(null)
+    setSamplesNote(null)
     const params = new URLSearchParams({ driver_a: driverA, driver_b: driverB })
     if (lapNumber >= 1) params.set('lap', String(lapNumber))
     fetch(`/api/catalog/telemetry-comparison/${season}/${round}?${params}`)
@@ -64,7 +90,34 @@ function TelemetryDeltaPanel({
       })
       .catch(() => { if (!cancelled) setVerdict('UNAVAILABLE') })
     return () => { cancelled = true }
-  }, [active, season, round, driverA, driverB])
+  }, [active, raceScoped, season, round, driverA, driverB])
+
+  /* real aligned speed traces: identity fraction (f=0) returns the measured
+     target + reference profiles on the shared grid - the intervention is
+     provably the identity, so nothing modelled is displayed here */
+  useEffect(() => {
+    if (!active || !raceScoped) return
+    let cancelled = false
+    setSamples(null)
+    const params = new URLSearchParams({
+      driver: driverB,
+      reference_driver: driverA,
+      fraction: '0',
+      include_profile: 'true',
+    })
+    if (lapNumber >= 1) params.set('lap', String(lapNumber))
+    fetch(`/api/catalog/counterfactual/${season}/${round}?${params}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j: { status?: string; reason?: string; profile_samples?: ProfileSamples }) => {
+        if (cancelled) return
+        if (j.status === 'VALID' && j.profile_samples) setSamples(j.profile_samples)
+        else setSamplesNote(j.status && j.status !== 'VALID'
+          ? `${j.status}${j.reason ? ` — ${j.reason}` : ''}`
+          : null)
+      })
+      .catch(() => { if (!cancelled) setSamplesNote('UNAVAILABLE') })
+    return () => { cancelled = true }
+  }, [active, raceScoped, season, round, driverA, driverB, lapNumber])
 
   if (!active) return null
   const maxLoss = windows?.length ? Math.max(...windows.map((w) => Math.abs(w.est_time_loss_s))) : 0
@@ -72,48 +125,73 @@ function TelemetryDeltaPanel({
   return (
     <section
       className="panel"
-      aria-label="Telemetry deltas"
+      aria-label="Telemetry canvas and deltas"
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
     >
-      <h2>Telemetry deltas — same scope (hover to highlight telemetry-sourced evidence)</h2>
-      {verdict === 'PASS' && windows && windows.length > 0 && (
-        <table className="catalog-table">
-          <thead>
-            <tr>
-              <th scope="col">Window [s]</th>
-              <th scope="col">Speed Δ [km/h]</th>
-              <th scope="col">Throttle Δ [%]</th>
-              <th scope="col">Brake Δ</th>
-              <th scope="col">Est. loss [s]</th>
-            </tr>
-          </thead>
-          <tbody>
-            {windows.map((w) => (
-              <tr key={w.t_start_s}>
-                <td className="mono small">{w.t_start_s}</td>
-                <td className="mono small">{w.speed_delta_kmh}</td>
-                <td className="mono small">{w.throttle_delta_pct}</td>
-                <td className="mono small">{w.brake_delta_frac}</td>
-                <td>
-                  <span className="mono small">{w.est_time_loss_s}</span>
-                  {maxLoss > 0 && (
-                    <div className="tv-bar" style={{ width: `${(Math.abs(w.est_time_loss_s) / maxLoss) * 100}%` }} />
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <h2>Telemetry canvas — aligned speed traces + per-window deltas</h2>
+      {!raceScoped ? (
+        <div className="empty-state">
+          Aligned speed profiles and window comparisons are computed for RACE
+          sessions under the bounded telemetry policy. This scope is{' '}
+          {sessionType} — no race telemetry is substituted for it.
+        </div>
+      ) : (
+        <>
+          <SpeedProfileCanvas
+            samples={samples}
+            targetLabel={`${driverB} (target)`}
+            referenceLabel={`${driverA} (reference)`}
+            emptyReason={samplesNote || 'speed profiles unavailable for this scope'}
+            caption={
+              <>
+                Measured traces of both drivers on the shared lap-relative grid
+                (shaded = laps where the reference was faster). Native provider
+                samples (~0.16–0.40 s apart) are resampled onto the 0.25 s
+                analysis grid — this is aligned telemetry, not a higher native
+                rate.
+              </>
+            }
+          />
+          {verdict === 'PASS' && windows && windows.length > 0 && (
+            <table className="catalog-table">
+              <thead>
+                <tr>
+                  <th scope="col">Window start [s]</th>
+                  <th scope="col">Speed Δ [km/h]</th>
+                  <th scope="col">Throttle Δ [%]</th>
+                  <th scope="col">Brake Δ</th>
+                  <th scope="col">Est. loss [s]</th>
+                </tr>
+              </thead>
+              <tbody>
+                {windows.map((w) => (
+                  <tr key={w.t_start_s}>
+                    <td className="mono small">{w.t_start_s}</td>
+                    <td className="mono small">{w.speed_delta_kmh}</td>
+                    <td className="mono small">{w.throttle_delta_pct}</td>
+                    <td className="mono small">{w.brake_delta_frac}</td>
+                    <td>
+                      <span className="mono small">{w.est_time_loss_s}</span>
+                      {maxLoss > 0 && (
+                        <div className="tv-bar" style={{ width: `${(Math.abs(w.est_time_loss_s) / maxLoss) * 100}%` }} />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {verdict && verdict !== 'PASS' && (
+            <div className="empty-state">{verdict}{reason ? ` — ${reason}` : ''}</div>
+          )}
+          <p className="muted small">
+            Deterministic per-window comparison for this canonical scope
+            (lap {lapNumber >= 1 ? lapNumber : 'selected by the engine'}). The UI
+            renders the engine's windows — it never computes losses itself.
+          </p>
+        </>
       )}
-      {verdict && verdict !== 'PASS' && (
-        <div className="empty-state">{verdict}{reason ? ` — ${reason}` : ''}</div>
-      )}
-      <p className="muted small">
-        Deterministic per-window comparison for this canonical scope
-        (lap {lapNumber >= 1 ? lapNumber : 'selected by the engine'}). The UI
-        renders the engine's windows — it never computes losses itself.
-      </p>
     </section>
   )
 }
@@ -209,6 +287,15 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
         output_hash: j.output_hash,
         conclusion_state: j.synthesis.conclusion_state,
         evidence_count: j.evidence_ledger.length,
+        hypothesis_states: Object.fromEntries(
+          Object.values(j.hypothesis_evaluations).map((h) => [h.hypothesis_id, h.aggregate_state]),
+        ),
+        observed_delta_s: typeof observedDeltaItem(j.evidence_ledger)?.measured_value === 'number'
+          ? (observedDeltaItem(j.evidence_ledger)!.measured_value as number)
+          : null,
+        residual_s: typeof residualItem(j.evidence_ledger)?.measured_value === 'number'
+          ? (residualItem(j.evidence_ledger)!.measured_value as number)
+          : null,
         at: Date.now(),
       } as RecentInvestigation)
     } catch (e) {
@@ -360,10 +447,33 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
           {inputs.includes('stint_number') && stintNumber >= 1 ? ` · stint ${stintNumber}` : ''}
           {sessionType === 'QUALIFYING' ? ' · qualifying' : ''}
         </h2>
+        {/* measured context strip — real compounds, tyre life, positions,
+            weather and coverage from the canonical rows (no fabrication) */}
+        <ContextStrip
+          season={season}
+          round={round}
+          sessionType={sessionType}
+          driverA={driverA.trim()}
+          driverB={driverB.trim()}
+          lap={inputs.includes('lap_number') && lapNumber >= 1 ? lapNumber : null}
+          stint={inputs.includes('stint_number') && stintNumber >= 1 ? stintNumber : null}
+        />
         {result && (
           <>
             {/* metric strip: only values that exist in the real result */}
             <div className="metric-strip" role="list" aria-label="Investigation metrics">
+              {(() => {
+                const gap = observedDeltaItem(result.evidence_ledger)
+                return gap != null && typeof gap.measured_value === 'number' ? (
+                  <div role="listitem">
+                    <span className="m-label">Observed delta ({gap.units ?? 's'})</span>
+                    <span className="m-value">{gap.measured_value}</span>
+                    <span className="m-sub">
+                      {gap.claim.includes('classified') ? 'official classification' : 'measured'} · {gap.evidence_id}
+                    </span>
+                  </div>
+                ) : null
+              })()}
               <div role="listitem">
                 <span className="m-label">Evidence items</span>
                 <span className="m-value">{result.evidence_ledger.length}</span>
@@ -379,6 +489,26 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                 <span className="m-value">{result.evidence_conflicts.length}</span>
                 <span className="m-sub">never resolved away</span>
               </div>
+              {/* comparability verdict from the real 6E attribution for this
+                  exact scope (renders nothing when out of scope) */}
+              <ComparabilityChip
+                season={result.question.scope.season}
+                round={result.question.scope.round}
+                driverA={result.question.scope.driver_a}
+                driverB={result.question.scope.driver_b}
+                lap={result.question.scope.lap_number}
+                sessionType={result.question.scope.session_type}
+              />
+              {(() => {
+                const res = residualItem(result.evidence_ledger)
+                return res != null && typeof res.measured_value === 'number' ? (
+                  <div role="listitem">
+                    <span className="m-label">Unassigned residual</span>
+                    <span className="m-value">{res.measured_value} {res.units ?? 's'}</span>
+                    <span className="m-sub">UNRESOLVED — never assigned to a mechanism</span>
+                  </div>
+                ) : null
+              })()}
               <div role="listitem">
                 <span className="m-label">Counterfactuals</span>
                 <span className="m-value">{result.executed_counterfactuals.length}</span>
@@ -697,19 +827,31 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
             </button>
           </section>
 
-          {/* ================= TELEMETRY DELTAS (§10) ================= */}
+          {/* ================= TELEMETRY CANVAS + DELTAS (§10) ================= */}
           <TelemetryDeltaPanel
             season={result.question.scope.season}
             round={result.question.scope.round}
             driverA={result.question.scope.driver_a}
             driverB={result.question.scope.driver_b}
             lapNumber={result.question.scope.lap_number ?? 0}
+            sessionType={result.question.scope.session_type}
             active={result.evidence_ledger.some((it) =>
               it.source_tool.includes('telemetry') ||
               it.source_phase === '6E' ||
               it.source_phase === '6F')}
             onHover={setTelemetryHover}
           />
+
+          {/* ================= DEGRADATION CONTEXT (real 6G, RACE scopes) ===== */}
+          {result.question.scope.session_type === 'RACE' && (
+            <DegradationContextPanel
+              season={result.question.scope.season}
+              round={result.question.scope.round}
+              driverA={result.question.scope.driver_a}
+              driverB={result.question.scope.driver_b}
+              stint={result.question.scope.stint_number}
+            />
+          )}
 
           {/* ================= EVIDENCE LEDGER + DECISION TRACE (§10/§12) ================= */}
           <div className="split">
@@ -964,10 +1106,52 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                 ))}
               </div>
             </div>
+            {/* synthesis actions — every button maps to a real capability:
+                export (verbatim payload), replay (deterministic re-run below),
+                counterfactual lab (same scope, real 6I endpoint) */}
+            <div className="synth-actions" aria-label="Synthesis actions">
+              <button
+                onClick={() => {
+                  const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `racewise-investigation-${result.investigation_id}.json`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+              >
+                Export investigation (JSON)
+              </button>
+              <button
+                onClick={() => {
+                  document.getElementById('inv-replay')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+              >
+                Replay (deterministic re-run)
+              </button>
+              {result.question.scope.session_type === 'RACE' && (
+                <button
+                  onClick={() => {
+                    const p = new URLSearchParams({
+                      season: String(result.question.scope.season),
+                      round: String(result.question.scope.round),
+                      driver: result.question.scope.driver_b,
+                      reference: result.question.scope.driver_a,
+                    })
+                    if (result.question.scope.lap_number != null) p.set('lap', String(result.question.scope.lap_number))
+                    window.location.hash = `#/counterfactual?${p.toString()}`
+                    window.dispatchEvent(new HashChangeEvent('hashchange'))
+                  }}
+                >
+                  Open counterfactual lab with this scope
+                </button>
+              )}
+            </div>
           </section>
 
           {/* ================= REPLAY / COMPARE / MEMORY (§18-§20) ================= */}
-          <section className="panel" aria-label="Replay">
+          <section className="panel" id="inv-replay" aria-label="Replay">
             <h2>Replay</h2>
             <ReplayPanel scopeParams={scopeParams} />
           </section>

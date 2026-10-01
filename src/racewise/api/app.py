@@ -499,6 +499,121 @@ def catalog_stint_evidence(
     return fuse_stint_evidence(queries, season, round, driver_a, driver_b, best[1])
 
 
+@app.get("/api/catalog/session-context/{season}/{round}")
+def catalog_session_context(
+    season: int, round: int,
+    session_type: str = "RACE",
+    drivers: str = "",
+) -> dict[str, Any]:
+    """Real measured session context for the investigation context strip.
+
+    Composed exclusively from existing canonical queries (no new
+    intelligence): session identity, per-driver stint windows with compound
+    and lap ranges, weather summary (measured values only) and bounded
+    telemetry coverage. Missing facets are reported as UNAVAILABLE /
+    INSUFFICIENT_EVIDENCE - never broadened or interpolated.
+
+    drivers (comma-separated driver_keys, <= 4) additionally returns the
+    measured per-lap facts (position, lap time, compound, tyre life) for
+    those drivers only - the same rows 6E reads.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.data.historical.catalog_api import get_catalog_api
+
+    if session_type not in ("RACE", "QUALIFYING"):
+        raise HTTPException(status_code=422, detail="session_type must be RACE or QUALIFYING")
+    api = get_catalog_api()
+    detail = api.session_detail(season, round, session_type)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Session not found in canonical catalog")
+    queries = get_canonical_queries()
+
+    # stints (compound + lap windows) - measured FastF1-sourced rows only
+    stints = queries.get_stints(season, round, session_type)
+    stints_by_driver: dict[str, list[dict[str, Any]]] = {}
+    for s in stints:
+        stints_by_driver.setdefault(s["driver_key"], []).append({
+            "stint_number": s["stint_number"],
+            "compound": s.get("compound"),
+            "lap_start": s.get("lap_start"),
+            "lap_end": s.get("lap_end"),
+            "lap_count": s.get("lap_count"),
+            "provider": s.get("source_provider"),
+        })
+    for windows in stints_by_driver.values():
+        windows.sort(key=lambda w: w["stint_number"])
+
+    # measured per-lap facts for the requested scope drivers only
+    laps_by_driver: dict[str, list[dict[str, Any]]] = {}
+    requested = [d.strip() for d in drivers.split(",") if d.strip()][:4]
+    for driver_key in requested:
+        rows = queries.get_lap_times(season, round, session_type, driver_key)
+        if not rows:
+            laps_by_driver[driver_key] = []
+            continue
+        laps_by_driver[driver_key] = [{
+            "lap_number": r["lap_number"],
+            "position": r.get("position"),
+            "time_s": r.get("time_s"),
+            "compound": r.get("compound"),
+            "tyre_life": r.get("tyre_life"),
+        } for r in rows]
+
+    # weather summary - measured observations only, honest when absent
+    weather_rows = queries.get_weather(season, round, session_type)
+    weather: dict[str, Any] = {"status": "UNAVAILABLE",
+                               "reason": "no canonical weather observations for this session"}
+    if weather_rows:
+        airs = [r["air_temp_c"] for r in weather_rows if r.get("air_temp_c") is not None]
+        tracks = [r["track_temp_c"] for r in weather_rows if r.get("track_temp_c") is not None]
+        rain = [r for r in weather_rows if r.get("rainfall")]
+        weather = {
+            "status": "AVAILABLE",
+            "observations": len(weather_rows),
+            "air_temp_c_first": airs[0] if airs else None,
+            "air_temp_c_last": airs[-1] if airs else None,
+            "track_temp_c_first": tracks[0] if tracks else None,
+            "track_temp_c_last": tracks[-1] if tracks else None,
+            "rainfall_observations": len(rain),
+        }
+
+    # telemetry coverage - bounded policy facts, never extrapolated
+    tel = queries.telemetry_summary(season, round, session_type)
+    telemetry = {
+        "available": bool(tel.get("available")),
+        "sample_count": tel.get("sample_count", 0),
+        "drivers": tel.get("drivers", 0),
+        "covered_laps": tel.get("laps", []),
+        "analysis_grid_s": 0.25,
+        "policy": "bounded Phase 6D coverage (top-2 classified finishers, "
+                  "evenly spaced clean laps); laps outside the covered subset "
+                  "report honest evidence limits",
+    }
+
+    return {
+        "season": season,
+        "round": round,
+        "session_type": session_type,
+        "session": {
+            "session_id": detail.get("session_id"),
+            "race_name": detail.get("race_name"),
+            "season": detail.get("season"),
+            "round": detail.get("round"),
+            "date": detail.get("date"),
+            "circuit": detail.get("circuit"),
+        },
+        "stints_by_driver": stints_by_driver,
+        "laps_by_driver": laps_by_driver,
+        "weather": weather,
+        "telemetry": telemetry,
+        "provenance": {
+            "tables": ["canonical_stints", "canonical_lap_times", "canonical_weather",
+                       "canonical_telemetry", "canonical_session_catalog"],
+            "method": "direct canonical row reads; no derivation, no interpolation",
+        },
+    }
+
+
 @app.get("/api/catalog/counterfactual/{season}/{round}")
 def catalog_counterfactual(
     season: int, round: int,
@@ -506,6 +621,7 @@ def catalog_counterfactual(
     reference_driver: str = "",
     lap: Optional[int] = None,
     fraction: float = 0.5,
+    include_profile: bool = False,
 ) -> dict[str, Any]:
     """Validated telemetry counterfactual for the frontend view (bounded).
 
@@ -513,6 +629,10 @@ def catalog_counterfactual(
     canonical telemetry pair. Lap defaults to the first telemetry lap with a
     VALID counterfactual result - never a fabricated one. All validation,
     transformation and simulation happen server-side; the frontend renders.
+
+    include_profile=True additionally returns a bounded, evenly spaced
+    sample of the aligned speed profiles (display only; default False keeps
+    the canonical payload hash unchanged).
     """
     from racewise.data.historical.canonical_queries import get_canonical_queries
     from racewise.data.historical.catalog_api import get_catalog_api
@@ -545,7 +665,8 @@ def catalog_counterfactual(
     if lap is not None:
         return simulate_telemetry_counterfactual(
             queries, season, round, driver, int(lap), "speed",
-            "REMOVE_DEFICIT", float(fraction), reference_driver=reference_driver)
+            "REMOVE_DEFICIT", float(fraction), reference_driver=reference_driver,
+            include_profile=include_profile)
     summary = queries.telemetry_summary(season, round, "RACE")
     if not summary["available"]:
         return {"season": season, "round": round, "status": "UNAVAILABLE",
@@ -553,7 +674,8 @@ def catalog_counterfactual(
     for candidate in summary["laps"]:  # chronological; first VALID wins
         res = simulate_telemetry_counterfactual(
             queries, season, round, driver, int(candidate), "speed",
-            "REMOVE_DEFICIT", float(fraction), reference_driver=reference_driver)
+            "REMOVE_DEFICIT", float(fraction), reference_driver=reference_driver,
+            include_profile=include_profile)
         if res.get("status") == VALID:
             return res
     return {"season": season, "round": round, "status": "INSUFFICIENT_EVIDENCE",
