@@ -7,6 +7,8 @@ import {
 import '@fontsource-variable/inter'
 import '@fontsource-variable/jetbrains-mono'
 import './App.css'
+import { MotionConfig, motion } from 'motion/react'
+import { T, V } from './motion'
 import CommandCenterView from './CommandCenterView'
 import CommandPalette from './CommandPalette'
 import InvestigationView from './InvestigationView'
@@ -174,6 +176,7 @@ export default function App() {
   }, [params])
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className={`shell ${zen ? 'zen' : ''}`}>
       {/* ================= HEADER — Stitch topbar with context crumb ================= */}
       <header className="shell-header">
@@ -208,7 +211,13 @@ export default function App() {
       </header>
 
       {/* ================= SIDEBAR — Stitch Navigation Deck ================= */}
-      <nav className="shell-sidebar" aria-label="Workspace navigation">
+      <motion.nav
+        className="shell-sidebar"
+        aria-label="Workspace navigation"
+        animate={{ opacity: zen ? 0 : 1, x: zen ? -6 : 0 }}
+        transition={T.panel}
+        style={{ pointerEvents: zen ? 'none' : undefined }}
+      >
         <button
           className="primary"
           style={{ width: '100%', marginBottom: 10 }}
@@ -226,16 +235,27 @@ export default function App() {
                 onClick={() => navigate(item.id)}
                 aria-current={view === item.id ? 'page' : undefined}
               >
+                {view === item.id && (
+                  /* instrument cursor: one shared element gliding between
+                     destinations (Motion layoutId; disabled under reduced motion) */
+                  <motion.span
+                    layoutId="nav-active-cursor"
+                    className="nav-cursor"
+                    aria-hidden="true"
+                    transition={T.panelSpring}
+                  />
+                )}
                 <span className="nav-ico" aria-hidden="true"><item.icon size={16} strokeWidth={1.75} /></span>
                 <span className="nav-label">{item.label}</span>
               </button>
             ))}
           </div>
         ))}
-      </nav>
+      </motion.nav>
 
       {/* ================= WORKSPACE ================= */}
-      <main className="shell-workspace">
+      <motion.main className="shell-workspace" layout>
+        <motion.div key={view} initial={V.viewIn.initial} animate={V.viewIn.animate} transition={T.panel}>
         {view === 'command' && <CommandCenterView onNavigated={navigate} />}
 
         {view === 'autonomous' && (
@@ -384,10 +404,16 @@ export default function App() {
             <PatternEvidenceView />
           </Suspense>
         )}
-      </main>
+        </motion.div>
+      </motion.main>
 
       {/* ================= STATUS BAR (§33 — only real state) ================= */}
-      <footer className="shell-statusbar">
+      <motion.footer
+        className="shell-statusbar"
+        animate={{ opacity: zen ? 0 : 1 }}
+        transition={T.micro}
+        style={{ pointerEvents: zen ? 'none' : undefined }}
+      >
         <span className="statusbar-item">
           <span
             className={`status-dot ${engineUp === false ? 'status-dot-down' : ''}`}
@@ -398,30 +424,35 @@ export default function App() {
         {engineUp !== false && <span className="statusbar-item">EVIDENCE-DRIVEN · ZERO STORAGE GROWTH</span>}
         {recentsCount > 0 && <span className="statusbar-item">{recentsCount} RECENT INVESTIGATION(S)</span>}
         <span className="statusbar-item" style={{ marginLeft: 'auto' }}>RACEWISE ENGINEERING WORKSTATION</span>
-      </footer>
+      </motion.footer>
 
       {/* ================= COMMAND PALETTE (§26) ================= */}
+      {/* animated open, instant close — keyboard speed over spectacle (§34) */}
       {paletteOpen && (
-        <div
-          className="overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Command palette"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setPaletteOpen(false) }}
-        >
-          <CommandPalette
-            onClose={() => setPaletteOpen(false)}
-            onNavigate={(v) => {
-              setPaletteOpen(false)
-              if (v === 'zen') { setZen((z) => !z); return }
-              navigate(v)
-            }}
-            currentView={view}
-            currentParams={params}
-          />
-        </div>
+          <motion.div
+            className="overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command palette"
+            initial={V.backdrop.initial}
+            animate={V.backdrop.animate}
+            transition={T.micro}
+            onMouseDown={(e) => { if (e.target === e.currentTarget) setPaletteOpen(false) }}
+          >
+            <CommandPalette
+              onClose={() => setPaletteOpen(false)}
+              onNavigate={(v) => {
+                setPaletteOpen(false)
+                if (v === 'zen') { setZen((z) => !z); return }
+                navigate(v)
+              }}
+              currentView={view}
+              currentParams={params}
+            />
+          </motion.div>
       )}
     </div>
+    </MotionConfig>
   )
 }
 

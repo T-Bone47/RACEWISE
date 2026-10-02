@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { motion } from 'motion/react'
+import { T, V } from './motion'
 import {
   HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES,
 } from './types'
@@ -589,8 +591,17 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
           stint={inputs.includes('stint_number') && stintNumber >= 1 ? stintNumber : null}
         />
 
-        {/* observation band — only values that exist in the real result */}
+        {/* observation band — only values that exist in the real result.
+            Keyed by the investigation id: a NEW investigation settles into
+            place (one coordinated phase); the values themselves never
+            animate (engineering truth stays exact). */}
         {result && (
+          <motion.div
+            key={result.investigation_id}
+            initial={V.riseIn.initial}
+            animate={V.riseIn.animate}
+            transition={T.panel}
+          >
           <div className="metric-strip" role="list" aria-label="Investigation metrics">
             {(() => {
               const gap = observedDeltaItem(result.evidence_ledger)
@@ -648,6 +659,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
               <span className="m-sub">{result.synthesis.unresolved_questions.length} unresolved</span>
             </div>
           </div>
+          </motion.div>
         )}
 
         {/* run meta — single source of truth line */}
@@ -764,7 +776,12 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
       )}
 
       {result && (
-        <div className="inv-workstation">
+        <motion.div
+          className="inv-workstation"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={T.panel}
+        >
           {/* ================= STAGE RAIL (left) ================= */}
           <nav className="stage-rail" aria-label="Investigation stages">
             {STAGES.map((s, i) => (
@@ -805,6 +822,14 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
 
           {/* ================= CENTER — dominant analytical canvas ================= */}
           <div className="stage-center">
+            {/* stage transition: "focus changed", not "page changed" (§23) —
+                keyed on the stage, short and interruptible */}
+            <motion.div
+              key={stage}
+              initial={V.viewIn.initial}
+              animate={V.viewIn.animate}
+              transition={T.panel}
+            >
             {/* ---------- OBSERVATION ---------- */}
             {stage === 'observation' && (
               <>
@@ -838,16 +863,31 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
               <section className="panel stage-panel" aria-label="Hypothesis matrix">
                 <h2>Hypothesis matrix (never ranked)</h2>
                 <div className="hyp-rows">
-                  {Object.values(result.hypothesis_evaluations).map((h) => (
-                    <button
-                      key={h.hypothesis_id}
-                      className="hyp-row"
-                      onClick={() => openHypothesisDrawer(h.hypothesis_id)}
-                      title="Open the scientific test in the inspector"
-                    >
-                      <span className={`ef-badge ${hypStateClass(h.aggregate_state)}`}>
-                        {HYP_LABELS[h.hypothesis_id]?.split(' ')[0] ?? h.hypothesis_id}
-                      </span>
+                  {Object.values(result.hypothesis_evaluations).map((h) => {
+                    const openInInspector =
+                      inspector?.kind === 'hypothesis' && inspector.hyp.hypothesis_id === h.hypothesis_id
+                    return (
+                      <button
+                        key={h.hypothesis_id}
+                        className="hyp-row"
+                        onClick={() => openHypothesisDrawer(h.hypothesis_id)}
+                        title="Open the scientific test in the inspector"
+                      >
+                      {openInInspector ? (
+                        /* while the badge is "in" the inspector, the row keeps a
+                           static twin — one layoutId is live at a time */
+                        <span className={`ef-badge ${hypStateClass(h.aggregate_state)}`}>
+                          {HYP_LABELS[h.hypothesis_id]?.split(' ')[0] ?? h.hypothesis_id}
+                        </span>
+                      ) : (
+                        <motion.span
+                          layoutId={`hyp-${h.hypothesis_id}`}
+                          className={`ef-badge ${hypStateClass(h.aggregate_state)}`}
+                          transition={T.layoutSpring}
+                        >
+                          {HYP_LABELS[h.hypothesis_id]?.split(' ')[0] ?? h.hypothesis_id}
+                        </motion.span>
+                      )}
                       <span className="hyp-row-name">{HYP_LABELS[h.hypothesis_id] ?? h.hypothesis_id}</span>
                       <span className="hyp-row-counts mono">
                         <span className="hc-sup" title="supporting evidence">{h.evidence_coverage.supporting}+</span>
@@ -856,7 +896,8 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                       </span>
                       <StateChip state={h.aggregate_state} />
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
                 <p className="muted small">
                   Click a hypothesis to open its test in the inspector: prediction, evaluated
@@ -1231,6 +1272,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                 </section>
               </>
             )}
+          </motion.div>
 
             {/* ================= PERSISTENT DECISION TRACE (bottom) ================= */}
             <section className="trace-strip-wrap" aria-label="Decision trace">
@@ -1293,7 +1335,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
               })()}
             </section>
           </div>
-        </div>
+        </motion.div>
       )}
 
       </div>{/* /inv-main */}

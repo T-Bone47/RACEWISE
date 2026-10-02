@@ -590,10 +590,8 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
   border-radius: var(--st-radius-panel);
   padding: 14px 16px;
   box-shadow: var(--st-shadow-overlay);
-  animation: inspectorin var(--speed-panel) var(--ease);
+  /* entrance/exit owned by Motion (V.inspectorIn) — reduced-motion safe */
 }
-
-@keyframes inspectorin { from { transform: translateX(10px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 .inspector-head {
   display: flex;
@@ -1668,13 +1666,11 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
    cards; elevation over borders; whitespace as structure)
    ============================================================ */
 
-/* ---- focus/zen mode: hide navigation + metadata, maximize analysis ---- */
-.shell.zen { grid-template-columns: 1fr; }
-.shell.zen .shell-sidebar,
-.shell.zen .shell-statusbar { display: none; }
-.shell.zen .shell-header { grid-template-columns: auto auto 1fr auto auto; height: 40px; }
+/* ---- focus/zen mode: Motion owns the transition (workspace `layout`
+       tween + sidebar/statusbar content fade); these are the CSS final
+       states per breakpoint ---- */
 .shell.zen .shell-header .shell-tagline { display: none; }
-.shell.zen .shell-workspace { padding-top: 0; }
+.shell.zen .shell-header { grid-template-columns: auto auto 1fr auto auto; height: 40px; }
 .zen-exit {
   background: rgba(0, 229, 255, 0.08);
   border: 1px solid rgba(0, 229, 255, 0.35);
@@ -1751,4 +1747,74 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
 
 @media (prefers-reduced-motion: reduce) {
   .shell.zen .shell-header, .hyp-row, .trace-node { transition: none; }
+}
+
+/* ============================================================
+   RACEWISE MOTION SYSTEM (motion.ts is the JS twin of these vars)
+   One duration scale, one easing, no bounce; every transition
+   communicates state. Reduced-motion rules at the end.
+   ============================================================ */
+
+:root {
+  --motion-fast: 150ms;    /* micro state feedback   (JS DUR.micro)  */
+  --motion-normal: 200ms;  /* panels/drawers/stages  (JS DUR.panel)   */
+  --motion-slow: 320ms;    /* layout collapse        (JS DUR.layout) */
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ---- sidebar instrument cursor: glides between nav items (Motion layoutId) ---- */
+.nav-item { position: relative; }
+.nav-cursor {
+  position: absolute;
+  left: 0; top: 5px; bottom: 5px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--st-primary);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.25);
+  pointer-events: none;
+}
+
+/* ---- quiet CSS-side state transitions (Motion owns entrances) ---- */
+.trace-node, .hyp-row, .fm-ev-chip, .stage-btn, .tv-zoom button, .palette-item {
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease);
+}
+.tv-region { transition: fill var(--motion-fast) var(--motion-ease); }
+.tv-deficit-region, .tv-drag-region { transition: opacity var(--motion-normal) var(--motion-ease); }
+.trace-dot, .stage-dot { transition: background-color var(--motion-fast) var(--motion-ease); }
+/* cf trace: Motion crossfades the path on scenario change (modelKey); the
+   dash/opacity transition keeps hover emphasis quiet */
+.tv-trace-cf { transition: opacity var(--motion-normal) var(--motion-ease); }
+
+/* ---- skeleton: quiet activity indication (stage-aware shapes, no spinners) ---- */
+.skeleton {
+  animation: skeleton-breathe 1.6s var(--motion-ease) infinite;
+}
+@keyframes skeleton-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ---- zen collapse: Motion owns the visual transition (workspace `layout`
+       tween + sidebar/statusbar content fade) — these are the CSS final
+       states per breakpoint, with no display:none so nothing snaps ---- */
+@media (min-width: 641px) {
+  .shell.zen { grid-template-columns: 0px 1fr; }
+}
+@media (max-width: 640px) {
+  /* mobile stacks in rows — zen collapses the sidebar row */
+  .shell.zen { grid-template-rows: 56px 0px 1fr 30px; }
+}
+.shell .shell-sidebar { overflow: hidden; }
+
+/* ---- reduced motion: instant state changes, no breathing ---- */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; opacity: 0.85; }
+  .trace-node, .hyp-row, .fm-ev-chip, .stage-btn, .tv-zoom button,
+  .palette-item, .tv-region, .tv-trace-cf {
+    transition-duration: 0ms;
+  }
 }

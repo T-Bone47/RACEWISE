@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { EnvelopeSensitivity, ProfileSamples, ScenarioPoint } from './types'
 import { SpeedProfileCanvas } from './stitch'
+import { modelLayerKey } from './motion'
 import { StateChip } from './workspace'
 
 /* ============ Stitch Counterfactual Lab — the real 6I/6J engine ============
@@ -345,12 +346,14 @@ export default function CounterfactualView({ presetParams }: { presetParams?: UR
                 referenceLabel={`${result.reference_driver} (reference)`}
                 showCounterfactual
                 counterfactualLabel="counterfactual"
+                modelKey={modelLayerKey(result.intervention?.fraction)}
                 emptyReason="profile samples unavailable for this lap"
                 caption={
                   <>
                     Baseline and reference are measured traces; the counterfactual trace
-                    (dashed violet) is the MODELLED intervention. All series share the
-                    0.25 s lap-relative analysis grid.
+                    (dashed violet) is the MODELLED intervention — it re-fades when the
+                    scenario changes while the measured traces stay fixed. All series
+                    share the 0.25 s lap-relative analysis grid.
                   </>
                 }
               />

@@ -97,9 +97,57 @@ workflow-shaped, not tool-shaped. Every route above is reachable from the deck
   `MODELLED — NOT HISTORICAL` and never mix into historical values.
 - **Residual stays unresolved:** displayed as `UNRESOLVED — never assigned to a
   mechanism`, never attributed.
-- **Motion:** 150ms color/opacity, 240ms surfaces, ease-out only;
-  `prefers-reduced-motion` renders final states; no layout-thrashing
-  properties (bars animate via transform, never width).
+- **Motion:** 150ms color/opacity, 200ms surfaces, 320ms layout; ease-out
+  only; `prefers-reduced-motion` renders final states; no layout-thrashing
+  properties (bars animate via transform, never width). See §4a for the full
+  motion system.
+
+### 4a. Motion system (implementation — `src/motion.ts`)
+
+Motion communicates state, never decorates. The JS token layer and the CSS
+token layer share one scale (pinned by `src/motion-system.test.ts`):
+
+| Token | Value | Used for |
+|---|---|---|
+| `DUR.micro` / `--motion-fast` | 150ms | color/opacity feedback, content fades |
+| `DUR.panel` / `--motion-normal` | 200ms | inspectors, drawers, palette, stage switch |
+| `DUR.layout` / `--motion-slow` | 320ms | shared-element flight, collapse |
+| `EASE_OUT` / `--motion-ease` | `cubic-bezier(0.2,0,0,1)` | the one easing family |
+| `SPRING` / `SPRING_DRAWER` | stiffness 420/320 · damping 42/38 | critically damped — zero overshoot |
+
+Entrance variants (`V.*`): `riseIn`, `viewIn`, `inspectorIn`, `drawerIn`,
+`paletteIn`, `backdrop`.
+
+**Wired motion — each answers "what changed / where from / what is selected":**
+
+- **Nav instrument cursor:** one `layoutId` glides between sidebar destinations.
+- **Investigation load:** two coordinated phases — the observation band settles
+  (keyed by investigation id), then the workstation rises. No 30-element stagger.
+- **Stage switch:** keyed 200ms rise on the center — "focus changed", not "page changed".
+- **Hypothesis → inspector:** the row's H-badge is a shared `layoutId` — the
+  SAME badge flies into the inspector head and returns on close: "the same
+  object becoming more detailed".
+- **Inspector/drawer:** spring entrance (x+opacity, no bounce), stable head,
+  interruptible 150ms content fade keyed by object identity (Evidence A→B
+  never rebuilds the panel).
+- **Workspace view change:** 200ms keyed rise; Suspense fallbacks stay instant.
+- **Focus mode:** sidebar/statusbar fade out, workspace expands; the CSS grid
+  final state collapses instantly (Motion owns opacity — no width jank).
+- **MODELLED layer:** the counterfactual trace re-fades on scenario change
+  (keyed by the real intervention fraction); observed traces never move.
+- **Palette:** animated open (~150ms), instant close — keyboard speed first.
+- **Skeleton:** a quiet 1.6s opacity breathe, disabled under reduced motion.
+
+**Never animated:** engineering values (no numeric interpolation of any
+backend number) · the telemetry crosshair (immediate) · observed/measured
+traces (only the MODELLED layer crossfades) · the graph (static; motion only
+for focus/selection colors) · no parallax, no infinite loops, no `whileHover`
+springs, no free drag (drag exists only as the canvas region-selection gesture).
+
+**Reduced motion (mandatory):** `<MotionConfig reducedMotion="user">` wraps
+the shell — layout/transform animations collapse to instant, opacity fades are
+preserved, and the CSS layer zeroes every transition under
+`prefers-reduced-motion: reduce`. No interaction depends on seeing motion.
 - **Copy:** controls name their action; errors name the condition and the
   recovery; no marketing register, no exclamation marks.
 

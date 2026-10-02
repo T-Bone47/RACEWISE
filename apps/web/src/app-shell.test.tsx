@@ -101,6 +101,7 @@ describe('App shell (workstation IA)', () => {
     })
     /* Esc closes it */
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    /* palette closes instantly (animated open only — keyboard speed first) */
     await waitFor(() => {
       expect(container.querySelector('.palette')).toBeNull()
     })

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
+import { T, V } from './motion'
 import type { SearchResponse } from './types'
 
 /* ============ command palette: only real application actions ============
@@ -162,7 +164,14 @@ export default function CommandPalette({
   let entryCursor = -1
 
   return (
-    <div className="palette" role="listbox" aria-label="Commands and structured search">
+    <motion.div
+      className="palette"
+      role="listbox"
+      aria-label="Commands and structured search"
+      initial={V.paletteIn.initial}
+      animate={V.paletteIn.animate}
+      transition={T.micro}
+    >
       <input
         autoFocus
         value={q}
@@ -235,6 +244,6 @@ export default function CommandPalette({
         <span><kbd>Esc</kbd> close</span>
         <span>search is also here — types: RACE / DRIVER / HYPOTHESIS / ids</span>
       </div>
-    </div>
+    </motion.div>
   )
 }

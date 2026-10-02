@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { motion } from 'motion/react'
+import { T } from './motion'
 import type { LapFact, ProfileSamples, SessionContext, StintWindow } from './types'
 import { StateChip } from './workspace'
 
@@ -181,6 +183,7 @@ export function SpeedProfileCanvas({
   emptyReason,
   caption,
   regions,
+  modelKey,
 }: {
   samples: ProfileSamples | null
   referenceLabel?: string
@@ -190,6 +193,10 @@ export function SpeedProfileCanvas({
   emptyReason?: string
   caption?: ReactNode
   regions?: TraceRegion[]
+  /** MODELLED-layer identity (e.g. the intervention fraction): when it
+   * changes, ONLY the counterfactual trace crossfades — observed traces
+   * never move (engineering truth stays stable) */
+  modelKey?: string
 }) {
   const [hover, setHover] = useState<number | null>(null)
   /* zoom/region view — display state only; never affects any model value */
@@ -390,11 +397,16 @@ export function SpeedProfileCanvas({
           d={buildPath(geo.sub(samples.t_s), geo.sub(samples.target_kmh), geo.xScale, geo.yScale)}
           className="tv-trace tv-trace-target"
         />
-        {/* counterfactual trace */}
+        {/* counterfactual trace — MODELLED layer: crossfades when the scenario
+            parameter changes (keyed by modelKey); observed traces never animate */}
         {showCounterfactual && (
-          <path
+          <motion.path
+            key={modelKey ?? 'cf'}
             d={buildPath(geo.sub(samples.t_s), geo.sub(samples.counterfactual_kmh), geo.xScale, geo.yScale)}
             className="tv-trace tv-trace-cf"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={T.panel}
           />
         )}
         {/* crosshair */}

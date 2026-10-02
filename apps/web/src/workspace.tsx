@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { ArrowLeft, X as XIcon } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { T, V } from './motion'
 import { stateChipClass } from './types'
 import type { LedgerItem } from './types'
 
@@ -32,55 +34,10 @@ export function KV({ k, children }: { k: string; children: ReactNode }) {
   )
 }
 
-/* ---------- drawer shell (universal right-side surface) ---------- */
-
-export function Drawer({
-  title,
-  subtitle,
-  onClose,
-  children,
-}: {
-  title: string
-  subtitle?: string
-  onClose: () => void
-  children: ReactNode
-}) {
-  const backdropRef = useRef<HTMLDivElement>(null)
-  const closeRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    closeRef.current?.focus()
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div
-      ref={backdropRef}
-      className="drawer-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === backdropRef.current) onClose()
-      }}
-    >
-      <aside
-        className="drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-      >
-        <button ref={closeRef} className="drawer-close" onClick={onClose} aria-label="Close panel">
-          <XIcon size={15} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-        <h3>{title}</h3>
-        {subtitle && <p className="muted small">{subtitle}</p>}
-        {children}
-      </aside>
-    </div>
-  )
-}
+/* ---------- drawer shell (universal right-side surface) ----------
+   NOTE: the motion implementation lives at the SECOND Drawer definition
+   below (kept adjacent to the drawer-adjacent consumers); this file exports
+   exactly one Drawer. */
 
 /* ---------- evidence details (shared by overlay drawer AND contextual inspector) ---------- */
 
@@ -162,6 +119,64 @@ export function EvidenceDetailDrawer({
     >
       <EvidenceDetails item={item} onTraceToSource={onTraceToSource} />
     </Drawer>
+  )
+}
+
+/* motion: the modal drawer surfaces settle into position (spring, no
+   overshoot); the backdrop fades. Reduced motion is honored globally. */
+export function Drawer({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    closeRef.current?.focus()
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <motion.div
+      ref={backdropRef}
+      className="drawer-backdrop"
+      initial={V.backdrop.initial}
+      animate={V.backdrop.animate}
+      exit={V.backdrop.exit}
+      transition={T.micro}
+      onMouseDown={(e) => {
+        if (e.target === backdropRef.current) onClose()
+      }}
+    >
+      <motion.aside
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        initial={V.drawerIn.initial}
+        animate={V.drawerIn.animate}
+        exit={V.drawerIn.exit}
+        transition={T.panelSpring}
+      >
+        <button ref={closeRef} className="drawer-close" onClick={onClose} aria-label="Close panel">
+          <XIcon size={15} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+        <h3>{title}</h3>
+        {subtitle && <p className="muted small">{subtitle}</p>}
+        {children}
+      </motion.aside>
+    </motion.div>
   )
 }
 
@@ -367,46 +382,89 @@ export function ContextInspector({
     return () => window.removeEventListener('keydown', onKey)
   }, [entry, history.length, onBack, onClose])
 
-  if (!entry) return null
   const current = entry
 
-  const title = current.kind === 'evidence'
+  const title = current?.kind === 'evidence'
     ? `Evidence ${current.item.evidence_id}`
-    : current.kind === 'hypothesis'
+    : current?.kind === 'hypothesis'
       ? current.hyp.label
-      : `Provenance — ${current.target.kind} ${current.target.id}`
-  const subtitle = current.kind === 'evidence'
+      : current
+        ? `Provenance — ${current.target.kind} ${current.target.id}`
+        : ''
+  const subtitle = current?.kind === 'evidence'
     ? 'Every field below is imported from the investigation ledger — nothing is derived for display.'
-    : current.kind === 'hypothesis'
+    : current?.kind === 'hypothesis'
       ? 'The scientific test: prediction, evaluated evidence, falsification criterion, result — exactly as the engine classified them.'
-      : 'The universal “show me why” surface: where this object came from and what bounds its interpretation.'
+      : current
+        ? 'The universal “show me why” surface: where this object came from and what bounds its interpretation.'
+        : ''
+  /* identity key for the interruptible content fade — the panel head stays
+     stable across Evidence A → B so the surface never rebuilds */
+  const entryKey = current
+    ? current.kind === 'evidence'
+      ? `ev-${current.item.evidence_id}`
+      : current.kind === 'hypothesis'
+        ? `hyp-${current.hyp.hypothesis_id}`
+        : `prov-${current.target.kind}-${current.target.id}`
+    : ''
 
   return (
-    <aside className="context-inspector" role="complementary" aria-label="Contextual inspector">
-      <div className="inspector-head">
-        {history.length > 1 && (
-          <button
-            className="inspector-back"
-            onClick={onBack}
-            aria-label="Back to previous panel"
-          >
-            <ArrowLeft size={15} strokeWidth={1.75} aria-hidden="true" />
-          </button>
-        )}
-        <h3 ref={headRef} tabIndex={-1}>{title}</h3>
-        <button className="drawer-close" onClick={onClose} aria-label="Close inspector">
-          <XIcon size={15} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-      </div>
-      <p className="muted small">{subtitle}</p>
-      <div aria-live="polite">
-        {current.kind === 'evidence'
-          ? <EvidenceDetails item={current.item} onTraceToSource={onTraceToSource} />
-          : current.kind === 'hypothesis'
-            ? <HypothesisDetails hyp={current.hyp} onOpenEvidence={onOpenEvidence} />
-            : <ProvenanceDetails target={current.target} />}
-      </div>
-    </aside>
+    <AnimatePresence>
+      {current && (
+        <motion.aside
+          className="context-inspector"
+          role="complementary"
+          aria-label="Contextual inspector"
+          initial={V.inspectorIn.initial}
+          animate={V.inspectorIn.animate}
+          exit={V.inspectorIn.exit}
+          transition={T.panelSpring}
+        >
+          <div className="inspector-head">
+            {history.length > 1 && (
+              <button
+                className="inspector-back"
+                onClick={onBack}
+                aria-label="Back to previous panel"
+              >
+                <ArrowLeft size={15} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            )}
+            {current.kind === 'hypothesis' && (
+              /* shared element: this badge is the same object as the row
+                 badge the user clicked — it flies into the inspector head
+                 (Motion layoutId) and returns on close */
+              <motion.span
+                layoutId={`hyp-${current.hyp.hypothesis_id}`}
+                className={`ef-badge ${stateChipClass(current.hyp.aggregate_state)}`}
+                transition={T.layoutSpring}
+              >
+                {current.hyp.hypothesis_id.split('_')[0]}
+              </motion.span>
+            )}
+            <h3 ref={headRef} tabIndex={-1}>{title}</h3>
+            <button className="drawer-close" onClick={onClose} aria-label="Close inspector">
+              <XIcon size={15} strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </div>
+          <p className="muted small">{subtitle}</p>
+          <div aria-live="polite">
+            <motion.div
+              key={entryKey}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={T.micro}
+            >
+              {current.kind === 'evidence'
+                ? <EvidenceDetails item={current.item} onTraceToSource={onTraceToSource} />
+                : current.kind === 'hypothesis'
+                  ? <HypothesisDetails hyp={current.hyp} onOpenEvidence={onOpenEvidence} />
+                  : <ProvenanceDetails target={current.target} />}
+            </motion.div>
+          </div>
+        </motion.aside>
+      )}
+    </AnimatePresence>
   )
 }
 
