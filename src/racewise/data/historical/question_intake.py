@@ -100,14 +100,27 @@ _TYPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"\bhypothes[ie]s\b|\bcaused by\b", re.I)),
     # lap-scope with explicit lap number (extracted separately)
     ("LAP_PERFORMANCE", re.compile(r"\blap\s*\d{1,3}\b", re.I)),
-    # race-level gap / time loss without a lap qualifier
+    # race-level gap / time loss without a lap qualifier. This is the LAST
+    # rule, so it only sees questions nothing more specific claimed. It is
+    # extended with the phrasings engineers actually use for whole-session
+    # performance questions — "performance loss", "turning point", "gradual or
+    # sudden", "after the safety car" — none of which the narrower "time loss"
+    # wording matched, so they were being reported as unsupported.
     ("RACE_GAP", re.compile(
         r"\b(race gap|gap|deficit|time loss|lost time)\b"
+        r"|\b(performance loss|pace loss)\b"
         r"|\b(lose|lost|loses|losing|gives?|gave|giving)\s+(up\s+)?time\b"
         r"|\b(where|when) did\b[\s\S]{0,60}\b(gap|time|lose|lost)\b"
         r"|\b(slower|faster)(\s+than)?\b"
         r"|\b(race|drove|raced)\b[\s\S]{0,40}\b(different|differently)\b"
-        r"|\b(different|differently)\b[\s\S]{0,40}\b(race|drove|raced)\b",
+        r"|\b(different|differently)\b[\s\S]{0,40}\b(race|drove|raced)\b"
+        r"|\bturning point\b"
+        r"|\bregime change\b"
+        r"|\b(gradual(ly)?|sudden(ly)?)\b"
+        r"|\bafter the (safety car|pit stop)\b"
+        r"|\bintermittent\b"
+        r"|\binvestigate\b"
+        r"|\bwhat mattered\b",
         re.I)),
 )
 
@@ -124,6 +137,28 @@ _INJECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
                re.I),
     re.compile(r"\bpretend\b|\broleplay\b|\bact as\b", re.I),
 )
+
+# Job titles that precede a driver mention without being part of a name.
+# The canonical store genuinely contains a driver whose family name is
+# "Driver", so "Test Driver" was resolving to a real but entirely different
+# person — a silent substitution, which the resolution contract forbids. A
+# title word before the mention means the phrase is a role, not a name.
+# Closed vocabulary, matching the rest of this module's design.
+_DRIVER_TITLE_WORDS = frozenset({
+    "test", "reserve", "race", "second", "third", "fourth", "former",
+    "rookie", "veteran", "guest", "substitute", "backup", "main", "academy",
+    "junior", "senior", "f1", "f2", "f3", "young",
+})
+
+
+def _preceded_by_title_word(low_text: str, idx: int) -> bool:
+    """True when the word immediately before ``idx`` is a driver job title."""
+    before = low_text[:idx].rstrip()
+    if not before:
+        return False
+    words = before.split()
+    return bool(words) and words[-1] in _DRIVER_TITLE_WORDS
+
 
 _INTERROGATIVES = (
     "why", "what", "did", "does", "could", "was", "were", "where",
@@ -142,6 +177,28 @@ _STOPCAPS = set(_INTERROGATIVES) | {
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _blank_mention(text: str, label: str) -> str:
+    """Remove one resolved driver mention from the working question text.
+
+    Matching is accent-insensitive because canonical names carry accents while
+    users type without them: the canonical family name is ``Pérez`` and the
+    question says ``Perez``. Matching already normalises accents (so the
+    mention IS found), but the removal step used the raw label against the raw
+    text, so an accented canonical name never actually cleared the ASCII
+    mention. The leftover was then re-read as a place token, and race
+    resolution failed with a misleading "missing critical context" — the most
+    canonical question in the product could not resolve.
+
+    Removes on the accent-stripped form (same length, same offsets) and
+    returns the ORIGINAL text so downstream capitalized-token scanning still
+    sees real casing.
+    """
+    stripped = _strip_accents(label)
+    if not stripped:
+        return text
+    return re.sub(re.escape(stripped), " ", _strip_accents(text), flags=re.I)
 
 
 def _strip_accents(text: str) -> str:
@@ -359,6 +416,8 @@ def _driver_mentions(
                 span = plain_text[idx:idx + len(label)]
                 if require_cap and not span[:1].isupper():
                     continue  # prose word, not a driver mention
+                if _preceded_by_title_word(low_text, idx):
+                    continue  # "Test Driver" is a role, not a person
                 span_key = (idx, idx + len(lab))
                 if any(a <= span_key[0] and span_key[1] <= b
                        for a, b in seen_spans):
@@ -565,7 +624,7 @@ def parse_question(
     if not driver_a:
         mentions = _driver_mentions(queries, work, season, participants)
         for label, key in mentions:
-            work = re.sub(re.escape(label), " ", work, flags=re.I)
+            work = _blank_mention(work, label)
             log.append({"kind": "DRIVER", "text": label, "resolved": key,
                         "source": "canonical_drivers"})
         if len(mentions) >= 1:
@@ -585,7 +644,7 @@ def parse_question(
                 continue
             if key != driver_a:
                 driver_b = key
-                work = re.sub(re.escape(tok), " ", work, flags=re.I)
+                work = _blank_mention(work, tok)
                 log.append({"kind": "DRIVER", "text": tok, "resolved": key,
                             "source": "canonical_drivers"})
                 break

@@ -529,3 +529,136 @@
   padding: var(--rw-s5) 0 0;
   margin-top: var(--rw-s5);
 }
+
+/* ============ universal engineering question (question engine) ============
+   The universal entry point sits above the structured launcher. It is the
+   product's primary surface, so it carries more weight than any panel below
+   it. Everything it renders is real engine output; the styles exist to make
+   epistemic state legible, not to decorate. */
+
+.uq {
+  padding: var(--rw-s6) 0;
+  border-bottom: 1px solid var(--rw-border);
+}
+
+.uq-headline {
+  font-size: var(--rw-fs-2xl);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: var(--rw-s2) 0 var(--rw-s5);
+}
+
+.uq-error {
+  margin-top: var(--rw-s3);
+  color: var(--rw-contradicted);
+  font-size: var(--rw-fs-sm);
+}
+
+.uq-card {
+  margin-top: var(--rw-s6);
+  border: 1px solid var(--rw-border);
+  border-radius: var(--rw-r-md);
+  background: var(--rw-surface-1);
+  padding: var(--rw-s5);
+}
+
+.uq-card--clarify {
+  border-color: var(--rw-line-hi);
+  background: var(--rw-surface-2);
+}
+
+.uq-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rw-s3);
+  flex-wrap: wrap;
+  margin-bottom: var(--rw-s5);
+}
+
+.uq-short {
+  font-size: var(--rw-fs-lg);
+  line-height: 1.4;
+}
+
+.uq-sec {
+  margin-top: var(--rw-s5);
+  padding-top: var(--rw-s4);
+  border-top: 1px solid var(--rw-border);
+}
+
+.uq-h3 {
+  font-size: var(--rw-fs-xs);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--rw-text-3);
+  margin-bottom: var(--rw-s3);
+}
+
+.uq-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rw-s2);
+}
+
+.uq-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rw-s3);
+  flex-wrap: wrap;
+}
+
+.uq-item--stack {
+  flex-direction: column;
+  gap: var(--rw-s1);
+}
+
+.uq-item-label {
+  flex: 1 1 16rem;
+  color: var(--rw-text-1);
+  font-size: var(--rw-fs-sm);
+}
+
+.uq-item-note {
+  color: var(--rw-text-3);
+  font-size: var(--rw-fs-xs);
+}
+
+.uq-residual {
+  color: var(--rw-residual);
+  font-size: var(--rw-fs-sm);
+  line-height: 1.5;
+}
+
+.uq-modelled,
+.uq-conclusion {
+  color: var(--rw-text-2);
+  font-size: var(--rw-fs-sm);
+  line-height: 1.55;
+}
+
+.uq-clarify-q {
+  color: var(--rw-text-1);
+  margin-bottom: var(--rw-s2);
+}
+
+.uq-clarify-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rw-s2);
+}
+
+.uq-followup {
+  margin-top: var(--rw-s3);
+}
+
+.uq-foot {
+  margin-top: var(--rw-s5);
+  padding-top: var(--rw-s3);
+  border-top: 1px solid var(--rw-border);
+  display: flex;
+  align-items: center;
+  gap: var(--rw-s3);
+}

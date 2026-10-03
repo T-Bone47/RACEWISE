@@ -27,6 +27,7 @@ from racewise.domain.schemas import (
 )
 from racewise.investigation.engine import InvestigationEngine
 from racewise.persistence import get_store
+from racewise.api import question_engine_api
 from racewise.simulator.strategy import simulate_pit_timing
 from racewise.tools.implementations import SessionContext, build_default_registry
 
@@ -37,6 +38,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# General question engine routes: the universal entry point, the capability
+# registry and the benchmark. Registered here rather than imported lazily so
+# the route table is complete at import time.
+question_engine_api.register(app)
 
 def _build_adapter() -> "Any":
     """Construct the FastF1 adapter.

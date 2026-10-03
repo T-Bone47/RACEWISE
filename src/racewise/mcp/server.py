@@ -45,6 +45,60 @@ def _tool_envelope(name: str, arguments: dict[str, Any], registry: Any) -> dict[
     }
 
 
+QUESTION_ENGINE_TOOLS = (
+    "parse_engineering_question",
+    "inspect_capability_registry",
+)
+
+
+def _question_engine_call(method: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """High-level question-engine operations exposed over MCP.
+
+    These are deliberately *not* the deterministic tool registry. They are the
+    understanding layer above it: compile a question, discover capabilities.
+    They return structured plans, never computed numbers — every number still
+    comes from the allow-listed deterministic registry through ``tools/call``.
+
+    No unrestricted execution: the method name is matched against a fixed tuple
+    above and nothing else is reachable.
+    """
+    if method not in QUESTION_ENGINE_TOOLS:
+        raise ValueError(f"Unknown question-engine method '{method}'")
+    if method == "inspect_capability_registry":
+        from racewise.question_engine import capabilities as cap
+
+        capability_id = payload.get("capability_id")
+        if capability_id:
+            found = cap.capability(capability_id)
+            if found is None:
+                return {"ok": False, "error": f"Unknown capability '{capability_id}'"}
+            payload_out = found.as_dict()
+            payload_out["dependency_closure"] = list(
+                cap.dependency_closure(capability_id))
+            return {"ok": True, "capability": payload_out}
+        return {
+            "ok": True,
+            "registry_version": cap.registry_version(),
+            "capabilities": [c.as_dict() for c in cap.capabilities()],
+        }
+
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.question_engine.engine import ask
+
+    question = payload.get("question")
+    if not isinstance(question, str) or not question.strip():
+        return {"ok": False, "error": "question must be a non-empty string"}
+    result = ask(get_canonical_queries(), question, context=payload.get("context"))
+    return {
+        "ok": True,
+        "status": result["status"],
+        "compiled": result["compiled"],
+        "plan": result["plan"],
+        "answer": result["answer"],
+        "verification": result["verification"],
+    }
+
+
 def serve() -> None:  # pragma: no cover - exercised via subprocess in integration tests
     cache_dir = os.environ.get("FASTF1_CACHE_DIR")
     context = SessionContext(FastF1Adapter(cache_dir=cache_dir), 2023, "Bahrain")
@@ -79,6 +133,11 @@ def serve() -> None:  # pragma: no cover - exercised via subprocess in integrati
                     if "parameters" in t:
                         t["inputSchema"] = t.pop("parameters")
                 result = {"tools": tools}
+            elif method == "question_engine/call":
+                result = _question_engine_call(
+                    str((request.get("params") or {}).get("method") or ""),
+                    (request.get("params") or {}).get("arguments") or {},
+                )
             elif method == "tools/call":
                 params = request.get("params") or {}
                 result = {

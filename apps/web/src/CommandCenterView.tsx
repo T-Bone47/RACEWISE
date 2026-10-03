@@ -7,6 +7,7 @@ import {
 } from './types'
 import type { QuestionScope, SearchResponse } from './types'
 import { LoadingLine, StructuredError } from './workspace'
+import UniversalQuestion from './UniversalQuestion'
 
 /* icon map for quick tiles — tabler (§44: one professional icon family) */
 const QUICK_ICONS = {
@@ -269,6 +270,21 @@ export default function CommandCenterView({
 
   return (
     <div>
+      {/* ---- THE UNIVERSAL ENTRY POINT ----
+          One question, any phrasing. The engine resolves the scope, discovers
+          capabilities and returns a structured answer. This is the primary
+          surface; the structured launcher below it is a refinement tool for
+          operators who need to pin scope the engine cannot infer. */}
+      <UniversalQuestion
+        initialContext={{
+          driver_a: driverA,
+          driver_b: driverB,
+          season,
+          round,
+          ...(lapNumber >= 1 ? { lap_number: lapNumber } : {}),
+        }}
+      />
+
       {/* ---- THE QUESTION FIRST (mission: "What do you want to investigate?") ---- */}
       <section className="cmd-hero" aria-label="New investigation">
         {/* QUESTION-FIRST. The question is the product's entry point, so it is
