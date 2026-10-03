@@ -229,3 +229,23 @@ No "lite" dataset at any width — the same real data re-flows.
   scientific structure, lab MODELLED labelling, shell IA.
 - `provenance-vocabulary.test.ts` — provenance vocabulary completeness, chain
   translation, and the source scan that bans internal layer codes from the UI.
+- `build-version.test.ts` — the stale-bundle guard: reload only on proven
+  disagreement, hold on a failed probe, and never loop.
+
+### Waiting is a timing question, not a correctness question
+
+Every RACEWISE view settles asynchronously — a render is not finished when React
+commits, it is finished when the payload lands. Assertions therefore go through
+retrying `findBy*` / `waitFor`, and those default to a **1000 ms** ceiling.
+
+That default was tight enough to fail the stage-rail test once in a full
+parallel run while passing 16/16 in isolation. A test that fails on machine load
+is not testing the product. `src/test-setup.ts` raises `asyncUtilTimeout` to
+10 s for every suite, which removes the failure without loosening any
+assertion: nothing retries a *failure*, it only stops declaring victory before
+the render settles — still well under the 5 s per-test timeout, so a genuine
+hang still fails.
+
+Prefer `await screen.findByRole(...)` over `waitFor(() => getByRole(...))`. It
+retries identically but reports the real reason on failure instead of a bare
+"Unable to find".

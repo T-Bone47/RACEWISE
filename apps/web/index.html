@@ -12,6 +12,13 @@
     />
     <title>RACEWISE — evidence-driven race engineering</title>
     <!--
+      Replaced at build time with this build's identifier (vite.config.ts).
+      index.html is served no-cache, so an open tab can compare it against the
+      stamp compiled into the bundle it is actually running and reload if they
+      disagree. See src/build-version.ts.
+    -->
+    <!--RW_BUILD_STAMP-->
+    <!--
       Font subsets are gated by unicode-range in the @font-face rules, so only
       the glyphs actually rendered are fetched; latin-ext is kept because
       driver and circuit names carry accents (Pérez, Nürburgring).

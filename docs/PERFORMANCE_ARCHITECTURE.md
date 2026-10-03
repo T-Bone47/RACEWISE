@@ -174,6 +174,47 @@ import `latin.css` directly failed (no such entry point exists in v5) and was
 correctly reverted rather than left broken. `latin-ext` is deliberately kept
 because driver and circuit names carry accents (Pérez, Nürburgring).
 
+### Correctness: a tab could never leave a stale build
+
+The `no-cache` header on `index.html` only helps a tab that *navigates*. RACEWISE
+routes on the URL hash (`#/investigate`), and a hash change never re-executes
+JavaScript — so a tab left open across a rebuild kept running the bundle it had
+already loaded, against an engine that had moved on. This was observed
+directly: the DOM was executing `index-DAS24gp5.js` while the server was
+serving `index-CGvQ1id4.js`.
+
+No error, no error boundary, no stale-data marker. Just numbers from a build
+that no longer existed.
+
+Build identity is now observable. One constant is emitted into both halves of
+the page:
+
+| Where | How | Cache behaviour |
+|---|---|---|
+| `index.html` | `<meta name="x-rw-build">` (plugin in `vite.config.ts`) | `no-cache` — always current |
+| the bundle | `__RW_BUILD__`, inlined by `define` | `immutable` — whatever this tab loaded |
+
+`src/build-version.ts` fetches `index.html` bypassing the cache and compares.
+Disagreement is proof the tab is running an old build, so it reloads. The check
+runs once at boot and again on `visibilitychange`/`focus`, throttled to one
+probe per 15 s. Verified end-to-end against the real static server: a tab on
+build `14:44:40.840Z` reloaded onto `index-B9oD7bf7.js` / `14:45:48.921Z` within
+one focus event.
+
+Three properties are load-bearing:
+
+- **A failed probe is never fatal.** No stamp, no reload. The worst outcome is
+  the staleness that already existed; the app never goes blank because a check
+  could not run.
+- **It cannot produce a false positive.** If the meta tag and the define ever
+  drift apart, the stamps simply stop matching and the guard never fires.
+- **It cannot loop.** `sessionStorage` records the stamp last reloaded for, so a
+  reload that fails to pick up the new build cannot turn into a reload storm on
+  every focus event.
+
+The running stamp is also written to `<html data-rw-build>`, so devtools can
+answer "which build is this?" without any UI chrome.
+
 ---
 
 ## 4. Changes considered and rejected (measured, not assumed)

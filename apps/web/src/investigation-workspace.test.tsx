@@ -90,9 +90,13 @@ describe('InvestigationView (Active Investigation workstation)', () => {
 
   it('renders the stage rail with lifecycle-true stages and real statuses', async () => {
     render(<InvestigationView presetParams={preset()} />)
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^observation/i })).toBeTruthy()
-    })
+    /* `findBy*` rather than waitFor+getBy*: it retries with the same deadline but
+       reports the real reason on failure, and it reads as what it is — waiting
+       for the auto-run to land. The rail only exists once the investigation
+       payload has been applied, so the whole assertion block is deterministic
+       from here on. */
+    const observation = await screen.findByRole('button', { name: /^observation/i })
+    expect(observation).toBeTruthy()
     expect(screen.getByRole('button', { name: /^hypotheses/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /^evidence/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /^falsification/i })).toBeTruthy()
