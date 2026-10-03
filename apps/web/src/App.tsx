@@ -4,16 +4,68 @@ import {
   IconDatabase, IconActivity, IconChartBar, IconChartLine, IconStack2,
   IconBoxMultiple, IconChartHistogram, IconListNumbers, IconMathFunction, IconTable,
 } from '@tabler/icons-react'
-import '@fontsource-variable/inter'
-import '@fontsource-variable/jetbrains-mono'
+/* Fontsource declares per-subset unicode-range, so the browser only fetches
+   the subsets the rendered glyphs actually need (latin / latin-ext for this
+   UI). `wght.css` is the weight-axis entry point and skips the italic cuts,
+   which this workstation never uses. */
+import '@fontsource-variable/inter/wght.css'
+import '@fontsource-variable/jetbrains-mono/wght.css'
 import './App.css'
+import './design-system.css'
 import { MotionConfig, motion } from 'motion/react'
 import { T, V } from './motion'
 import CommandCenterView from './CommandCenterView'
 import CommandPalette from './CommandPalette'
-import InvestigationView from './InvestigationView'
-import { GraphPanel, ReplayPanel, ComparePanel, MemoryPanel } from './panels'
 import { LoadingLine } from './workspace'
+
+/* Startup budget: the entry chunk carries the shell + the landing Command
+   Center only. InvestigationView (the largest view in the app) and the four
+   knowledge panels are deferred until a route actually asks for them, so a
+   cold boot parses a fraction of the previous JavaScript. */
+const InvestigationView = lazy(() => import('./InvestigationView'))
+const GraphPanel = lazy(() => import('./panels').then((m) => ({ default: m.GraphPanel })))
+const ReplayPanel = lazy(() => import('./panels').then((m) => ({ default: m.ReplayPanel })))
+const ComparePanel = lazy(() => import('./panels').then((m) => ({ default: m.ComparePanel })))
+const MemoryPanel = lazy(() => import('./panels').then((m) => ({ default: m.MemoryPanel })))
+
+/* Route-level chunk prefetch.
+ *
+ * A click should never pay for a network round trip the user could have
+ * triggered a moment earlier. Hovering or focusing a destination is an
+ * unambiguous intent signal, so the chunk is requested then — by the time the
+ * click lands the module is already parsed and the route paints immediately.
+ * Combined with immutable caching on hashed assets, repeat visits cost zero
+ * network and the route is synchronous. */
+const ROUTE_LOADERS: Partial<Record<ViewId, () => Promise<unknown>>> = {
+  investigate: () => import('./InvestigationView'),
+  autonomous: () => import('./AutonomousView'),
+  falsification: () => import('./FalsificationMatrixView'),
+  counterfactual: () => import('./CounterfactualView'),
+  catalog: () => import('./CatalogExplorer'),
+  telemetry: () => import('./TelemetryView'),
+  attribution: () => import('./AttributionView'),
+  fusion: () => import('./EvidenceFusionView'),
+  stint: () => import('./StintEvidenceView'),
+  racegap: () => import('./RaceGapView'),
+  envelope: () => import('./PerformanceEnvelopeView'),
+  regime: () => import('./PerformanceRegimeView'),
+  patterns: () => import('./PerformancePatternView'),
+  patternevidence: () => import('./PatternEvidenceView'),
+  graph: () => import('./panels'),
+  replay: () => import('./panels'),
+  compare: () => import('./panels'),
+  memory: () => import('./panels'),
+}
+
+const prefetched = new Set<ViewId>()
+function prefetchRoute(id: ViewId) {
+  if (prefetched.has(id)) return
+  const loader = ROUTE_LOADERS[id]
+  if (!loader) return
+  prefetched.add(id)
+  // fire and forget; a failed prefetch must never surface to the user
+  loader().catch(() => prefetched.delete(id))
+}
 
 const CatalogExplorer = lazy(() => import('./CatalogExplorer'))
 const TelemetryView = lazy(() => import('./TelemetryView'))
@@ -170,6 +222,18 @@ export default function App() {
 
   const presetParams = view === 'investigate' && [...params.keys()].length > 0 ? params : undefined
 
+  /* First mount must paint immediately. Fading the workspace in from
+     opacity:0 delays the browser's first contentful paint by the length of
+     the animation (measured: FCP 893ms with a 200ms fade against a 423ms
+     DOMContentLoaded). Motion communicates view *changes*; it must never
+     gate the first frame.
+     `hasCommitted` is still false during the first render (so the workspace
+     paints with no entrance animation) and true for every navigation after
+     it. The flag is set from an effect, which React runs after paint, so the
+     extra render it schedules cannot affect first paint. */
+  const [hasCommitted, setHasCommitted] = useState(false)
+  useEffect(() => { setHasCommitted(true) }, [])
+
   const scopeParams = useCallback(() => {
     if ([...params.keys()].length > 0) return new URLSearchParams(params)
     return defaultScopeParams()
@@ -233,6 +297,8 @@ export default function App() {
                 key={item.id}
                 className={`nav-item ${view === item.id ? 'active' : ''}`}
                 onClick={() => navigate(item.id)}
+                onMouseEnter={() => prefetchRoute(item.id)}
+                onFocus={() => prefetchRoute(item.id)}
                 aria-current={view === item.id ? 'page' : undefined}
               >
                 {view === item.id && (
@@ -254,8 +320,19 @@ export default function App() {
       </motion.nav>
 
       {/* ================= WORKSPACE ================= */}
-      <motion.main className="shell-workspace" layout>
-        <motion.div key={view} initial={V.viewIn.initial} animate={V.viewIn.animate} transition={T.panel}>
+      {/* No `layout` here on purpose. Layout projection measures and animates
+          the element's geometry every frame; applied to the whole workspace it
+          is the single most expensive Motion operation on the page and it made
+          every route change feel sluggish — for zero visual gain, because the
+          workspace itself does not resize between routes (only the zen sidebar
+          collapse does, and that has its own transition). */}
+      <motion.main className="shell-workspace">
+        <motion.div
+          key={view}
+          initial={hasCommitted ? V.viewIn.initial : false}
+          animate={V.viewIn.animate}
+          transition={T.panel}
+        >
         {view === 'command' && <CommandCenterView onNavigated={navigate} />}
 
         {view === 'autonomous' && (
@@ -277,7 +354,9 @@ export default function App() {
         )}
 
         {view === 'investigate' && (
-          <InvestigationView key={params.toString()} presetParams={presetParams} />
+          <Suspense fallback={<LoadingLine label="Loading investigation workspace…" />}>
+            <InvestigationView key={params.toString()} presetParams={presetParams} />
+          </Suspense>
         )}
 
         {view === 'graph' && (
@@ -288,7 +367,9 @@ export default function App() {
               Click a node to trace its path; use the hypothesis focus to see
               supporting / contradicting / non-decisive evidence side by side.
             </p>
-            <GraphPanel scopeParams={scopeParams} />
+            <Suspense fallback={<LoadingLine label="Assembling engineering graph…" />}>
+              <GraphPanel scopeParams={scopeParams} />
+            </Suspense>
           </section>
         )}
 
@@ -300,7 +381,9 @@ export default function App() {
               engine, compare canonical hashes. Divergence is reported as
               exact structured differences with categories.
             </p>
-            <ReplayPanel scopeParams={scopeParams} />
+            <Suspense fallback={<LoadingLine label="Preparing deterministic replay…" />}>
+              <ReplayPanel scopeParams={scopeParams} />
+            </Suspense>
           </section>
         )}
 
@@ -312,7 +395,9 @@ export default function App() {
               and B (same scope, different lap). Neutral transition
               terminology — no better/worse, no winner.
             </p>
-            <ComparePanel baseScope={scopeParams} />
+            <Suspense fallback={<LoadingLine label="Preparing comparison…" />}>
+              <ComparePanel baseScope={scopeParams} />
+            </Suspense>
           </section>
         )}
 
@@ -324,7 +409,9 @@ export default function App() {
               retrieved by exact scope — never semantic similarity, never
               universal truth.
             </p>
-            <MemoryPanel scopeParams={scopeParams} driverA={scopeParams().get('driver_a') || ''} />
+            <Suspense fallback={<LoadingLine label="Retrieving engineering memory…" />}>
+              <MemoryPanel scopeParams={scopeParams} driverA={scopeParams().get('driver_a') || ''} />
+            </Suspense>
           </section>
         )}
 

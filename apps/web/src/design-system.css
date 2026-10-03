@@ -1,0 +1,531 @@
+/* ============================================================
+   RACEWISE DESIGN SYSTEM — semantic layer + control language
+   ============================================================
+
+   Why this file exists
+   --------------------
+   The previous button language outlined *everything*: every control got a
+   hairline border and the primary action was a cyan-outlined box. When every
+   control has equal weight, nothing has weight — the interface read as
+   "vibe-coded" because it was.
+
+   The rules this encodes:
+
+     1. A border is a statement. Only controls that own an interaction
+        boundary or table structure get one.
+     2. The primary action is the ONLY solid fill on screen. One solid
+        element makes itself the answer to "what do I press?".
+     3. Secondary is a quiet surface. Ghost is invisible until you approach.
+     4. Every interactive element ships all seven states. A control that
+        has been designed in only three states is not designed.
+     5. Focus is always visible and never removed.
+     6. Disabled is legible, not merely faint.
+
+   `--rw-*` is the canonical semantic layer. The legacy `--st-*` tokens remain
+   aliased underneath so existing views are unchanged while new work is built
+   on the vocabulary that describes intent rather than paint.
+   ============================================================ */
+
+:root {
+  /* ---- surfaces (dark graphite ladder) ---- */
+  --rw-bg: #0a0c0f;
+  --rw-surface: #101318;
+  --rw-surface-raised: #161a21;
+  --rw-surface-hover: #1c222b;
+  --rw-surface-sunken: #0d0f13;
+
+  /* ---- lines ---- */
+  --rw-border: #222832;
+  --rw-border-subtle: #1a1f27;
+  --rw-border-strong: #2f3746;
+
+  /* ---- type ---- */
+  --rw-text: #e6e8ee;
+  --rw-text-secondary: #a4b0ba;
+  --rw-text-muted: #6b7883;
+
+  /* ---- accent: engineering cyan, used sparingly ---- */
+  --rw-accent: #22d3ee;
+  --rw-accent-soft: rgba(34, 211, 238, 0.12);
+  --rw-accent-line: rgba(34, 211, 238, 0.42);
+  --rw-accent-text: #7ee7f7;
+
+  /* ---- epistemic state ---- */
+  --rw-success: #34d399;
+  --rw-warning: #fbbf24;
+  --rw-danger: #f87171;
+  --rw-info: #60a5fa;
+
+  /* ---- investigation semantics (the product's actual vocabulary) ---- */
+  --rw-observed: #22d3ee;      /* measured fact */
+  --rw-modelled: #a78bfa;      /* counterfactual / modelled only */
+  --rw-contradicted: #f87171;  /* falsified by evidence */
+  --rw-unsupported: #64748b;   /* no decisive evidence */
+  --rw-residual: #fbbf24;      /* unexplained remainder */
+  --rw-fact: #60a5fa;
+  --rw-calculated: #22d3ee;
+  --rw-inferred: #fbbf24;
+
+  /* ---- spacing scale (4/8 cadence — no arbitrary values) ---- */
+  --rw-s1: 4px;
+  --rw-s2: 8px;
+  --rw-s3: 12px;
+  --rw-s4: 16px;
+  --rw-s5: 24px;
+  --rw-s6: 32px;
+  --rw-s7: 48px;
+
+  /* ---- radius: controlled and sharp-ish. Engineering tools are not pillowy. */
+  --rw-r-sm: 3px;
+  --rw-r-md: 5px;
+  --rw-r-lg: 8px;
+
+  /* ---- type scale ---- */
+  --rw-t-display: 30px;
+  --rw-t-title: 19px;
+  --rw-t-section: 15px;
+  --rw-t-body: 14px;
+  --rw-t-meta: 12px;
+  --rw-t-micro: 11px;
+
+  /* ---- motion (single scale, mirrored from motion.ts) ---- */
+  --rw-dur-micro: 110ms;
+  --rw-dur-panel: 140ms;
+  --rw-dur-exit: 90ms;
+  --rw-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  --rw-font-ui: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --rw-font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+}
+
+/* ============================================================
+   CONTROL LANGUAGE
+   ============================================================ */
+
+/* Base control. Quiet by default — it must not compete with the
+   primary action or the data it sits next to. */
+.rw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--rw-font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0 12px;
+  height: 30px;
+  border-radius: var(--rw-r-md);
+  border: 1px solid var(--rw-border);
+  background: var(--rw-surface-raised);
+  color: var(--rw-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--rw-dur-micro) var(--rw-ease),
+    border-color var(--rw-dur-micro) var(--rw-ease),
+    color var(--rw-dur-micro) var(--rw-ease),
+    opacity var(--rw-dur-micro) var(--rw-ease);
+}
+.rw-btn:hover:not(:disabled):not([aria-busy='true']) {
+  background: var(--rw-surface-hover);
+  border-color: var(--rw-border-strong);
+  color: var(--rw-text);
+}
+.rw-btn:active:not(:disabled) { transform: translateY(0.5px); }
+.rw-btn:focus-visible {
+  outline: 2px solid var(--rw-accent);
+  outline-offset: 2px;
+}
+.rw-btn:disabled,
+.rw-btn[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.rw-btn[aria-busy='true'] { cursor: progress; opacity: 0.75; }
+
+/* PRIMARY — the single solid fill on the screen. Solidity is what makes one
+   action the obvious answer; an outlined primary competes with everything. */
+.rw-btn--primary {
+  background: var(--rw-accent);
+  border-color: var(--rw-accent);
+  color: #04222a;
+  font-weight: 600;
+}
+.rw-btn--primary:hover:not(:disabled) {
+  background: #4ce0f5;
+  border-color: #4ce0f5;
+  color: #04222a;
+}
+.rw-btn--primary:focus-visible { outline-color: var(--rw-accent-text); }
+
+/* SECONDARY — a quiet surface, no accent. */
+.rw-btn--secondary {
+  background: var(--rw-surface-raised);
+  color: var(--rw-text);
+}
+
+/* GHOST — invisible until approached. Used for tertiary/inline actions. */
+.rw-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--rw-text-muted);
+}
+.rw-btn--ghost:hover:not(:disabled) {
+  background: var(--rw-surface-hover);
+  border-color: transparent;
+  color: var(--rw-text);
+}
+
+/* DESTRUCTIVE */
+.rw-btn--danger {
+  background: transparent;
+  border-color: rgba(248, 113, 113, 0.4);
+  color: var(--rw-danger);
+}
+.rw-btn--danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: var(--rw-danger);
+  color: #fca5a5;
+}
+
+/* ICON — square, compact, for contextual controls. */
+.rw-btn--icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+/* Sizes */
+.rw-btn--sm { height: 26px; padding: 0 9px; font-size: 12px; }
+.rw-btn--lg { height: 38px; padding: 0 18px; font-size: 14px; }
+
+/* ============================================================
+   INPUT LANGUAGE
+   ============================================================ */
+
+/* No border-box chrome around every control. Inputs are distinguished by
+   surface + a single hairline, which is enough at this density. */
+.rw-input,
+.rw-select {
+  height: 30px;
+  padding: 0 9px;
+  background: var(--rw-surface-sunken);
+  border: 1px solid var(--rw-border-subtle);
+  border-radius: var(--rw-r-sm);
+  color: var(--rw-text);
+  font-family: var(--rw-font-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color var(--rw-dur-micro) var(--rw-ease),
+    background-color var(--rw-dur-micro) var(--rw-ease);
+}
+.rw-input:hover, .rw-select:hover { border-color: var(--rw-border); }
+.rw-input:focus, .rw-select:focus {
+  outline: none;
+  border-color: var(--rw-accent-line);
+  background: var(--rw-surface);
+}
+.rw-input::placeholder { color: var(--rw-text-muted); }
+.rw-select { cursor: pointer; }
+
+/* ============================================================
+   PRIMITIVES
+   ============================================================ */
+
+/* A label above a value, not a card around it. */
+.rw-k {
+  display: block;
+  font-family: var(--rw-font-ui);
+  font-size: var(--rw-t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rw-text-muted);
+  margin-bottom: 3px;
+}
+
+/* Hairline divider — the replacement for wrapping things in boxes. */
+.rw-rule {
+  height: 1px;
+  background: var(--rw-border-subtle);
+  border: 0;
+  margin: var(--rw-s4) 0;
+}
+
+/* Section heading: quiet, structural, never a boxed title. */
+.rw-section {
+  font-family: var(--rw-font-ui);
+  font-size: var(--rw-t-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rw-text-muted);
+  font-weight: 600;
+  margin: 0 0 var(--rw-s3);
+}
+
+/* Engineered numeral. Tabular figures make columns of times align, which is
+   the whole point of showing engineering values. */
+.rw-num {
+  font-family: var(--rw-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+/* Epistemic chip — state is carried by label + colour + weight, never colour
+   alone, so it survives greyscale and colour-vision deficiency. */
+.rw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: var(--rw-r-sm);
+  font-family: var(--rw-font-ui);
+  font-size: var(--rw-t-micro);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.rw-chip::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.rw-chip--observed   { color: var(--rw-observed);   border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.08); }
+.rw-chip--modelled   { color: var(--rw-modelled);   border-color: rgba(167,139,250,.35); background: rgba(167,139,250,.08); }
+.rw-chip--contradicted { color: var(--rw-contradicted); border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.1); }
+.rw-chip--residual   { color: var(--rw-residual);   border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.08); }
+.rw-chip--unsupported{ color: var(--rw-unsupported); border-color: var(--rw-border); background: var(--rw-surface-raised); }
+
+/* Visible focus for anything keyboard-reachable, applied once. */
+:focus-visible { outline: 2px solid var(--rw-accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rw-btn,
+  .rw-input,
+  .rw-select { transition-duration: 0ms; }
+}
+/* ============================================================
+   COMMAND CENTER — question-first
+   ============================================================
+   The question is the product. Everything else is subordinate and
+   appears only on demand. No bordered section wraps the ask: the
+   type scale and the empty space around it carry the hierarchy. */
+
+.cmd-hero {
+  max-width: 880px;
+  padding: var(--rw-s7) 0 var(--rw-s5);
+}
+
+.cmd-eyebrow {
+  margin: 0 0 var(--rw-s2);
+  font-size: var(--rw-t-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rw-accent-text);
+  font-weight: 600;
+}
+
+.cmd-headline {
+  margin: 0 0 var(--rw-s5);
+  font-size: var(--rw-t-display);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  color: var(--rw-text);
+}
+
+/* The ask: one dominant field. Sized for a sentence, not a word. */
+.cmd-ask {
+  display: flex;
+  gap: var(--rw-s2);
+  align-items: flex-end;
+}
+
+.cmd-ask-input {
+  flex: 1;
+  min-height: 62px;
+  padding: 13px 15px;
+  resize: vertical;
+  background: var(--rw-surface-sunken);
+  border: 1px solid var(--rw-border-subtle);
+  border-radius: var(--rw-r-lg);
+  color: var(--rw-text);
+  font-family: var(--rw-font-ui);
+  font-size: 15.5px;
+  line-height: 1.5;
+  transition:
+    border-color var(--rw-dur-micro) var(--rw-ease),
+    background-color var(--rw-dur-micro) var(--rw-ease);
+}
+.cmd-ask-input::placeholder { color: var(--rw-text-muted); }
+.cmd-ask-input:hover { border-color: var(--rw-border); }
+.cmd-ask-input:focus {
+  outline: none;
+  border-color: var(--rw-accent-line);
+  background: var(--rw-surface);
+}
+
+.cmd-ask-go { flex: none; height: 62px; padding: 0 22px; }
+
+.cmd-ask-hint {
+  margin: var(--rw-s3) 0 0;
+  font-size: var(--rw-t-meta);
+  color: var(--rw-text-muted);
+  max-width: 58ch;
+  line-height: 1.5;
+}
+
+/* ---- progressive disclosure of structured context ---- */
+
+.rw-disclosure {
+  display: flex;
+  align-items: center;
+  gap: var(--rw-s3);
+  flex-wrap: wrap;
+  margin-top: var(--rw-s4);
+  padding-top: var(--rw-s4);
+  border-top: 1px solid var(--rw-border-subtle);
+}
+
+.rw-resolved { display: flex; flex-direction: column; gap: 5px; }
+.rw-resolved-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Structured fields are demoted: quieter, monospaced, compact. They are
+   a correction surface, not the primary interaction. */
+.rw-context-fields {
+  margin-top: var(--rw-s3);
+  padding: var(--rw-s3) 0;
+  gap: var(--rw-s3) var(--rw-s4);
+}
+.rw-context-fields > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--rw-t-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rw-text-muted);
+}
+.rw-context-fields select,
+.rw-context-fields input[type='text'],
+.rw-context-fields input[type='number'] {
+  height: 28px;
+  padding: 0 8px;
+  background: var(--rw-surface-sunken);
+  border: 1px solid var(--rw-border-subtle);
+  border-radius: var(--rw-r-sm);
+  color: var(--rw-text);
+  font-family: var(--rw-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+}
+.rw-context-fields select:focus,
+.rw-context-fields input:focus {
+  outline: none;
+  border-color: var(--rw-accent-line);
+}
+
+@media (max-width: 720px) {
+  .cmd-hero { padding-top: var(--rw-s5); }
+  .cmd-headline { font-size: 24px; }
+  .cmd-ask { flex-direction: column; align-items: stretch; }
+  .cmd-ask-go { width: 100%; height: 44px; }
+}
+
+/* ============================================================
+   CORRECTNESS FIX — [hidden] must actually hide
+   ============================================================
+   The legacy layout layer sets `display: flex` on `.controls`, which beats the
+   UA stylesheet's `[hidden] { display: none }`. Any component using the
+   `hidden` attribute for progressive disclosure therefore stayed visible —
+   the disclosure was silently broken. Progressive disclosure depends on this
+   being reliable, so it is asserted globally rather than per-component. */
+[hidden] { display: none !important; }
+
+/* Template chips: examples, not actions. Ghost until approached so they
+   support the question instead of competing with the primary control. */
+.cmd-templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--rw-s5);
+}
+.cmd-template {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid var(--rw-border-subtle);
+  border-radius: var(--rw-r-md);
+  color: var(--rw-text-muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition:
+    background-color var(--rw-dur-micro) var(--rw-ease),
+    border-color var(--rw-dur-micro) var(--rw-ease),
+    color var(--rw-dur-micro) var(--rw-ease);
+}
+.cmd-template:hover {
+  background: var(--rw-surface-raised);
+  border-color: var(--rw-border-strong);
+  color: var(--rw-text);
+}
+.cmd-template b {
+  font-weight: 600;
+  color: var(--rw-text-secondary);
+}
+.cmd-template:hover b { color: var(--rw-accent-text); }
+.cmd-template span { font-size: 11.5px; }
+.cmd-template:focus-visible { outline: 2px solid var(--rw-accent); outline-offset: 2px; }
+
+/* A disabled primary must read as *unavailable*, not as a muted variant of
+   itself — a dimmed solid fill still looks pressable. */
+.rw-btn--primary:disabled {
+  background: var(--rw-surface-raised);
+  border-color: var(--rw-border-subtle);
+  color: var(--rw-text-muted);
+  opacity: 1;
+}
+
+/* ============================================================
+   CARD DISEASE — the hero is not an object, it is the page
+   ============================================================
+   The legacy stylesheet wraps `.cmd-hero` in a bordered panel, which puts a
+   rectangle around the entire first screen. That is the single loudest
+   "vibe-coded dashboard" signal: a box that contains everything signals
+   nothing. The question owns the page; hierarchy comes from type and space. */
+.cmd-hero {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: var(--rw-s6) 0 var(--rw-s4);
+  box-shadow: none;
+}
+
+/* The resolved-context row is a distinct object (it states what the engine is
+   scoped to), so a hairline above it is meaningful separation rather than
+   decoration. Everything else relies on whitespace. */
+.cmd-hero .rw-disclosure + .rw-disclosure { margin-top: var(--rw-s4); }
+
+.rw-disclosure .rw-k {
+  margin-bottom: 0;
+  color: var(--rw-text-muted);
+}
+
+/* Secondary regions below the fold read as one continuous document. */
+.cmd-section {
+  border: 0;
+  border-top: 1px solid var(--rw-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  padding: var(--rw-s5) 0 0;
+  margin-top: var(--rw-s5);
+}

@@ -493,7 +493,7 @@ export function ComparabilityChip({
   if (!data?.status) return null
   return (
     <div role="listitem">
-      <span className="m-label">Comparability (6E)</span>
+      <span className="m-label">Comparability (telemetry attribution)</span>
       <StateChip state={data.status} />
       {data.reason && <span className="m-sub">{data.reason}</span>}
     </div>
@@ -550,7 +550,7 @@ export function DegradationContextPanel({
 
   return (
     <section className="panel" aria-label="Degradation context">
-      <h2>Degradation context — measured stint evidence (6G)</h2>
+      <h2>Degradation context — measured stint evidence</h2>
       {!valid ? (
         <div className="empty-state">
           {data.status}{data.reason ? ` — ${data.reason}` : ''}
@@ -584,7 +584,7 @@ export function DegradationContextPanel({
         </div>
       )}
       <p className="muted small">
-        Compound, stint windows and slope come from the 6G stint-evidence engine for this
+        Compound, stint windows and slope come from the stint-evidence engine for this
         exact scope. The cumulative residual stays unassigned; consistency over time is
         not causation.
       </p>

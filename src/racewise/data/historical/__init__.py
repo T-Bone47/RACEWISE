@@ -7,58 +7,54 @@ Provides ingestion pipelines for historical F1 data from multiple providers:
 - OpenF1: Modern live/real-time data (2023+)
 
 All providers normalize to canonical RACEWISE schemas.
+
+Exports resolve lazily (see :mod:`racewise.lazy_exports`) so that importing one
+ingester no longer links every other provider - in particular the FastF1 chain,
+which pulls in fastf1 + pandas at module import time.
 """
+
 from __future__ import annotations
 
-from racewise.data.historical.f1db_canonical import CanonicalStore, F1DBCanonicalizer
-from racewise.data.historical.f1db_ingest import F1DBIngester, get_f1db_ingester
-from racewise.data.historical.canonical_queries import CanonicalQueries, get_canonical_queries
-from racewise.data.historical.jolpica_ingest import JolpicaIngester, get_jolpica_ingester
-from racewise.data.historical.fastf1_historical_ingest import FastF1HistoricalIngester, get_fastf1_historical_ingester
-from racewise.data.historical.normalizer import Normalizer, DataQualityChecker
-from racewise.data.historical.reconciliation import Reconciler, DiscrepancyType, reconcile_sources
-from racewise.data.historical.availability import AvailabilityIndex, AvailabilityStatus, DataAvailability, SessionAvailability, SeasonAvailability, get_availability_index
-from racewise.data.historical.catalog import HistoricalCatalogManager, HistoricalCatalog, DataSource, EntityInventory, get_catalog_manager
-from racewise.data.historical.manifest import ManifestGenerator, generate_dataset_manifest, verify_dataset_manifest
+from racewise.lazy_exports import install_lazy_exports
 
-__all__ = [
+_EXPORTS = {
     # F1DB
-    "F1DBIngester",
-    "get_f1db_ingester",
-    "CanonicalStore",
-    "F1DBCanonicalizer",
-    "CanonicalQueries",
-    "get_canonical_queries",
+    "F1DBIngester": "racewise.data.historical.f1db_ingest",
+    "get_f1db_ingester": "racewise.data.historical.f1db_ingest",
+    "CanonicalStore": "racewise.data.historical.f1db_canonical",
+    "F1DBCanonicalizer": "racewise.data.historical.f1db_canonical",
+    "CanonicalQueries": "racewise.data.historical.canonical_queries",
+    "get_canonical_queries": "racewise.data.historical.canonical_queries",
     # Jolpica
-    "JolpicaIngester",
-    "get_jolpica_ingester",
-    # FastF1 Historical
-    "FastF1HistoricalIngester",
-    "get_fastf1_historical_ingester",
-    # Normalization & Quality
-    "Normalizer",
-    "DataQualityChecker",
+    "JolpicaIngester": "racewise.data.historical.jolpica_ingest",
+    "get_jolpica_ingester": "racewise.data.historical.jolpica_ingest",
+    # FastF1 historical
+    "FastF1HistoricalIngester": "racewise.data.historical.fastf1_historical_ingest",
+    "get_fastf1_historical_ingester": "racewise.data.historical.fastf1_historical_ingest",
+    # Normalization & quality
+    "Normalizer": "racewise.data.historical.normalizer",
+    "DataQualityChecker": "racewise.data.historical.normalizer",
     # Reconciliation
-    "Reconciler",
-    "DiscrepancyType",
-    "reconcile_sources",
+    "Reconciler": "racewise.data.historical.reconciliation",
+    "DiscrepancyType": "racewise.data.historical.reconciliation",
+    "reconcile_sources": "racewise.data.historical.reconciliation",
     # Availability
-    "AvailabilityIndex",
-    "AvailabilityStatus",
-    "DataAvailability",
-    "SessionAvailability",
-    "SeasonAvailability",
-    "get_availability_index",
+    "AvailabilityIndex": "racewise.data.historical.availability",
+    "AvailabilityStatus": "racewise.data.historical.availability",
+    "DataAvailability": "racewise.data.historical.availability",
+    "SessionAvailability": "racewise.data.historical.availability",
+    "SeasonAvailability": "racewise.data.historical.availability",
+    "get_availability_index": "racewise.data.historical.availability",
     # Catalog
-    "HistoricalCatalogManager",
-    "HistoricalCatalog",
-    "DataSource",
-    "EntityInventory",
-    "get_catalog_manager",
+    "HistoricalCatalogManager": "racewise.data.historical.catalog",
+    "HistoricalCatalog": "racewise.data.historical.catalog",
+    "DataSource": "racewise.data.historical.catalog",
+    "EntityInventory": "racewise.data.historical.catalog",
+    "get_catalog_manager": "racewise.data.historical.catalog",
     # Manifest
-    "ManifestGenerator",
-    "generate_dataset_manifest",
-    "verify_dataset_manifest",
-    # CLI
-    "cli",
-]
+    "ManifestGenerator": "racewise.data.historical.manifest",
+    "generate_dataset_manifest": "racewise.data.historical.manifest",
+    "verify_dataset_manifest": "racewise.data.historical.manifest",
+}
+
+install_lazy_exports(globals(), _EXPORTS)

@@ -73,7 +73,7 @@ describe('InvestigationView (Active Investigation workstation)', () => {
     expect(screen.getByText(/UNRESOLVED — never assigned to a mechanism/i)).toBeTruthy()
   })
 
-  it('renders the real 6E comparability verdict in the observation band', async () => {
+  it('renders the real comparability verdict in the observation band', async () => {
     render(<InvestigationView presetParams={preset()} />)
     await waitFor(() => {
       expect(screen.getAllByText(/VALID COMPARISON/i).length).toBeGreaterThan(0)
@@ -135,10 +135,10 @@ describe('InvestigationView (Active Investigation workstation)', () => {
     expect(screen.getByText('0.25 S ANALYSIS GRID')).toBeTruthy()
   })
 
-  it('renders the degradation context from the real 6G stint evidence', async () => {
+  it('renders the degradation context from the real stint evidence', async () => {
     render(<InvestigationView presetParams={preset()} />)
     await waitFor(() => {
-      expect(screen.getByText(/Degradation context — measured stint evidence \(6G\)/i)).toBeTruthy()
+      expect(screen.getByText(/Degradation context — measured stint evidence$/i)).toBeTruthy()
     })
     expect(screen.getByText(/\+0\.042 s \/ stint-lap/i)).toBeTruthy()
   })

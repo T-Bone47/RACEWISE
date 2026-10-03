@@ -6,6 +6,7 @@ import {
   HYP_LABELS, QUESTION_INPUTS, QUESTION_TYPES,
 } from './types'
 import type { InvestigationResult } from './types'
+import { analyticalLayerLabel, formatAnalyticalChain } from './provenance'
 import { StructuredError, WorkspaceSkeleton } from './workspace'
 import { ClaimTag, ContextInspector, StateChip, StatePanel } from './workspace'
 import type { InspectorEntry, ProvenanceTarget } from './workspace'
@@ -247,6 +248,79 @@ const STAGES: Array<{ id: StageId; label: string }> = [
   { id: 'synthesis', label: 'Synthesis' },
   { id: 'verification', label: 'Verification' },
 ]
+
+/* Real, already-supported scopes the engine can actually answer — each one
+   names the engineering question it answers, so the empty workspace teaches
+   the product instead of sitting blank. These are the same golden cases the
+   backend documents; nothing here is illustrative filler. */
+const WORKED_INVESTIGATIONS = [
+  {
+    key: 'lap-2023-r1',
+    questionType: 'LAP_PERFORMANCE',
+    season: 2023,
+    round: 1,
+    label: 'Bahrain',
+    driverA: 'max-verstappen',
+    driverB: 'sergio-perez',
+    lap: 6,
+    teaches: 'Single-lap Δt decomposition against telemetry',
+  },
+  {
+    key: 'stint-2023-r1',
+    questionType: 'STINT_PERFORMANCE',
+    season: 2023,
+    round: 1,
+    label: 'Bahrain',
+    driverA: 'max-verstappen',
+    driverB: 'sergio-perez',
+    lap: 6,
+    teaches: 'Degradation slope across a stint, with the residual left open',
+  },
+  {
+    key: 'racegap-2024-r14',
+    questionType: 'RACE_GAP',
+    season: 2024,
+    round: 14,
+    label: 'Bahrain',
+    driverA: 'max-verstappen',
+    driverB: 'charles-leclerc',
+    lap: 1,
+    teaches: 'Official-classification gap decomposition',
+  },
+  {
+    key: 'regime-2022-r4',
+    questionType: 'PERFORMANCE_REGIME',
+    season: 2022,
+    round: 4,
+    label: 'Bahrain',
+    driverA: 'max-verstappen',
+    driverB: 'charles-leclerc',
+    lap: 1,
+    teaches: 'Deterministic slope segmentation into regimes',
+  },
+  {
+    key: 'hypoth-2023-r1',
+    questionType: 'HYPOTHESIS_EVALUATION',
+    season: 2023,
+    round: 1,
+    label: 'Bahrain',
+    driverA: 'max-verstappen',
+    driverB: 'sergio-perez',
+    lap: 6,
+    teaches: 'H1–H6 falsification protocol with contradictions preserved',
+  },
+  {
+    key: 'pattern-2023-r1',
+    questionType: 'CROSS_RACE_PATTERN',
+    season: 2023,
+    round: 1,
+    label: 'Bahrain',
+    driverA: 'max-verstappen',
+    driverB: 'sergio-perez',
+    lap: 6,
+    teaches: 'Structural recurrence across races — requires a pattern id',
+  },
+] as const
 
 export default function InvestigationView({ presetParams }: { presetParams?: URLSearchParams }) {
   /* question state (from launcher preset when present) */
@@ -667,7 +741,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
           <div className="inv-meta">
             <span className="mono">{result.investigation_id}</span>
             <span title={`output hash ${result.output_hash}`}>hash <code>{result.output_hash.slice(0, 10)}</code></span>
-            <span>{result.provenance.provider} · {result.provenance.analytical_chain.join(' → ')}</span>
+            <span>{result.provenance.provider} · {formatAnalyticalChain(result.provenance.analytical_chain)}</span>
             <button
               className="linklike small"
               onClick={() => openProvenance({
@@ -768,11 +842,44 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
       {loading && <WorkspaceSkeleton />}
 
       {!result && !loading && !error && (
-        <StatePanel
-          kind="empty"
-          title="No investigation loaded"
-          reason="Choose a question type and scope above, or start from the command center. Every conclusion here will be bound to evidence with a decision trace."
-        />
+        <section className="launchpad" aria-label="Start an investigation">
+          <header className="launchpad-head">
+            <h2 className="launchpad-title">No investigation loaded</h2>
+            <p className="launchpad-lede">
+              Pick a question type and scope above, or open one of the worked
+              investigations below. Every conclusion is bound to evidence and
+              carries a decision trace — nothing here is asserted without a
+              source.
+            </p>
+          </header>
+
+          <div className="launchpad-grid">
+            {WORKED_INVESTIGATIONS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className="launchpad-card"
+                onClick={() => {
+                  setQuestionType(item.questionType)
+                  setSeason(item.season)
+                  setRound(item.round)
+                  setDriverA(item.driverA)
+                  setDriverB(item.driverB)
+                  setLapNumber(item.lap)
+                }}
+              >
+                <span className="launchpad-card-type">{item.questionType.replace(/_/g, ' ')}</span>
+                <span className="launchpad-card-scope">
+                  {item.season} R{item.round} · {item.label}
+                </span>
+                <span className="launchpad-card-meta">
+                  {item.driverA} vs {item.driverB} · lap {item.lap}
+                </span>
+                <span className="launchpad-card-why">{item.teaches}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       )}
 
       {result && (
@@ -975,7 +1082,7 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                             : it.supports
                               ? <span className="hc-sup" title="supports">→ {it.hypothesis_ids.map((h) => h.split('_')[0]).join(' ')}</span>
                               : <span className="hc-neu" title="no decisive hypothesis relation">—</span>}
-                          <span className="muted small"> {it.source_phase}</span>
+                          <span className="muted small"> {analyticalLayerLabel(it.source_phase)}</span>
                         </td>
                         <td><StateChip state={it.state} /></td>
                       </tr>

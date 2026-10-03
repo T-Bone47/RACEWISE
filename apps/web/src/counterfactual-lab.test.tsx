@@ -66,11 +66,13 @@ describe('CounterfactualView (Stitch Counterfactual Lab)', () => {
     expect(screen.getByText(/deterministic decimation, display only/i)).toBeTruthy()
   })
 
-  it('renders the real 6J sensitivity sweep and its classification', async () => {
+  it('renders the real sensitivity sweep and its classification', async () => {
     render(<CounterfactualView />)
     fireEvent.click(screen.getByRole('button', { name: /run counterfactual/i }))
     await waitFor(() => {
-      expect(screen.getByText(/Model sensitivity sweep — bounded scenarios \(Phase 6J\)/i)).toBeTruthy()
+      /* heading uses engineering vocabulary only - internal layer codes are
+         never surfaced to the user (mission §60) */
+      expect(screen.getByText(/Model sensitivity sweep — bounded scenarios$/i)).toBeTruthy()
     })
     /* real sweep point values from the mocked envelope payload */
     expect(screen.getByText(/93\.720000/)).toBeTruthy()

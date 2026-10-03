@@ -26,8 +26,11 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-import fastf1
-import pandas as pd
+from racewise.data._lazy import LazyModule
+
+# Deferred imports - see racewise.data._lazy.
+fastf1 = LazyModule("fastf1")
+pd = LazyModule("pandas")
 
 from racewise.data.historical.f1db_canonical import (
     CanonicalStore,

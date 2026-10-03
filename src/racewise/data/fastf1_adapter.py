@@ -11,8 +11,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-import fastf1
-import pandas as pd
+from racewise.data._lazy import LazyModule
+
+# Deferred: importing fastf1 + pandas costs ~1.7s warm and ~9s on a cold
+# filesystem. Neither is needed to import this module - only to read a
+# session. LazyModule defers the import to first attribute access without
+# changing any value the adapter produces.
+fastf1 = LazyModule("fastf1")
+pd = LazyModule("pandas")
 
 from racewise.domain.schemas import (
     Lap,

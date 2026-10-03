@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { formatAnalyticalChain } from './provenance'
 
 interface OccurrenceRef {
   pattern_id: string
@@ -429,7 +430,7 @@ export default function PatternEvidenceView(preset?: {
             </ul>
             <strong>Provenance</strong>
             <p className="muted small">
-              analytical chain: {result.provenance!.analytical_chain.join(' → ')} · provider{' '}
+              analytical chain: {formatAnalyticalChain(result.provenance!.analytical_chain)} · provider{' '}
               {result.provenance!.provider}
             </p>
           </div>

@@ -3,11 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>web</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0e12" />
+    <meta
+      name="description"
+      content="RACEWISE — evidence-driven race engineering. Investigate why lap time was lost: measured telemetry, falsifiable hypotheses, explicit residuals, modelled counterfactuals, full provenance."
+    />
+    <title>RACEWISE — evidence-driven race engineering</title>
+    <!--
+      Font subsets are gated by unicode-range in the @font-face rules, so only
+      the glyphs actually rendered are fetched; latin-ext is kept because
+      driver and circuit names carry accents (Pérez, Nürburgring).
+    -->
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      RACEWISE is an interactive investigation workstation and requires JavaScript.
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

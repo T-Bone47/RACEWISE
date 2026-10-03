@@ -116,6 +116,8 @@ export default function CommandCenterView({
   const [questionType, setQuestionType] = useState<string>('LAP_PERFORMANCE')
   const [season, setSeason] = useState(2023)
   const [round, setRound] = useState(1)
+  /* structured context is corrected on demand, not up front */
+  const [contextOpen, setContextOpen] = useState(false)
   const [driverA, setDriverA] = useState('max-verstappen')
   const [driverB, setDriverB] = useState('sergio-perez')
   const [lapNumber, setLapNumber] = useState(6)
@@ -269,23 +271,40 @@ export default function CommandCenterView({
     <div>
       {/* ---- THE QUESTION FIRST (mission: "What do you want to investigate?") ---- */}
       <section className="cmd-hero" aria-label="New investigation">
-        <h2>What do you want to investigate?</h2>
-        <div className="nl-console nl-console-hero">
-          <input
-            type="text"
+        {/* QUESTION-FIRST. The question is the product's entry point, so it is
+            the only thing on screen at full weight. Structured context is
+            resolved automatically and revealed only when the operator needs to
+            correct it — progressive disclosure, not a form. */}
+        <p className="cmd-eyebrow">New investigation</p>
+        <h1 className="cmd-headline">What are you investigating?</h1>
+
+        <div className="cmd-ask">
+          <textarea
+            className="cmd-ask-input"
+            rows={2}
             value={nlQuestion}
-            placeholder="e.g. Why did Verstappen lose time to Pérez in Bahrain 2023?"
+            placeholder="Why did Verstappen lose time to Pérez in sector 2 at Bahrain 2023?"
             onChange={(e) => setNlQuestion(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void runAutonomous() }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
+                e.preventDefault()
+                void runAutonomous()
+              }
+            }}
             aria-label="Engineering question"
           />
-          <button className="primary" onClick={() => void runAutonomous()} disabled={nlRunning || !nlQuestion.trim()}>
+          <button
+            className="rw-btn rw-btn--primary rw-btn--lg cmd-ask-go"
+            onClick={() => void runAutonomous()}
+            disabled={nlRunning || !nlQuestion.trim()}
+          >
             {nlRunning ? 'Investigating…' : 'Investigate'}
           </button>
         </div>
-        <p className="muted small">
-          A free-form question runs the real Phase 6T orchestrator — question → context →
-          evidence → falsification → synthesis — with the deterministic engine as the authority.
+
+        <p className="cmd-ask-hint">
+          Runs the full chain — question → context → evidence → falsification →
+          synthesis. The deterministic engine decides what the answer is.
         </p>
         {nlError && (
           <div className="catalog-error" role="alert">{nlError}</div>
@@ -320,14 +339,13 @@ export default function CommandCenterView({
         )}
 
         {/* fast investigation templates — real question types only */}
-        <div className="template-row" aria-label="Fast investigation templates">
-          <span className="t-microlabel">Templates</span>
-          <div className="template-pills">
+        <div className="rw-disclosure" style={{ borderTop: 'none', marginTop: 'var(--rw-s5)', paddingTop: 0 }}>
+          <span className="rw-k" style={{ marginBottom: 0 }}>Or start from a known question type</span>
+          <div className="cmd-templates">
             {TEMPLATES.map((t) => (
               <button
                 key={t.label}
-                className={`template-pill ${questionType === t.question_type &&
-                  (t.session_type ?? 'RACE') === 'RACE' ? 'selected' : ''}`}
+                className="cmd-template"
                 title={t.hint}
                 onClick={() => {
                   setQuestionType(t.question_type)
@@ -336,15 +354,15 @@ export default function CommandCenterView({
                   }
                 }}
               >
-                <span className="tp-label">{t.label}</span>
-                <span className="tp-hint muted">{t.hint}</span>
+                <b>{t.label}</b>
+                <span>{t.hint}</span>
               </button>
             ))}
           </div>
         </div>
 
         {/* ---- structured scope (the deterministic launcher) ---- */}
-        <div className="launcher-steps" aria-hidden="true">
+        <div className="launcher-steps" aria-hidden="true" hidden={!contextOpen}>
           {STEPS.map((s, i) => (
             <span key={s} className={`step ${i < step ? 'done' : i === step ? 'active' : ''}`}>
               {i + 1}. {s}
@@ -352,7 +370,37 @@ export default function CommandCenterView({
           ))}
         </div>
 
-        <div className="controls">
+        <div className="rw-disclosure">
+          <button
+            type="button"
+            className="rw-btn rw-btn--ghost rw-btn--sm"
+            aria-expanded={contextOpen}
+            onClick={() => setContextOpen((o) => !o)}
+          >
+            {contextOpen ? '▾' : '▸'} Edit context
+          </button>
+
+          {/* resolved context — what the engine is actually scoped to right now.
+              Read-only by default; the operator sees the truth before editing it. */}
+          {!contextOpen && (
+            <div className="rw-resolved" aria-label="Resolved context">
+              <span className="rw-k">Resolved context</span>
+              <div className="rw-resolved-chips">
+                <span className="rw-chip rw-chip--observed">{season} · R{round}</span>
+                <span className="rw-chip rw-chip--observed">{questionType.replace(/_/g, ' ').toLowerCase()}</span>
+                <span className="rw-chip rw-chip--observed">{driverA} ↔ {driverB}</span>
+                {inputs.includes('lap_number') && (
+                  <span className="rw-chip rw-chip--observed">lap {lapNumber}</span>
+                )}
+                {inputs.includes('stint_number') && (
+                  <span className="rw-chip rw-chip--observed">stint {stintNumber}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="controls rw-context-fields" hidden={!contextOpen}>
           <label>
             question type:{' '}
             <select value={questionType} onChange={(e) => setQuestionType(e.target.value)}>
@@ -405,7 +453,7 @@ export default function CommandCenterView({
           )}
         </div>
 
-        <div className="controls">
+        <div className="controls" hidden={!contextOpen}>
           <span className="muted small">hypothesis subset (optional, never ranked):</span>
           {Object.entries(HYP_LABELS).map(([id, label]) => (
             <label key={id} style={{ gap: 3 }}>
@@ -425,8 +473,8 @@ export default function CommandCenterView({
           {' '}drivers must be distinct · scope data is checked at run time (UNAVAILABLE is reported, never broadened)
         </div>
 
-        <button className="primary" onClick={launch} disabled={step < 4}>
-          {step < 4 ? 'Complete steps 1–4 to investigate' : 'Run investigation →'}
+        <button className="rw-btn rw-btn--secondary" onClick={launch} disabled={step < 4}>
+          {step < 4 ? 'Complete steps 1–4' : 'Open structured investigation →'}
         </button>
       </section>
 

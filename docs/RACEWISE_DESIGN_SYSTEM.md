@@ -148,6 +148,35 @@ springs, no free drag (drag exists only as the canvas region-selection gesture).
 the shell — layout/transform animations collapse to instant, opacity fades are
 preserved, and the CSS layer zeroes every transition under
 `prefers-reduced-motion: reduce`. No interaction depends on seeing motion.
+
+**Motion must never gate first paint (measured):** the workspace used to mount
+at `opacity: 0` and fade in over 200 ms (`V.viewIn`). Chrome cannot report
+first contentful paint while content is fully transparent, so the entrance
+animation was delaying first paint. Only the *first* commit now skips it:
+
+```tsx
+initial={hasCommitted ? V.viewIn.initial : false}
+```
+
+`hasCommitted` is set from an effect, which React runs after paint, so the extra
+render cannot affect first paint. Every later navigation still animates — that
+is what motion is *for*. Motion is information architecture; it is never the
+reason the product feels slow. See
+[PERFORMANCE_ARCHITECTURE.md §6](PERFORMANCE_ARCHITECTURE.md).
+
+**One icon family:** tabler only. A second family was removed rather than
+tolerated — competing icon languages are a visual defect, not a preference.
+
+### 4b. Prose: no internal implementation language
+
+The user sees engineering concepts, never build history. Internal layer codes
+(`6E`, `6F`, `6N`, …) must never appear in a heading, caption or label; they
+are translated by `analyticalLayerLabel()` / `formatAnalyticalChain()` in
+`src/workspace.tsx`. The raw codes remain in the payload and provenance
+inspector, where they are legitimate.
+
+This is machine-enforced: `provenance-vocabulary.test.ts` scans every view
+source and fails if a bare code reappears in rendered JSX.
 - **Copy:** controls name their action; errors name the condition and the
   recovery; no marketing register, no exclamation marks.
 
@@ -181,6 +210,13 @@ No "lite" dataset at any width — the same real data re-flows.
 - One instance of any panel per view (deduplicated controls/meta).
 - Lists bounded by the engine (caps are server-side).
 - Production build ≤ ~100KB gzip for the shell (code-split views).
+  **Current: 123.3 kB gzip entry** — the target is aspirational and is NOT met;
+  the floor is ~220 kB minified react-dom alone. Measured breakdown and the
+  rejected Motion tree-shaking option are documented in
+  [PERFORMANCE_ARCHITECTURE.md §4](PERFORMANCE_ARCHITECTURE.md) so the gap is
+  not mistaken for an unexamined oversight.
+- Heavyweight views are `React.lazy` with honest contextual `Suspense` labels;
+  never a generic spinner, never a fake progress percentage.
 
 ## 8. Enforcement
 
@@ -191,3 +227,5 @@ No "lite" dataset at any width — the same real data re-flows.
   width-transitions removed; epistemic chips use the dot language).
 - View test suites pin behavior: flagship stages, palette keyboard, matrix
   scientific structure, lab MODELLED labelling, shell IA.
+- `provenance-vocabulary.test.ts` — provenance vocabulary completeness, chain
+  translation, and the source scan that bans internal layer codes from the UI.

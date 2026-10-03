@@ -8,7 +8,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-import pandas as pd
+from racewise.data._lazy import LazyModule
+
+# Deferred import - see racewise.data._lazy.
+pd = LazyModule("pandas")
 
 from racewise.domain.schemas import (
     Lap,

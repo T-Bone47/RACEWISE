@@ -198,7 +198,7 @@ export default function CounterfactualView({ presetParams }: { presetParams?: UR
     <div className="catalog cf-lab">
       {/* ============ sub-bar: scope + MODELLED badge ============ */}
       <div className="cf-subbar">
-        <h2>Counterfactual Lab — validated telemetry counterfactual (Phase 6I/6J)</h2>
+        <h2>Counterfactual Lab — validated telemetry counterfactual (modelled)</h2>
         <span className="ef-badge st-modelled" title={result?.epistemics}>
           MODELLED · NOT HISTORICAL
         </span>
@@ -362,7 +362,7 @@ export default function CounterfactualView({ presetParams }: { presetParams?: UR
 
           {/* ============ sensitivity sweep (real 6J scenarios) ============ */}
           <section className="panel" aria-label="Sensitivity sweep">
-            <h2>Model sensitivity sweep — bounded scenarios (Phase 6J)</h2>
+            <h2>Model sensitivity sweep — bounded scenarios</h2>
             {!envelope || envelope.status !== 'VALID' ? (
               <div className="empty-state">
                 {envelope?.status ? (

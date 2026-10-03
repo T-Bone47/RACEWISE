@@ -406,7 +406,7 @@ export default function AutonomousView() {
           {/* ============ MEMORY ============ */}
           {run.memory && (
             <div className="auto-memory">
-              <h3>Memory <span className="muted small">(derived via the unchanged Phase 6O rules)</span></h3>
+              <h3>Memory <span className="muted small">(exact-scope retrieval, evidence-bound)</span></h3>
               <p className="small">
                 {run.memory.items_derived} item(s) derived from this investigation
                 {related ? `; ${related.match_count} structurally related item(s) from ±1-season neighbors` : ''}.

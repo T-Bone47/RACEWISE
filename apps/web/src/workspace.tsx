@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import { ArrowLeft, X as XIcon } from 'lucide-react'
+/* One icon family only (tabler) - lucide was a second competing family used
+   for two glyphs, which split visual language and added a dependency. */
+import { IconArrowLeft as ArrowLeft, IconX as XIcon } from '@tabler/icons-react'
+import { analyticalLayerLabel } from './provenance'
 import { AnimatePresence, motion } from 'motion/react'
 import { T, V } from './motion'
 import { stateChipClass } from './types'
@@ -83,7 +86,7 @@ export function EvidenceDetails({
 
       <h4>Provenance</h4>
       <dl className="drawer-kv">
-        <KV k="source phase">{item.source_phase}</KV>
+        <KV k="analytical layer">{analyticalLayerLabel(item.source_phase)}</KV>
         <KV k="source tool">{item.source_tool}</KV>
         <KV k="source hash">
           <code className="small">{item.source_hash}</code>

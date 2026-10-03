@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from racewise.agent.provider import provider_from_env
-from racewise.data.fastf1_adapter import FastF1Adapter
+from racewise.data._lazy import LazyInstance
 from racewise.domain.schemas import (
     Conclusion,
     EvidenceType,
@@ -38,7 +38,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_adapter = FastF1Adapter(cache_dir=os.environ.get("FASTF1_CACHE_DIR"))
+def _build_adapter() -> "Any":
+    """Construct the FastF1 adapter.
+
+    Imported lazily inside the factory: importing it pulls in fastf1+pandas
+    (~1.7s warm, ~9s cold), which used to block every API cold start even
+    though the adapter is only touched by telemetry/lap request handlers.
+    """
+    from racewise.data.fastf1_adapter import FastF1Adapter
+
+    return FastF1Adapter(cache_dir=os.environ.get("FASTF1_CACHE_DIR"))
+
+
+# Lazily constructed on first use (see _build_adapter). Behaves as a normal
+# singleton to every call site - `_adapter.load_session(...)` is unchanged.
+_adapter = LazyInstance(_build_adapter)
 _store = get_store()
 
 

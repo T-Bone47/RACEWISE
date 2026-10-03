@@ -14,8 +14,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
-import fastf1
-import pandas as pd
+from racewise.data._lazy import LazyModule
+
+# Deferred imports - see racewise.data._lazy. Importing fastf1 + pandas costs
+# ~1.7s warm and ~9s cold; this module only needs them when actually reading
+# a session, so the cost is paid on use rather than on import.
+fastf1 = LazyModule("fastf1")
+pd = LazyModule("pandas")
 
 from racewise.data.fastf1_adapter import FastF1Adapter, enable_cache
 from racewise.domain.schemas import (

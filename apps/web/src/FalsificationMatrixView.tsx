@@ -2,6 +2,7 @@
 import { HYP_LABELS, QUESTION_INPUTS } from './types'
 import type { InvestigationResult, LedgerItem } from './types'
 import { EVALUATION_RULES, HYPOTHESIS_STATEMENTS } from './types'
+import { analyticalLayerLabel } from './provenance'
 import { Drawer, EvidenceDetails, LoadingLine, StateChip, StructuredError, WorkspaceSkeleton } from './workspace'
 
 /* ============ Stitch Falsification Matrix — the real 6N hypothesis system ============
@@ -443,7 +444,7 @@ export default function FalsificationMatrixView({ presetParams }: { presetParams
       {drawerItem && (
         <Drawer
           title={`Evidence ${drawerItem.evidence_id}`}
-          subtitle={`${drawerItem.source_phase} Â· ${drawerItem.source_tool}`}
+          subtitle={`${analyticalLayerLabel(drawerItem.source_phase)} · ${drawerItem.source_tool}`}
           onClose={() => setDrawerItem(null)}
         >
           <EvidenceDetails item={drawerItem} />

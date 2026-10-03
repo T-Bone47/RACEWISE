@@ -13,13 +13,30 @@ const here = dirname(fileURLToPath(import.meta.url))
 
 describe('motion tokens', () => {
   it('keeps one duration scale aligned with the CSS token layer', () => {
-    expect(DUR.micro).toBe(150)
-    expect(DUR.panel).toBe(200)
-    expect(DUR.layout).toBe(320)
+    expect(DUR.micro).toBe(110)
+    expect(DUR.panel).toBe(140)
+    expect(DUR.layout).toBe(200)
     const css = readFileSync(join(here, 'App.css'), 'utf-8')
-    expect(css).toContain('--motion-fast: 150ms')
-    expect(css).toContain('--motion-normal: 200ms')
-    expect(css).toContain('--motion-slow: 320ms')
+    expect(css).toContain('--motion-fast: 110ms')
+    expect(css).toContain('--motion-normal: 140ms')
+    expect(css).toContain('--motion-slow: 200ms')
+  })
+
+  /* Perceived speed is dominated by asymmetry: an interface feels slow when
+   * dismissing costs as much as opening. Exits must resolve faster. */
+  it('resolves exits faster than entrances', () => {
+    expect(DUR.exitMicro).toBeLessThan(DUR.micro)
+    expect(DUR.exitPanel).toBeLessThan(DUR.panel)
+    expect(T.exitPanel.duration).toBeLessThan(T.panel.duration)
+    expect(T.exitMicro.duration).toBeLessThan(T.micro.duration)
+  })
+
+  /* An instrument must never feel springy. A stiffness bump without a matching
+   * damping bump is the classic cause of "slow but bouncy" motion. */
+  it('keeps every surface transition inside the fast comfort band', () => {
+    expect(DUR.micro).toBeLessThanOrEqual(140)
+    expect(DUR.panel).toBeLessThanOrEqual(180)
+    expect(DUR.layout).toBeLessThanOrEqual(240)
   })
 
   it('uses one easing family: controlled deceleration', () => {

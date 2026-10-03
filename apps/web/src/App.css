@@ -908,11 +908,19 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
   display: inline-block;
   height: 11px;
   border-radius: 2px;
-  background: linear-gradient(100deg, var(--st-element) 40%, var(--st-hover) 50%, var(--st-element) 60%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  /* A gradient sweep reads as "loading" far more clearly than an opacity
+     pulse, and unlike a pulse it keeps the bar's edges stable — the shape of
+     the incoming content stays legible while it resolves. The highlight is
+     deliberately brighter than the surface it sits on: a placeholder that
+     cannot be distinguished from an empty panel is a blank screen. */
+  background: linear-gradient(100deg,
+    var(--st-element) 38%,
+    var(--st-line-hi) 50%,
+    var(--st-element) 62%);
+  background-size: 220% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
 }
-@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes shimmer { from { background-position: 220% 0; } to { background-position: -120% 0; } }
 
 .empty-state {
   border: 1px dashed var(--st-line-hi);
@@ -1756,9 +1764,10 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
    ============================================================ */
 
 :root {
-  --motion-fast: 150ms;    /* micro state feedback   (JS DUR.micro)  */
-  --motion-normal: 200ms;  /* panels/drawers/stages  (JS DUR.panel)   */
-  --motion-slow: 320ms;    /* layout collapse        (JS DUR.layout) */
+  --motion-fast: 110ms;    /* micro state feedback   (JS DUR.micro)  */
+  --motion-normal: 140ms;  /* panels/drawers/stages  (JS DUR.panel)   */
+  --motion-slow: 200ms;    /* layout collapse        (JS DUR.layout) */
+  --motion-exit: 90ms;     /* exits — faster than entrances           */
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -1790,13 +1799,11 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
 .tv-trace-cf { transition: opacity var(--motion-normal) var(--motion-ease); }
 
 /* ---- skeleton: quiet activity indication (stage-aware shapes, no spinners) ---- */
-.skeleton {
-  animation: skeleton-breathe 1.6s var(--motion-ease) infinite;
-}
-@keyframes skeleton-breathe {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
+/* NOTE: an `animation` declared here would silently override the shimmer
+   sweep above (same property, later in the cascade) and reduce the skeleton
+   to an opacity pulse on a near-surface-coloured bar — i.e. an apparently
+   blank panel while loading. Do not re-add one; tune `.skeleton` itself. */
+.skeleton { will-change: background-position; }
 
 /* ---- zen collapse: Motion owns the visual transition (workspace `layout`
        tween + sidebar/statusbar content fade) — these are the CSS final
@@ -1817,4 +1824,111 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
   .palette-item, .tv-region, .tv-trace-cf {
     transition-duration: 0ms;
   }
+}
+
+/* ============================================================
+   LAUNCHPAD — the investigation workspace's empty state.
+
+   An empty workstation is the worst thing an engineering tool
+   can show: it reads as "broken" or "still loading". This fills
+   the space with the real scopes the engine can already answer,
+   each naming the engineering question it resolves — so the
+   empty state teaches the product instead of sitting blank.
+
+   Density is deliberate (cockpit, not marketing): hairline
+   borders, tabular metrics, zero decorative padding.
+   ============================================================ */
+.launchpad {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xl);
+  padding: var(--sp-lg) 0 var(--sp-xl);
+  max-width: 1180px;
+}
+
+.launchpad-head { max-width: 62ch; }
+
+.launchpad-title {
+  margin: 0 0 var(--sp-sm);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--st-text);
+}
+
+.launchpad-lede {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--st-text-dim);
+}
+
+.launchpad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: var(--sp-md);
+}
+
+/* Cards are interactive controls, so they carry the full focus/
+   hover contract. transform+opacity only — no layout thrash. */
+.launchpad-card {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  padding: 13px 14px 14px;
+  background: var(--st-surface);
+  border: 1px solid var(--st-line);
+  border-left: 2px solid var(--st-line-hi);
+  border-radius: var(--st-radius-panel);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.launchpad-card:hover {
+  background: var(--st-element);
+  border-color: var(--st-line-hi);
+  border-left-color: var(--st-primary);
+  transform: translateY(-1px);
+}
+.launchpad-card:focus-visible {
+  outline: 2px solid var(--st-primary);
+  outline-offset: 2px;
+}
+
+.launchpad-card-type {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--st-primary-text);
+}
+.launchpad-card-scope {
+  font-family: var(--font-metric);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  color: var(--st-text);
+}
+.launchpad-card-meta {
+  font-family: var(--font-metric);
+  font-size: 11.5px;
+  color: var(--st-outline);
+}
+.launchpad-card-why {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--st-text-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launchpad-card { transition-duration: 0ms; }
+  .launchpad-card:hover { transform: none; }
+}
+
+@media (max-width: 640px) {
+  .launchpad-grid { grid-template-columns: 1fr; }
 }
