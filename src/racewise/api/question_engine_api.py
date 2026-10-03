@@ -14,6 +14,8 @@ Routes (§70):
     POST /api/investigations/ask        compile + plan + execute + synthesise
     POST /api/investigations/{id}/follow-up
     POST /api/investigations/benchmark  run the question benchmark
+    POST /api/investigations/autopsy    engineering autopsy timeline
+    POST /api/investigations/decision-twin  bounded scenario sweep
 
 The full investigation payloads stay large on purpose: the frontend needs the
 full ledger, plan and verification report to render an answer honestly, and
@@ -133,6 +135,123 @@ def run_question_benchmark() -> dict[str, Any]:
     from racewise.question_engine.benchmark import measure
 
     return measure(get_canonical_queries())
+
+
+# ---------------------------------------------------------------------------
+# engineering autopsy (§26) and decision twin (§40)
+# ---------------------------------------------------------------------------
+
+class AutopsyRequest(BaseModel):
+    """A whole-race question. Produces a timeline, not a single measurement."""
+
+    season: int
+    round: int
+    driver_a: str
+    driver_b: str
+    session_type: str = "RACE"
+    residual_s: Optional[float] = Field(
+        default=None,
+        description=(
+            "An unexplained-time residual already computed by a capability. "
+            "Supplied, never recomputed here."
+        ),
+    )
+    residual_source: Optional[str] = Field(default=None)
+
+
+class DecisionTwinRequest(BaseModel):
+    """A bounded scenario sweep. Every returned point is MODELLED."""
+
+    season: int
+    round: int
+    driver: str
+    lap_number: int
+    reference_driver: Optional[str] = None
+    dimension: str = Field(
+        default="speed",
+        description=(
+            "Signal to intervene on. Only signals with a real deterministic "
+            "lap-time model are accepted; others are refused with a reason."
+        ),
+    )
+    intervention_type: str = "REMOVE_DEFICIT"
+    fractions: Optional[list[float]] = Field(
+        default=None,
+        description=(
+            "Scenario fractions. Values outside the intervention's valid range "
+            "are refused, never clamped."
+        ),
+    )
+    session_type: str = "RACE"
+
+
+@router.post("/api/investigations/autopsy")
+def run_autopsy(payload: AutopsyRequest) -> dict[str, Any]:
+    """Curate a race timeline from deterministic change points and gap events.
+
+    Returns the events in chronological order, each carrying the capability
+    that produced it. Measurement-availability transitions are marked
+    MEASUREMENT so they cannot be read as engineering events.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.question_engine.autopsy import build_timeline
+
+    queries = get_canonical_queries()
+    regimes: Optional[dict[str, Any]] = None
+    race_gap: Optional[dict[str, Any]] = None
+    # Either source may legitimately be unavailable for a given race. One
+    # failing analysis degrades the timeline; it does not fail the request.
+    try:
+        from racewise.data.historical.performance_regimes import (
+            analyze_performance_regimes,
+        )
+        regimes = analyze_performance_regimes(
+            queries, payload.season, payload.round,
+            payload.driver_a, payload.driver_b)
+    except Exception:  # noqa: BLE001
+        regimes = None
+    try:
+        from racewise.data.historical.race_gap import decompose_race_gap
+        race_gap = decompose_race_gap(
+            queries, payload.season, payload.round,
+            payload.driver_a, payload.driver_b,
+            session_type=payload.session_type)
+    except Exception:  # noqa: BLE001
+        race_gap = None
+
+    return build_timeline(
+        season=payload.season,
+        round_num=payload.round,
+        regimes=regimes,
+        race_gap=race_gap,
+        residual_s=payload.residual_s,
+        residual_source=payload.residual_source,
+    )
+
+
+@router.post("/api/investigations/decision-twin")
+def run_decision_twin(payload: DecisionTwinRequest) -> dict[str, Any]:
+    """Model bounded interventions and report the response curve.
+
+    A refusal is a valid result: an unsupported dimension or an out-of-range
+    fraction returns a reasoned status, not a clamped scenario.
+    """
+    from racewise.data.historical.canonical_queries import get_canonical_queries
+    from racewise.question_engine.decision_twin import build_twin
+
+    return build_twin(
+        get_canonical_queries(),
+        season=payload.season,
+        round_num=payload.round,
+        driver=payload.driver,
+        lap_number=payload.lap_number,
+        reference_driver=payload.reference_driver,
+        dimension=payload.dimension,
+        fractions=tuple(payload.fractions) if payload.fractions else
+        (0.0, 0.25, 0.5, 0.75, 1.0),
+        intervention_type=payload.intervention_type,
+        session_type=payload.session_type,
+    )
 
 
 def register(app: Any) -> None:

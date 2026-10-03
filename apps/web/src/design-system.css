@@ -654,6 +654,103 @@
   margin-top: var(--rw-s3);
 }
 
+/* ---- engineering autopsy timeline + decision twin (§26, §40) ----------
+   The timeline's job is to let an engineer scan for what changed. A
+   measurement event is real and stays available, but it is indented and
+   de-emphasised so it cannot be mistaken for a performance change. */
+.uq-timeline-note {
+  color: var(--rw-text-3);
+  font-size: var(--rw-fs-xs);
+  margin-bottom: var(--rw-s2);
+}
+
+.uq-event {
+  align-items: baseline;
+  border-left: 2px solid var(--rw-line);
+  display: grid;
+  gap: var(--rw-s2);
+  grid-template-columns: 3.5rem 1fr auto;
+  padding: var(--rw-s2) 0 var(--rw-s2) var(--rw-s2);
+}
+
+.uq-event[data-materiality='MEASUREMENT'] {
+  border-left-style: dotted;
+  opacity: 0.72;
+}
+
+.uq-event-lap {
+  color: var(--rw-text-2);
+  font-size: var(--rw-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.uq-event-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uq-event-text {
+  color: var(--rw-text-1);
+  font-size: var(--rw-fs-sm);
+  line-height: 1.45;
+}
+
+.uq-event-limitation {
+  color: var(--rw-text-3);
+  font-size: var(--rw-fs-xs);
+  font-style: italic;
+}
+
+.uq-toggle {
+  margin-top: var(--rw-s2);
+}
+
+.uq-twin {
+  margin-top: var(--rw-s3);
+}
+
+.uq-twin--refused {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rw-s1);
+  margin-top: var(--rw-s2);
+}
+
+.uq-modelled-note {
+  color: var(--rw-text-2);
+  font-size: var(--rw-fs-sm);
+  margin-bottom: var(--rw-s2);
+}
+
+.uw-sweep {
+  border-collapse: collapse;
+  font-size: var(--rw-fs-sm);
+  width: 100%;
+}
+
+.uw-caption {
+  color: var(--rw-text-3);
+  font-size: var(--rw-fs-xs);
+  padding-bottom: var(--rw-s2);
+  text-align: left;
+}
+
+.uw-sweep th {
+  border-bottom: 1px solid var(--rw-line);
+  color: var(--rw-text-3);
+  font-size: var(--rw-fs-xs);
+  font-weight: 500;
+  padding: var(--rw-s1) var(--rw-s2);
+  text-align: left;
+}
+
+.uw-sweep td {
+  border-bottom: 1px solid var(--rw-line);
+  color: var(--rw-text-1);
+  padding: var(--rw-s1) var(--rw-s2);
+}
+
 .uq-foot {
   margin-top: var(--rw-s5);
   padding-top: var(--rw-s3);

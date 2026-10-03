@@ -29,12 +29,26 @@ tools directly, and is never required — with no provider configured the
 deterministic compiler handles the supported vocabulary and the system stays
 honest.
 """
+from racewise.question_engine.autopsy import (
+    AUTOPSY_VERSION,
+    ENGINEERING,
+    MEASUREMENT,
+    EngineeringEvent,
+    build_timeline,
+)
 from racewise.question_engine.capabilities import (
     Capability,
     all_capabilities,
     capability,
     capability_matrix,
     registry_version,
+)
+from racewise.question_engine.decision_twin import (
+    SUPPORTED_DIMENSIONS,
+    SUPPORTED_INTERVENTIONS,
+    TWIN_VERSION,
+    ScenarioPoint,
+    build_twin,
 )
 from racewise.question_engine.compiler import (
     CompiledQuestion,
@@ -58,15 +72,25 @@ from racewise.question_engine.verification import (
 )
 
 __all__ = [
+    "AUTOPSY_VERSION",
+    "ENGINEERING",
+    "MEASUREMENT",
+    "SUPPORTED_DIMENSIONS",
+    "SUPPORTED_INTERVENTIONS",
+    "TWIN_VERSION",
     "Answer",
     "Capability",
     "CompiledQuestion",
     "InvestigationPlan",
+    "EngineeringEvent",
+    "ScenarioPoint",
     "SubQuestion",
     "VerificationReport",
     "all_capabilities",
     "answer_status",
     "build_plan",
+    "build_timeline",
+    "build_twin",
     "capability",
     "capability_matrix",
     "compile_question",

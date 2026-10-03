@@ -79,7 +79,16 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
                        # bare hypothetical: it asks for a modelled number.
                        r"|\bwould\b[\s\S]{0,60}\b(have|change|recover|be|been)\b"
                        r"|\bwhat would\b[\s\S]{0,60}\b(happen|be)\b"
-                       r"|\bhow much\b[\s\S]{0,40}\b(recover\w*|recovered)\b"),
+                       r"|\bhow much\b[\s\S]{0,40}\b(recover\w*|recovered)\b"
+                       # "simulate the deficit" / "model the effect" /
+                       # "project the lap time" ask for a modelled number
+                       # just as much as "what if" does. The counterfactual
+                       # noun must appear nearby so a bare "model the car"
+                       # is not swept in as a hypothetical.
+                       r"|\b(simulat\w*|modell?ed|model|project\w*|projection)\b"
+                       r"[\s\S]{0,60}\b(effect|deficit|lap ?time|result|scenario|"
+                       r"counterfactual)\b"
+                       r"|\bcounterfactual\b"),
     ("WHAT_IF", r"\bwhat if\b|\bsuppose\b|\bimagine\b|\bpretend\b|\bwhat would\b"),
     # --- provenance / replay ---
     ("PROVENANCE", r"\bwhere does\b[\s\S]{0,30}\b(come from|data|source)\b"
@@ -134,7 +143,10 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
     ("COMPARE", r"\bvs\b|\bversus\b|\bcompared? (to|with)\b|\bdifferen\w+\b|\bbetter than\b|\bworse than\b"),
     # --- generic ---
     ("EXPLAIN", r"\bexplain\w*|\bwhy\b|\bwhat happened\b|\bwhat mattered\b"),
-    ("INVESTIGATE", r"\binvestigate\b|\banalyz\w*|\banalyse\b|\blook into\b|\bwhat can you tell\b"),
+    # A whole-race question may name no driver, no lap and no sector.
+    # These phrasings are how engineers actually ask for one, and without
+    # them the compiler rejects a question the system is built to answer.
+    ("INVESTIGATE", r"\binvestigate\b|\banalyz\w*|\banalyse\b|\blook into\b|\bwhat can you tell\b|\bwalk me through\b|\bmaterially\b|\btimeline\b|\bchange character\b|\bwhat did we (see|learn|notice)\b|\bacross the race\b|\btell me what\b|\bthe whole race\b|\bthe story\b|\brace ?-?wide\b"),
     ("SUMMARIZE", r"\bsummar\w*|\boverall\b|\bin one line\b|\btl;?dr\b|\bhigh level\b"),
     ("DESCRIBE", r"\bwhat is\b|\bdescribe\b|\bwhat (data|weather|compound)\b"),
 )

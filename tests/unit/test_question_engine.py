@@ -156,6 +156,28 @@ def test_unmatched_text_yields_no_invented_intent() -> None:
     assert lang.detect_intents("banana") == ()
 
 
+def test_no_intent_rule_contains_an_empty_alternative() -> None:
+    """A ``||`` in any rule matches *every* string.
+
+    Adjacent raw-string literals are easy to split badly: ending one line with
+    ``|`` and starting the next with ``|`` silently produces an empty
+    alternative, and the rule then matches any input at all. It shipped once
+    and made ``detect_intents("banana")`` return INVESTIGATE. The vocabulary
+    has to stay closed, so this asserts the shape of every rule.
+    """
+    offenders = [intent for intent, rx in lang._COMPILED if "||" in rx.pattern]
+    assert not offenders, f"empty alternative in intent rules: {offenders}"
+    for intent, rx in lang._COMPILED:
+        assert not rx.pattern.startswith("|"), f"{intent} rule starts empty"
+        assert not rx.pattern.endswith("|"), f"{intent} rule ends empty"
+
+
+def test_unrelated_text_is_not_forced_into_any_intent() -> None:
+    """Guard for the same failure from the other direction."""
+    for text in ("banana", "gibberish text here", "xyzzy plugh"):
+        assert lang.detect_intents(text) == (), f"{text!r} was forced into an intent"
+
+
 def test_unsupported_terms_are_surfaced_not_dropped() -> None:
     """Domain terms with no capability behind them are reported explicitly."""
     terms = lang.unresolved_terms("Was it the fuel load or the setup?")

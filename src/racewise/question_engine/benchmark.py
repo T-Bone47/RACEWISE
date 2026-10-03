@@ -27,7 +27,11 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Optional
 
 from racewise.question_engine.capabilities import capability
-from racewise.question_engine.compiler import COMPILE_PARSED, compile_question
+from racewise.question_engine.compiler import (
+    COMPILE_PARSED,
+    COMPILE_UNSUPPORTED,
+    compile_question,
+)
 from racewise.question_engine.decomposer import decompose
 from racewise.question_engine.planner import build_plan
 
@@ -490,6 +494,66 @@ def _cases() -> tuple[Case, ...]:
         text = template.format(_B) if "{}" in template else template
         add(text, category, followup=True, expect_status=COMPILE_PARSED,
             expect_intents=category_intent.get(category, ()))
+
+    # -- engineering autopsy: whole-race questions (§26) --------------------
+    # These measure that a race-wide question is *recognised* as race-wide.
+    # The timeline itself is exercised by tests/unit/test_autopsy.py against
+    # real data; this corpus measures whether the compiler and planner put it
+    # in scope at all.
+    autopsy = [
+        ("Investigate this race and tell me what materially changed in {}.",
+         ("INVESTIGATE", "FIND_REGIME", "FIND_TURNING_POINT")),
+        ("What materially changed in {}?", ("INVESTIGATE", "FIND_REGIME")),
+        ("Walk me through what happened in {}.", ("INVESTIGATE",)),
+        ("When did the race change character in {}?",
+         ("FIND_TURNING_POINT", "FIND_REGIME", "TREND")),
+        ("Find the performance regimes in {}.", ("FIND_REGIME",)),
+        ("Which regime was {} in?", ("FIND_REGIME", "FIND_TURNING_POINT")),
+        ("What did we see change across the race in {}?",
+         ("INVESTIGATE", "FIND_REGIME", "TREND")),
+        ("Give me the engineering timeline for {}.", ("INVESTIGATE",)),
+        ("Did the gap trend change during {}?", ("TREND", "FIND_TURNING_POINT")),
+        ("Was there a turning point in {}?", ("FIND_TURNING_POINT", "FIND_REGIME")),
+    ]
+    for template, intents in autopsy:
+        # A timeline is always a two-driver story, so these inherit the
+        # investigation context rather than naming drivers in prose.
+        add(template.format(_B), "autopsy", followup=True,
+            expect_status=COMPILE_PARSED, expect_intents=intents,
+            expect_season=2023, expect_round=1,
+            expect_driver_a="max-verstappen", expect_driver_b="sergio-perez",
+            notes="race-wide question; earns an autopsy timeline")
+
+    # -- decision twin: bounded scenario sweeps (§40) ------------------------
+    # Only speed is a modellable dimension, so a correct engine answers a
+    # brake question with UNSUPPORTED_REQUEST rather than inventing physics.
+    # Both behaviours are in the corpus on purpose.
+    scenarios = [
+        ("What would happen if half the measured speed deficit were removed on "
+         "lap 6 in {}?", COMPILE_PARSED, ("COUNTERFACTUAL",)),
+        ("Simulate removing the measured speed deficit on lap 6 in {}.",
+         COMPILE_PARSED, ("COUNTERFACTUAL",)),
+        ("Model 50% of the speed deficit on lap 6 in {}.",
+         COMPILE_PARSED, ("COUNTERFACTUAL",)),
+        ("What is the modelled effect of removing the speed deficit on lap 6 "
+         "in {}?", COMPILE_PARSED, ("COUNTERFACTUAL",)),
+        # A brake/throttle intervention is recognised as a counterfactual ask
+        # and is NOT refused at compile time: the compiler has no business
+        # knowing which signals carry a lap-time model. The decision twin
+        # refuses it with the reason ("no deterministic lap-time model for
+        # brake"), which is both more honest than a bare rejection and more
+        # useful to the engineer. tests/unit/test_decision_twin.py pins that
+        # refusal; these cases pin that the ask itself is understood.
+        ("Model removing half the brake deficit on lap 6 in {}?",
+         COMPILE_PARSED, ("COUNTERFACTUAL",)),
+        ("What would happen if we doubled the throttle on lap 6 in {}?",
+         COMPILE_PARSED, ("COUNTERFACTUAL",)),
+    ]
+    for template, status, intents in scenarios:
+        add(template.format(_B), "scenario", followup=True,
+            expect_status=status, expect_intents=intents,
+            notes=("speed is modellable; brake/throttle ask is understood but "
+               "refused by the decision twin, not modelled"))
 
     return tuple(out)
 

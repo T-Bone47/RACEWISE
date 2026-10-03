@@ -94,7 +94,16 @@ _TYPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     # regime / phase decomposition
     ("PERFORMANCE_REGIME", re.compile(
         r"\b(regimes?|phases?|segments?)\b[\s\S]{0,40}\b(race|stint|lap)\b"
-        r"|\b(across|throughout|over) the (race|stint)\b", re.I)),
+        r"|\b(across|throughout|over) the (race|stint)\b"
+        # A race named by name ("in Bahrain 2023") never satisfies the
+        # race|stint|lap window above, so whole-race questions phrased the
+        # way engineers actually ask for one fell through to unsupported.
+        # Each alternative below is explicitly race-wide on its face.
+        r"|\b(regimes?|timeline)\b"
+        r"|\b(materially|really|actually)\b[^?]{0,40}\b(change|changed|differ)\b"
+        r"|\bwhat[^?]{0,20}\bchange\b"
+        r"|\bwalk me through\b|\bchange character\b"
+        r"|\bacross the race\b|\bthe whole race\b", re.I)),
     # formal hypothesis evaluation
     ("HYPOTHESIS_EVALUATION", re.compile(
         r"\bhypothes[ie]s\b|\bcaused by\b", re.I)),

@@ -278,6 +278,126 @@ def _execute_capabilities(
     return results, errors, anchored_lap
 
 
+# Intents whose whole subject is the *shape of the race over time* rather
+# than a single measurement. These earn an autopsy timeline.
+_AUTOPSY_INTENTS = frozenset({
+    "INVESTIGATE", "FIND_REGIME", "FIND_TURNING_POINT", "TREND",
+})
+
+# "What materially changed" is a whole-race question even though it matches no
+# single intent pattern reliably on its own.
+_AUTOPSY_PHRASES = (
+    "materially changed",
+    "what changed",
+    "what happened",
+    "walk me through",
+    "tell me about this race",
+    "summarise the race",
+    "summarize the race",
+    "tell me what",
+)
+
+# Analysis level at which a sub-question is about the race as a whole rather
+# than a single lap, sector or corner.
+_RACE_WIDE_LEVEL = 4
+
+
+def _wants_autopsy(compiled: CompiledQuestion, plan: InvestigationPlan) -> bool:
+    """Should this question earn a whole-race event timeline?
+
+    A user asking "what materially changed in this race" wants a timeline, not
+    a single delta. A user asking "how much did he lose in sector 2" does not.
+    The test is the shape of the question, not its length.
+
+    Two of the three conditions genuinely indicate race-wide scope. The third —
+    an explicit phrase match — exists because natural phrasing for this request
+    is not reliably captured by any single intent rule, and defaulting to "no
+    timeline" for it would silently drop the question the system is best at.
+    """
+    if compiled.detected_intents and \
+            set(compiled.detected_intents) & _AUTOPSY_INTENTS:
+        return True
+
+    if any(sub.analysis_level >= _RACE_WIDE_LEVEL for sub in plan.sub_questions):
+        return True
+
+    lowered = compiled.raw_question.lower()
+    return any(phrase in lowered for phrase in _AUTOPSY_PHRASES)
+
+
+def _run_autopsy(queries: CanonicalQueries, compiled: CompiledQuestion,
+                 results: dict[str, Any], anchored_lap: Optional[int]
+                 ) -> dict[str, Any]:
+    """Build the race event timeline from already-computed deterministic output.
+
+    This calls the *same* regime and gap functions the capability layer calls;
+    it does not re-derive events, infer a turning point, or rank them by
+    importance. Its only job is to put what the engine already found into one
+    chronological order and mark which changes are engineering events and
+    which are merely measurement-availability noise.
+
+    The function never raises. A timeline is an enrichment; if the underlying
+    analysis is unavailable for this race the answer proceeds without it and
+    records why, which is honest. Raising would turn an optional view into a
+    total outage for every whole-race question.
+    """
+    season, round_num = compiled.season, compiled.round
+    driver_a, driver_b = compiled.driver_a, compiled.driver_b
+    if season is None or round_num is None or not driver_a or not driver_b:
+        return {}
+
+    # Autopsy and import lazily. These pull the regime/gap stack, which is not
+    # needed for the ordinary question path — importing them at module scope
+    # would regress `import racewise.api.app`, which is measured.
+    from racewise.data.historical.performance_regimes import (
+        analyze_performance_regimes,
+    )
+    from racewise.data.historical.race_gap import decompose_race_gap
+    from racewise.question_engine.autopsy import build_timeline
+
+    try:
+        regimes = analyze_performance_regimes(
+            queries, season, round_num, driver_a, driver_b)
+    except Exception as exc:  # noqa: BLE001 — enrichment must not break the answer
+        regimes = {"unavailable_reason": f"regime analysis failed: {exc}"}
+
+    try:
+        race_gap = decompose_race_gap(
+            queries, season, round_num, driver_a, driver_b,
+            session_type=compiled.session_type)
+    except Exception as exc:  # noqa: BLE001 — enrichment must not break the answer
+        race_gap = {"unavailable_reason": f"gap decomposition failed: {exc}"}
+
+    # The residual is only quoted if a capability already produced one. The
+    # autopsy reports it; it never recomputes attribution.
+    residual_s: Optional[float] = None
+    residual_source: Optional[str] = None
+    for cap_id in ("attribute_lap_loss", "decompose_race_gap"):
+        payload = results.get(cap_id)
+        if not isinstance(payload, dict) or payload.get("error"):
+            continue
+        for key in ("residual_s", "unexplained_s", "residual"):
+            value = payload.get(key)
+            # bool is a subclass of int; True would otherwise become a 1.0 s
+            # residual and be reported as an engineering quantity.
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                residual_s, residual_source = float(value), cap_id
+                break
+        if residual_s is not None:
+            break
+
+    timeline = build_timeline(
+        season=season,
+        round_num=round_num,
+        regimes=regimes,
+        race_gap=race_gap,
+        residual_s=residual_s,
+        residual_source=residual_source,
+    )
+    timeline["anchored_lap"] = anchored_lap
+    return timeline
+
+
 def ask(
     queries: CanonicalQueries,
     question: str,
@@ -315,6 +435,7 @@ def ask(
     results: dict[str, Any] = {}
     errors: dict[str, str] = {}
     anchored_lap: Optional[int] = None
+    autopsy: dict[str, Any] = {}
 
     if plan.status == "PLANNED":
         RUNS.register(investigation_id,
@@ -327,8 +448,19 @@ def ask(
         RUNS.checkpoint(investigation_id)
         stage("INVESTIGATE", "COMPLETED", sorted(results))
 
+        # A whole-race question earns a whole-race timeline. The autopsy only
+        # relays change points, gap events and context transitions that the
+        # deterministic stack already reported — it derives no events itself.
+        wants_autopsy = _wants_autopsy(compiled, plan)
+        if wants_autopsy:
+            stage("AUTOPSY", "RUNNING", "curating deterministic race events")
+            autopsy = _run_autopsy(queries, compiled, results, anchored_lap)
+            RUNS.checkpoint(investigation_id)
+            stage("AUTOPSY", "COMPLETED",
+                  f"{autopsy.get('event_count', 0)} events")
+
     stage("SYNTHESIZE", "RUNNING", None)
-    answer = synthesize(compiled, plan, results, errors)
+    answer = synthesize(compiled, plan, results, errors, autopsy=autopsy or None)
     if anchored_lap is not None:
         answer.provenance["anchored_lap"] = anchored_lap
         answer.provenance["lap_anchoring"] = (
@@ -360,6 +492,7 @@ def ask(
         "answer": answer.as_dict(),
         "verification": report.as_dict(),
         "context": ctx.as_dict(),
+        "autopsy": autopsy,
         "raw_results": {k: v for k, v in results.items() if k != "_anchor"},
         "duration_ms": int((time.perf_counter() - started) * 1000),
         "identity_hash": canonical_hash({

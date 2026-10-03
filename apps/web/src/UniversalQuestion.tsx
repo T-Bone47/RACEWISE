@@ -29,8 +29,58 @@ export interface AskAnswer {
   limitations: string[]
   missing_evidence: string[]
   engine_conclusion?: string | null
+  /* Engineering autopsy (§26). Every event names the capability that produced
+     it. materiality separates a change in the car from a change in what we
+     could measure — collapsing the two is the failure this panel must not
+     repeat. */
+  events: AskEvent[]
+  /* Disconfirming evidence, resolved to readable statements. A hypothesis with
+     no counter-evidence listed has none, which is itself worth showing. */
+  counter_evidence: Array<{
+    hypothesis_id: string
+    evidence_id: string
+    statement: string | null
+    resolved: boolean
+  }>
+  answer_mode: string
   provenance: Record<string, unknown>
   follow_ups: Array<{ label: string; capability_id: string; available: boolean }>
+}
+
+export interface AskEvent {
+  event_id: string
+  event_type: string
+  lap_start: number
+  observed_change: string
+  magnitude: number | null
+  unit: string | null
+  materiality: 'ENGINEERING' | 'MEASUREMENT'
+  source_capability: string
+  method: string | null
+  limitations: string[]
+}
+
+/* Decision twin (§40). Every scenario point carries claim_class MODELLED and
+   is_historical_truth false; the interface re-states both so no consumer can
+   render one without the other. */
+export interface TwinPoint {
+  fraction: number
+  status: string
+  delta_lap_time_s: number | null
+  claim_class: string
+  is_historical_truth: boolean
+  validity: string | null
+}
+
+export interface TwinResult {
+  status: string
+  dimension: string
+  intervention_type: string
+  reason?: string
+  scenario_space: TwinPoint[]
+  sensitivity: { shape: string; note: string }
+  baseline: { claim_class: string; lap_time_s: number | null; source: string }
+  limitations: string[]
 }
 
 export interface AskClarification {
@@ -55,6 +105,13 @@ export interface AskResult {
     driver_b?: string | null
   }
   answer: AskAnswer
+  autopsy?: {
+    status: string
+    event_count: number
+    material_event_count: number
+    events_by_type: Record<string, number>
+    source_capabilities: string[]
+  } | null
   verification: { passed: boolean; checks_run: number; violations: unknown[] }
 }
 
@@ -78,6 +135,12 @@ export default function UniversalQuestion({
   const [result, setResult] = useState<AskResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [followUp, setFollowUp] = useState('')
+  const [twin, setTwin] = useState<TwinResult | null>(null)
+  const [twinRunning, setTwinRunning] = useState(false)
+  /* Measurement events are hidden by default. They are real and they are
+     reported, but leading a race timeline with 46 telemetry-availability
+     flips buries the 7 regime changes an engineer came to read. */
+  const [showMeasurement, setShowMeasurement] = useState(false)
 
   const ask = useCallback(async (text: string, context?: Record<string, unknown>) => {
     if (!text.trim()) return
@@ -110,8 +173,68 @@ export default function UniversalQuestion({
     [ask, initialContext, result],
   )
 
+  /* The sweep runs against the resolved investigation scope. If the question
+     left no lap pinned there is nothing to intervene on, so the control stays
+     disabled rather than guessing a lap. */
+  const runSweep = useCallback(async () => {
+    const scope = result?.answer.scope ?? {}
+    const season = scope.season
+    const round = scope.round
+    const driver = scope.driver_a
+    const reference = scope.driver_b
+    const lap = scope.lap_number
+    if (
+      typeof season !== 'number' ||
+      typeof round !== 'number' ||
+      typeof driver !== 'string' ||
+      typeof lap !== 'number'
+    ) {
+      return
+    }
+    setTwinRunning(true)
+    try {
+      const resp = await fetch('/api/investigations/decision-twin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          season,
+          round,
+          driver,
+          lap_number: lap,
+          reference_driver: typeof reference === 'string' ? reference : null,
+          session_type: typeof scope.session_type === 'string' ? scope.session_type : 'RACE',
+        }),
+      })
+      if (!resp.ok) throw new Error(`twin returned ${resp.status}`)
+      setTwin((await resp.json()) as TwinResult)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'scenario sweep failed')
+    } finally {
+      setTwinRunning(false)
+    }
+  }, [result])
+
   const needsClarification = result?.compiled.status === 'CONTEXT_UNRESOLVED'
   const answer = result?.answer
+
+  /* Defaults mirror how clarifications and follow-ups are already read here:
+     a payload from an older build must not blank the whole panel. */
+  const allEvents: AskEvent[] = answer?.events ?? []
+  const counterEvidence = answer?.counter_evidence ?? []
+  const visibleEvents = showMeasurement
+    ? allEvents
+    : allEvents.filter((e) => e.materiality === 'ENGINEERING')
+  const measurementCount = allEvents.filter(
+    (e) => e.materiality === 'MEASUREMENT',
+  ).length
+
+  /* The sweep needs a pinned lap. Most questions do not carry one. */
+  const sweepScope = answer?.scope ?? {}
+  const sweepReady =
+    typeof sweepScope.season === 'number' &&
+    typeof sweepScope.round === 'number' &&
+    typeof sweepScope.driver_a === 'string' &&
+    typeof sweepScope.lap_number === 'number'
 
   return (
     <section className="uq" aria-label="Universal question entry">
@@ -256,6 +379,155 @@ export default function UniversalQuestion({
               ))}
             </section>
           )}
+
+          {allEvents.length > 0 && (
+            <section className="uq-sec" aria-label="Race timeline">
+              <h3 className="uq-h3">
+                What changed
+                <span className="uq-item-note">
+                  {allEvents.length} curated events ·{' '}
+                  {allEvents.filter((e) => e.materiality === 'ENGINEERING').length}{' '}
+                  engineering
+                </span>
+              </h3>
+              <p className="uq-timeline-note">
+                Every event below was reported by a deterministic capability and
+                is listed with that capability. The autopsy derives none of them.
+              </p>
+              <ul className="uq-list uq-timeline">
+                {visibleEvents.map((e) => (
+                  <li key={e.event_id} className="uq-event" data-materiality={e.materiality}>
+                    <span className="uq-event-lap">L{e.lap_start}</span>
+                    <span className="uq-event-body">
+                      <span className="uq-event-text">{e.observed_change}</span>
+                      <span className="uq-item-note">
+                        {e.event_type} · {e.source_capability}
+                        {e.magnitude != null &&
+                          ` · ${e.magnitude.toFixed(3)} ${e.unit ?? ''}`}
+                      </span>
+                      {e.limitations.map((lim, i) => (
+                        <span key={i} className="uq-event-limitation">
+                          {lim}
+                        </span>
+                      ))}
+                    </span>
+                    <span
+                      className={`rw-chip ${
+                        e.materiality === 'ENGINEERING'
+                          ? 'rw-chip--supported'
+                          : 'rw-chip--neutral'
+                      }`}
+                    >
+                      {e.materiality}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {measurementCount > 0 && (
+                <button
+                  className="rw-chip rw-chip--neutral uq-toggle"
+                  aria-label="Show measurement events"
+                  aria-pressed={showMeasurement}
+                  onClick={() => setShowMeasurement((v) => !v)}
+                >
+                  {showMeasurement
+                    ? 'Hide measurement events'
+                    : `Show ${measurementCount} measurement events`}
+                </button>
+              )}
+            </section>
+          )}
+
+          {counterEvidence.length > 0 && (
+            <section className="uq-sec">
+              <h3 className="uq-h3">What contradicts this</h3>
+              <ul className="uq-list">
+                {counterEvidence.map((c, i) => (
+                  <li key={`${c.hypothesis_id}-${c.evidence_id}-${i}`} className="uq-item uq-item--stack">
+                    <span className="uq-item-label">
+                      {c.statement ?? `${c.evidence_id} (not in the ledger)`}
+                    </span>
+                    <span className="uq-item-note">
+                      against {c.hypothesis_id}
+                      {!c.resolved && ' · reference unresolved in ledger'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section className="uq-sec" aria-label="What if scenario sweep">
+            <h3 className="uq-h3">What if</h3>
+            {sweepReady ? (
+              <button
+                className="rw-btn rw-btn--secondary"
+                onClick={() => void runSweep()}
+                disabled={twinRunning}
+              >
+                {twinRunning ? 'Modelling…' : 'Run scenario sweep'}
+              </button>
+            ) : (
+              <p className="uq-item-note">
+                A scenario sweep needs a pinned lap. Ask about a specific lap to
+                model interventions on it.
+              </p>
+            )}
+
+            {twin && twin.status !== 'COMPLETED' && twin.status !== 'PARTIALLY_MODELLED' && (
+              <div className="uq-twin uq-twin--refused">
+                <span className="rw-chip rw-chip--unsupported">{twin.status}</span>
+                {twin.reason && <p className="uq-item-note">{twin.reason}</p>}
+              </div>
+            )}
+
+            {twin && (twin.status === 'COMPLETED' || twin.status === 'PARTIALLY_MODELLED') && (
+              <div className="uq-twin">
+                <p className="uq-modelled-note">
+                  Measured lap time{' '}
+                  <span className="rw-num">
+                    {twin.baseline.lap_time_s == null
+                      ? '—'
+                      : `${twin.baseline.lap_time_s.toFixed(3)} s`}
+                  </span>{' '}
+                  <span className="rw-chip rw-chip--supported">{twin.baseline.claim_class}</span>
+                </p>
+                <table className="uw-sweep">
+                  <caption className="uw-caption">
+                    Modelled effect of removing {twin.dimension} · not a prediction
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Fraction</th>
+                      <th scope="col">Modelled Δ</th>
+                      <th scope="col">Class</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {twin.scenario_space.map((p) => (
+                      <tr key={p.fraction}>
+                        <td>{p.fraction.toFixed(2)}</td>
+                        <td className="rw-num">
+                          {p.delta_lap_time_s == null ? '—' : `${p.delta_lap_time_s.toFixed(3)} s`}
+                        </td>
+                        <td>
+                          <span className="rw-chip rw-chip--unsupported">{p.claim_class}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="uq-item-note">
+                  Response shape: {twin.sensitivity.shape}. {twin.sensitivity.note}
+                </p>
+                {twin.limitations.map((lim, i) => (
+                  <p key={i} className="uq-item-note">
+                    {lim}
+                  </p>
+                ))}
+              </div>
+            )}
+          </section>
 
           {answer.not_established.length > 0 && (
             <section className="uq-sec">

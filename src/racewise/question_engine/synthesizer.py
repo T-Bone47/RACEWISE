@@ -86,6 +86,9 @@ class Answer:
     counterfactuals: list[dict[str, Any]] = field(default_factory=list)
     spatial: list[dict[str, Any]] = field(default_factory=list)
     evidence_ledger: list[dict[str, Any]] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)
+    counter_evidence: list[dict[str, Any]] = field(default_factory=list)
+    answer_mode: str = "STANDARD"
     engine_conclusion: Optional[str] = None
     assumptions: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
@@ -112,6 +115,9 @@ class Answer:
             "counterfactuals": self.counterfactuals,
             "spatial": self.spatial,
             "evidence_ledger": self.evidence_ledger,
+            "events": list(self.events),
+            "counter_evidence": self.counter_evidence,
+            "answer_mode": self.answer_mode,
             "engine_conclusion": self.engine_conclusion,
             "assumptions": self.assumptions,
             "limitations": self.limitations,
@@ -458,6 +464,56 @@ def _extract_counterfactuals(results: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def _counter_evidence(hypotheses: list[dict[str, Any]],
+                      ledger: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Active counter-evidence search: what weakens each explanation (§21).
+
+    For every hypothesis, the evidence items that bear *against* it are
+    collected with their statements — not just their ids. A user asking "why
+    not?" must be able to read the disconfirming evidence, not be told that
+    some disconfirming evidence exists.
+
+    The engine reports each hypothesis's contradicting source ids; those are
+    resolved against the ledger so the answer carries the actual statements.
+    Ids with no matching ledger row are still reported, flagged unresolved, so a
+    dangling reference is visible rather than silently dropped.
+    """
+    by_id = {item.get("evidence_id"): item for item in ledger
+             if isinstance(item, dict)}
+    out: list[dict[str, Any]] = []
+    for hypothesis in hypotheses:
+        hid = hypothesis.get("hypothesis_id")
+        for eid in hypothesis.get("contradicting_evidence_ids") or []:
+            item = by_id.get(eid)
+            out.append({
+                "hypothesis_id": hid,
+                "evidence_id": eid,
+                "statement": (item or {}).get("statement"),
+                "relationship": (item or {}).get("relationship"),
+                "resolved": item is not None,
+            })
+    return out
+
+
+def _answer_mode(compiled: CompiledQuestion, plan: InvestigationPlan,
+                 hypotheses: list[dict[str, Any]]) -> str:
+    """Requested answer depth (§41): QUICK / STANDARD / DEEP / FORENSIC.
+
+    Forensic is reserved for an explicit provenance, replay or contradiction
+    request. Deep is chosen when the question asks about evidence quality,
+    falsification or time evolution. Everything else is standard — offering
+    forensic depth by default would bury the finding.
+    """
+    intents = set(compiled.detected_intents)
+    negations = set(compiled.negations)
+    if intents & {"PROVENANCE", "REPLAY", "FORENSIC"} or \
+            negations & {"contradiction_seek"}:
+        return "FORENSIC"
+    if intents & {"FALSIFY", "RECONCILE", "FIND_REGIME", "FIND_TURNING_POINT"}:
+        return "DEEP"
+    return "STANDARD"
+
+
 def _short_answer(status: str, observations: list[dict[str, Any]],
                   residuals: list[dict[str, Any]],
                   hypotheses: list[dict[str, Any]]) -> str:
@@ -529,8 +585,17 @@ def synthesize(
     plan: InvestigationPlan,
     results: dict[str, Any],
     capability_errors: Optional[dict[str, str]] = None,
+    autopsy: Optional[dict[str, Any]] = None,
 ) -> Answer:
-    """Compose the structured answer from real capability results."""
+    """Compose the structured answer from real capability results.
+
+    ``autopsy`` is an optional pre-built event timeline (§26). It is passed in
+    rather than computed here so synthesis stays a pure function of results:
+    the events it carries were curated by :mod:`autopsy` from deterministic
+    change points, and re-deriving them inside synthesis would give the module
+    a second, divergent notion of what an event is.
+    """
+    events = list((autopsy or {}).get("events") or [])
     errors = dict(capability_errors or {})
     provenance = {
         "compiler_version": compiled.provenance.get("compiler_version"),
@@ -540,6 +605,16 @@ def synthesize(
         "capability_errors": errors,
         "availability": plan.availability.as_dict(),
     }
+    if autopsy:
+        provenance["autopsy"] = {
+            "version": autopsy.get("version"),
+            "event_count": autopsy.get("event_count", 0),
+            "material_event_count": autopsy.get("material_event_count", 0),
+            # Not a count: the unanchored event *types* the curation layer could
+            # not place on a lap. Naming them is more useful than counting them.
+            "unanchored_event_types": autopsy.get("unanchored_events", []),
+            "source_capabilities": autopsy.get("source_capabilities", []),
+        }
 
     if compiled.status == CONTEXT_UNRESOLVED:
         return Answer(
@@ -577,6 +652,7 @@ def synthesize(
     hypotheses, supporting, contradicting = _extract_hypotheses(results)
     ledger = _extract_evidence_ledger(results)
     counterfactuals = _extract_counterfactuals(results)
+    counter_evidence = _counter_evidence(hypotheses, ledger)
 
     engine_conclusion: Optional[str] = None
     assumptions: list[str] = []
@@ -687,6 +763,9 @@ def synthesize(
         counterfactuals=counterfactuals,
         spatial=spatial,
         evidence_ledger=ledger,
+        events=events,
+        counter_evidence=counter_evidence,
+        answer_mode=_answer_mode(compiled, plan, hypotheses),
         engine_conclusion=engine_conclusion,
         assumptions=sorted(set(assumptions)),
         limitations=sorted(set(limitations)),
