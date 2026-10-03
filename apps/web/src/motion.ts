@@ -1,5 +1,9 @@
 import type { TargetAndTransition, Transition } from 'motion/react'
 
+/** Motion's `initial` also accepts `false` ("do not run an entrance
+ *  animation") in addition to a target object. */
+type VariantInitial = TargetAndTransition | false
+
 /* ============================================================
    RACEWISE MOTION SYSTEM — the single motion vocabulary
    ------------------------------------------------------------
@@ -19,15 +23,17 @@ import type { TargetAndTransition, Transition } from 'motion/react'
       No bounce, no overshoot, no elastic.
    ============================================================ */
 
-/** durations (ms) — aligned with the CSS token layer.
+/** Durations, in MILLISECONDS, for authoring and for the CSS token layer.
  *
- * Tuned for an instrument, not a marketing page. An engineering workstation
- * must feel like a tool: the operator's next action has to already be
- * available by the time their eyes arrive. Every value here is deliberately at
- * the fast end of the comfortable band.
+ *  ⚠ These are milliseconds. Motion's `duration` is expressed in SECONDS
+ *  (see `Transition.duration` in motion-dom: "The visual duration is a time,
+ *  set in seconds"). Handing Motion `duration: 140` therefore means *140
+ *  seconds*, not 140ms — which is exactly what happened here: every view
+ *  transition resolved to a multi-minute fade, so a navigated workspace sat at
+ *  `opacity: 0` and looked permanently blank.
  *
- * Asymmetry is the single biggest perceived-speed lever: exits resolve faster
- * than entrances, so dismissing something never feels like waiting on it. */
+ *  `T` below converts to seconds once, at the boundary, so no call site can
+ *  repeat the mistake. */
 export const DUR = {
   /** micro feedback: color/opacity state changes */
   micro: 110,
@@ -39,6 +45,9 @@ export const DUR = {
   exitMicro: 90,
   exitPanel: 110,
 } as const
+
+/** ms -> s. The single conversion point between our token layer and Motion. */
+const secs = (ms: number) => ms / 1000
 
 /** the one easing family: controlled deceleration (emphasized ease-out) */
 export const EASE_OUT = [0.2, 0, 0, 1] as const
@@ -64,15 +73,16 @@ export const SPRING_DRAWER = {
   damping: 64, // 64/620 = 0.1032 — drawer surfaces hold the stricter ratio
 } as const satisfies Transition
 
-/** transition presets — the only transitions components may use */
+/** transition presets — the only transitions components may use.
+ *  Durations are converted ms -> s here; components never do it themselves. */
 export const T = {
-  micro: { duration: DUR.micro, ease: EASE_OUT } satisfies Transition,
-  panel: { duration: DUR.panel, ease: EASE_OUT } satisfies Transition,
+  micro: { duration: secs(DUR.micro), ease: EASE_OUT } satisfies Transition,
+  panel: { duration: secs(DUR.panel), ease: EASE_OUT } satisfies Transition,
   /** exits resolve faster than entrances (asymmetric timing) */
-  exitMicro: { duration: DUR.exitMicro, ease: EASE_OUT } satisfies Transition,
-  exitPanel: { duration: DUR.exitPanel, ease: EASE_OUT } satisfies Transition,
+  exitMicro: { duration: secs(DUR.exitMicro), ease: EASE_OUT } satisfies Transition,
+  exitPanel: { duration: secs(DUR.exitPanel), ease: EASE_OUT } satisfies Transition,
   panelSpring: SPRING_DRAWER,
-  layout: { duration: DUR.layout, ease: EASE_OUT } satisfies Transition,
+  layout: { duration: secs(DUR.layout), ease: EASE_OUT } satisfies Transition,
   layoutSpring: SPRING,
 } as const
 
@@ -81,7 +91,7 @@ export const T = {
  *
  *  Exit variants exist so `AnimatePresence` can resolve them under the
  *  faster `T.exitPanel` transition instead of replaying the entrance. */
-export const V: Record<string, { initial: TargetAndTransition; animate: TargetAndTransition; exit?: TargetAndTransition }> = {
+export const V: Record<string, { initial: VariantInitial; animate: TargetAndTransition; exit?: TargetAndTransition }> = {
   /** container appears: opacity + 6px rise (transform auto-disabled under reduced motion) */
   fadeIn: {
     initial: { opacity: 0 },
@@ -93,11 +103,21 @@ export const V: Record<string, { initial: TargetAndTransition; animate: TargetAn
     animate: { opacity: 1, y: 0 },
     exit: { opacity: 0 },
   },
-  /** workspace view change: short, interruptible, and symmetric-free
-   (the 4px rise is the only movement — a view swap must never feel like a
-   transition the operator has to wait out) */
+  /** workspace view change.
+   *
+   *  Deliberately INSTANT. An engineering workstation must never withhold
+   *  content behind an animation: an entrance fade means the evidence is
+   *  technically absent for its duration, so the operator's eye arrives at
+   *  something that isn't there yet. View switches therefore do not animate
+   *  in — the new view is present on the first frame it can be painted.
+   *
+   *  Motion still runs where it carries meaning the operator actually reads:
+   *  the nav selection cursor (layoutId), inspectors, drawers, the palette,
+   *  and the modelled/observed crossfade. Those describe relationships
+   *  (what opened, what is selected, what came from where) rather than
+   *  decorating an arrival. */
   viewIn: {
-    initial: { opacity: 0, y: 3 },
+    initial: false,
     animate: { opacity: 1, y: 0 },
   },
   /** right inspector: slides into position like a physical panel */

@@ -39,7 +39,32 @@ describe('motion tokens', () => {
     expect(DUR.layout).toBeLessThanOrEqual(240)
   })
 
-  it('uses one easing family: controlled deceleration', () => {
+  /* Regression guard for a shipped bug: Motion's `duration` is in SECONDS, but
+   our token layer is authored in milliseconds. Passing ms straight through
+   made every transition take minutes, leaving the workspace pinned at
+   opacity 0 and looking permanently blank. Any duration > 1s reaching Motion
+   is a bug. */
+it('passes durations to Motion in SECONDS, not milliseconds', () => {
+  for (const [name, preset] of Object.entries(T)) {
+    const d = (preset as { duration?: number }).duration
+    if (d === undefined) continue
+    expect(d, `${name} duration`).toBeLessThanOrEqual(1)
+    expect(d, `${name} duration`).toBeGreaterThan(0)
+  }
+  // explicit spot-checks against the ms token layer
+  expect(T.panel.duration).toBeCloseTo(DUR.panel / 1000, 5)
+  expect(T.micro.duration).toBeCloseTo(DUR.micro / 1000, 5)
+  expect(T.layout.duration).toBeCloseTo(DUR.layout / 1000, 5)
+  expect(T.exitPanel.duration).toBeCloseTo(DUR.exitPanel / 1000, 5)
+})
+
+/* A workstation must never withhold content behind an entrance animation —
+   the operator's eye arrives before the element is visible. */
+it('never gates a view on an entrance animation', () => {
+  expect(V.viewIn.initial).toBe(false)
+})
+
+it('uses one easing family: controlled deceleration', () => {
     expect(EASE_OUT).toEqual([0.2, 0, 0, 1])
     /* every time-based preset uses it; springs are separate */
     expect(T.micro.ease).toEqual(EASE_OUT)
