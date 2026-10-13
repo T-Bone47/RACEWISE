@@ -982,7 +982,15 @@ def frontend_route_probes(api_url: str, web_url: str) -> list[dict[str, Any]]:
     contract response exist for its data dependencies."""
     import httpx
     client = httpx.Client(timeout=60.0)
-    shell = client.get(web_url)
+    # A dead frontend must be recorded as a failed probe, never crash the
+    # whole benchmark run after the engineering cases completed.
+    try:
+        shell = client.get(web_url)
+        shell_status = shell.status_code
+        shell_error: str | None = None
+    except Exception as exc:  # noqa: BLE001
+        shell_status = 0
+        shell_error = f"frontend unreachable: {exc}"
     routes = [
         ("overview", "/api/health", None),
         ("investigate", "/api/catalog/engineering-investigation?question_type="
@@ -1016,7 +1024,8 @@ def frontend_route_probes(api_url: str, web_url: str) -> list[dict[str, Any]]:
         ("patterns", "/api/catalog/performance-patterns?seasons=2022,2023",
          None),
     ]
-    probes = [{"route": name, "shell_status": shell.status_code}
+    probes = [{"route": name, "shell_status": shell_status,
+               **({"error": shell_error} if shell_error else {})}
               for name, _, _ in routes]
     client.close()
     return probes

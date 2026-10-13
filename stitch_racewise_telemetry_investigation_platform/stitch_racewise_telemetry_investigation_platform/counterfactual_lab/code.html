@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-tertiary-fixed":"#001f26","outline-variant":"#3b494c","surface-tint":"#00daf3","on-primary":"#00363d","on-error-container":"#ffdad6","on-primary-fixed":"#001f24","surface-bright":"#36393e","surface-variant":"#323539","primary-fixed":"#9cf0ff","on-secondary-fixed-variant":"#003fa5","tertiary":"#cdf3ff","outline":"#849396","tertiary-container":"#60e1ff","on-surface-variant":"#bac9cc","surface":"#111418","primary-fixed-dim":"#00daf3","tertiary-fixed-dim":"#4cd7f6","surface-container-lowest":"#0b0e12","tertiary-fixed":"#acedff","error":"#ffb4ab","on-secondary-fixed":"#00184a","surface-container-highest":"#323539","surface-container-high":"#272a2e","inverse-primary":"#006875","on-secondary-container":"#d7dfff","inverse-on-surface":"#2e3135","secondary":"#b3c5ff","secondary-fixed":"#dbe1ff","on-tertiary-fixed-variant":"#004e5c","on-error":"#690005","surface-container":"#1d2024","background":"#111418","on-background":"#e1e2e8","on-secondary":"#002a76","inverse-surface":"#e1e2e8","on-surface":"#e1e2e8","secondary-fixed-dim":"#b3c5ff","on-tertiary":"#003640","primary-container":"#00e5ff","error-container":"#93000a","surface-dim":"#111418","primary":"#c3f5ff","on-primary-container":"#00626e","on-tertiary-container":"#006273","on-primary-fixed-variant":"#004f58","secondary-container":"#0058e2","surface-container-low":"#191c20"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"space-lg":"1rem","space-xs":"0.25rem","gutter-loose":"1rem","space-md":"0.75rem","space-xxs":"0.125rem","space-sm":"0.5rem","gutter":"0.5rem","margin":"0.75rem","margin-docked":"0.25rem","space-xl":"1.5rem"},"fontFamily":{"headline-md":["Inter"],"telemetry-metric":["JetBrains Mono"],"body-md":["Inter"],"code-provenance":["JetBrains Mono"],"headline-lg":["Inter"],"body-lg":["Inter"],"label-lg":["JetBrains Mono"],"body-sm":["Inter"],"headline-xl":["Inter"],"label-sm":["JetBrains Mono"],"label-md":["JetBrains Mono"]},"fontSize":{"headline-md":["1rem",{"lineHeight":"1.375rem","letterSpacing":"-0.01em","fontWeight":"600"}],"telemetry-metric":["1.125rem",{"lineHeight":"1.25rem","letterSpacing":"-0.03em","fontWeight":"700"}],"body-md":["0.8125rem",{"lineHeight":"1.1875rem","letterSpacing":"0em","fontWeight":"400"}],"code-provenance":["0.625rem",{"lineHeight":"0.75rem","letterSpacing":"0.03em","fontWeight":"400"}],"headline-lg":["1.25rem",{"lineHeight":"1.625rem","letterSpacing":"-0.015em","fontWeight":"600"}],"body-lg":["0.9375rem",{"lineHeight":"1.375rem","letterSpacing":"-0.005em","fontWeight":"400"}],"label-lg":["0.8125rem",{"lineHeight":"1.125rem","letterSpacing":"-0.01em","fontWeight":"500"}],"body-sm":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0em","fontWeight":"400"}],"headline-xl":["1.75rem",{"lineHeight":"2.125rem","letterSpacing":"-0.02em","fontWeight":"600"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.02em","fontWeight":"500"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"-0.01em","fontWeight":"500"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low z-50 flex flex-col justify-between select-none"><div class="flex flex-col flex-1 overflow-y-auto"><div class="p-space-md"><button class="w-full flex items-center justify-between px-space-md py-space-sm bg-primary-container text-on-primary-container rounded font-label-md text-label-md transition-all hover:bg-primary-fixed-dim"><span class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-base">add_circle</span><span>NEW INVESTIGATION</span></span><span class="px-space-xs py-space-xxs rounded bg-on-primary-container/20 text-on-primary-container font-code-provenance text-code-provenance">N</span></button></div><div class="px-space-md pb-space-xs"><span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Navigation Deck</span></div><nav class="flex flex-col gap-space-xxs px-space-xs" data-active-classes="bg-surface-container-highest text-primary font-label-md"><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="active-investigation" href="#"><span class="material-symbols-outlined text-base">troubleshoot</span><span>Active Investigation</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="investigations-ledger" href="#"><span class="material-symbols-outlined text-base">receipt_long</span><span>Investigations Ledger</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="engineering-memory" href="#"><span class="material-symbols-outlined text-base">memory</span><span>Engineering Memory</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="regime-timeline" href="#"><span class="material-symbols-outlined text-base">timeline</span><span>Regime Timeline</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-space-sm rounded transition-colors bg-surface-container-highest text-primary font-label-md" data-path="counterfactual-lab" href="#"><span class="material-symbols-outlined text-base">science</span><span>Counterfactual Lab</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="falsification-matrix" href="#"><span class="material-symbols-outlined text-base">grid_view</span><span>Falsification Matrix</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="cross-race-patterns" href="#"><span class="material-symbols-outlined text-base">hub</span><span>Cross-Race Patterns</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="investigation-graph" href="#"><span class="material-symbols-outlined text-base">account_tree</span><span>Investigation Graph</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="telemetry-channels" href="#"><span class="material-symbols-outlined text-base">insights</span><span>Telemetry Channels</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="sessions-and-drivers" href="#"><span class="material-symbols-outlined text-base">groups</span><span>Sessions & Drivers</span></a></nav></div><div class="p-space-md bg-surface-container-lowest flex flex-col gap-space-xs font-code-provenance text-code-provenance text-on-surface-variant"><div class="flex items-center justify-between"><span class="flex items-center gap-space-xxs"><span class="w-1.5 h-1.5 rounded-full bg-primary-container inline-block"></span>Data Sync:</span><span class="text-on-surface font-label-sm text-label-sm">FastF1 v3.4.1 (Clean)</span></div><div class="flex items-center justify-between"><span>Telemetry Cache:</span><span class="text-on-surface font-label-sm text-label-sm">42k slices</span></div><div class="flex items-center justify-between"><span>Environment:</span><span class="text-on-surface font-label-sm text-label-sm">Sakhir Pitlane LAN</span></div><div class="flex items-center justify-between pt-space-xs text-outline"><span>Help & Hotkeys:</span><span class="px-space-xs py-space-xxs rounded bg-surface-container-high text-on-surface font-code-provenance text-code-provenance">?</span></div></div></aside><div class="pl-72 flex flex-col min-h-screen"><header class="fixed top-0 left-72 right-0 h-14 bg-surface-container-lowest/90 backdrop-blur-xl z-40 px-space-md flex items-center justify-between"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm"><img alt="RACEWISE Engineering Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WCpmN-ub4MNz9LX7tp95pUQb3dnWbPsbSH0sccC-Bne2PPqAb-RsJankfm0o_A4lNNAu8IJjOh4qtRt-7KbGWvaw4EEMlVcdJBVplqy1_PO3tWWeGs8b3EklVrSfOQcMgPmODOlqKm2gjYMM-u4EPdXK11rBftdxzIdHwf8X0do2uTAXcBGKiiXh7cWjJL0Utqj4LOvpLeaqTDn4ACgrQzBPKlfoNlS86uDsAapr0rgpOdt2TmQZIKuUg"/><span class="font-headline-md text-headline-md tracking-tight text-primary font-bold">RACEWISE</span></div><div class="hidden xl:flex items-center gap-space-xs font-label-sm text-label-sm text-outline"><span class="text-on-surface-variant">2023 Bahrain GP</span><span>/</span><span class="text-on-surface-variant">Race</span><span>/</span><span class="text-on-surface-variant">Lap 57</span><span>/</span><span class="text-primary-container font-label-md text-label-md">VER vs PER</span><span>/</span><span class="font-code-provenance text-code-provenance text-tertiary-fixed-dim bg-surface-container-high px-space-xs py-space-xxs rounded">INV-2023-01-57B</span></div></div><div class="hidden lg:flex items-center gap-space-md bg-surface-container-low px-space-md py-space-xxs rounded"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface">FASTF1 SYNCED [99.8%]</span></div><div class="h-3 w-px bg-outline-variant"></div><div class="font-label-sm text-label-sm text-on-surface-variant"><span>DRY</span> <span class="text-on-surface">28.4°C</span> / TRK <span class="text-on-surface">34.2°C</span></div><div class="h-3 w-px bg-outline-variant"></div><div class="font-code-provenance text-code-provenance text-tertiary">#8F3A2E · IDENTICAL</div></div><div class="flex items-center gap-space-sm"><button class="flex items-center gap-space-sm px-space-sm py-space-xs rounded bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors font-label-sm text-label-sm"><span class="material-symbols-outlined text-sm">search</span><span class="hidden sm:inline">Command</span><span class="font-code-provenance text-code-provenance px-space-xs py-space-xxs bg-surface-container rounded text-outline">⌘K</span></button><div class="flex items-center gap-space-xs px-space-sm py-space-xxs rounded bg-surface-container-high font-label-sm text-label-sm"><span class="text-primary font-bold">VER #1</span><span class="text-outline">|</span><span class="text-secondary font-bold">PER #11</span></div><button class="flex items-center gap-space-xxs px-space-sm py-space-xs rounded bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors font-label-sm text-label-sm"><span class="material-symbols-outlined text-sm">ios_share</span><span class="hidden md:inline">Export</span></button><div class="flex items-center gap-space-xs pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnmu0RDu3-CEVU4KNdfTlEvaAxiyc0X7k3cnkburA1JQDr5nwdL8b_AErEUsGHDhog9wq_Bzm_A9eA7WjO8BZacWneC9UZtY9TNZdGmiSKzE8JI2qOt0VNa01BZU7tY-3N7JMqJ9sA4x3qE8RKyei9pos04sUKpCGGG9XIrScyHNPEJzyhLXxIIcLMlkRgXx09d-WSKtLZJUzLBW-bbYGGzgWFxXmaGZM9i5orSf32sM6fWWjgYe00"/><div class="hidden 2xl:flex flex-col"><span class="font-label-sm text-label-sm text-on-surface leading-none">Dr. H. Vance</span><span class="font-code-provenance text-code-provenance text-outline leading-tight">Lead Vehicle Dynamics</span></div></div></div></header><main class="w-full pt-14 bg-surface flex-1"><div class="flex flex-col w-full">
+<!-- Investigation Workspace Sub-Bar -->
+<div class="w-full bg-surface-container-lowest px-space-md py-space-sm flex flex-wrap items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="px-space-xs py-space-xxs bg-surface-container text-primary font-code-provenance text-code-provenance rounded uppercase tracking-wider">INV-2023-01-57B</span>
+<span class="text-outline font-label-sm text-label-sm">/</span>
+<span class="font-label-md text-label-md text-on-surface truncate">VER vs PER · Bahrain GP Lap 57</span>
+<span class="text-outline font-label-sm text-label-sm">/</span>
+<span class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">Counterfactual Scenario: Remove Turn 9-10 Sector 2 Speed Deficit</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="inline-flex items-center gap-1.5 px-space-sm py-0.5 rounded bg-secondary-container/20 text-secondary font-label-sm text-label-sm tracking-wide">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+        MODELLED · SYNTHETIC RUN
+      </span>
+<span class="font-code-provenance text-code-provenance text-outline">SOLVER: AERO-DELTA v2.1.4</span>
+</div>
+</div>
+<!-- Epistemic Warning Banner -->
+<div class="w-full bg-surface-container-low px-space-md py-space-xs flex items-center justify-between">
+<div class="flex items-center gap-space-sm text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-secondary text-sm">science</span>
+<span><strong class="text-secondary font-medium uppercase font-label-sm text-label-sm">Controlled Simulation Mode:</strong> All projected deltas are <span class="text-secondary font-semibold">MODELLED</span> via spatial velocity-profile integration (<span class="font-code-provenance text-code-provenance text-on-surface">dt = ds / v_cf</span>). Baseline: FastF1 100Hz calibrated telemetry.</span>
+</div>
+<div class="flex items-center gap-space-xs font-code-provenance text-code-provenance text-outline">
+<span>RESIDUAL TOLERANCE:</span>
+<span class="text-primary font-bold">±0.004s</span>
+</div>
+</div>
+<!-- Modelled Delta Summary Strip (Top KPI Ribbons) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-space-xs p-space-sm bg-surface">
+<!-- Observed Gap -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col justify-between">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Observed Gap (Lap 57)</span>
+<span class="px-1.5 py-0.5 rounded bg-primary-container/10 text-primary-fixed-dim font-code-provenance text-code-provenance">HISTORICAL</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-telemetry-metric text-telemetry-metric text-on-surface font-bold">+0.185 <span class="font-body-sm text-body-sm text-outline">s</span></span>
+<span class="font-code-provenance text-code-provenance text-outline">VER +0.185 vs PER</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
+<div class="bg-primary h-full w-[78%]"></div>
+</div>
+</div>
+<!-- Simulated Recovery -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col justify-between">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Simulated Delta Recovery</span>
+<span class="px-1.5 py-0.5 rounded bg-secondary-container/20 text-secondary font-code-provenance text-code-provenance">MODELLED</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-telemetry-metric text-telemetry-metric text-secondary font-bold">-0.093 <span class="font-body-sm text-body-sm text-secondary/70">s</span></span>
+<span class="font-code-provenance text-code-provenance text-secondary/80">λ = 0.50</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
+<div class="bg-secondary h-full w-[50%]"></div>
+</div>
+</div>
+<!-- Counterfactual Lap Gap -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col justify-between">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Synthetic Lap Time</span>
+<span class="px-1.5 py-0.5 rounded bg-secondary-container/20 text-secondary font-code-provenance text-code-provenance">SYNTHETIC</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-telemetry-metric text-telemetry-metric text-on-surface font-bold">1:36.102 <span class="font-body-sm text-body-sm text-outline">m:s</span></span>
+<span class="font-code-provenance text-code-provenance text-secondary">-0.093s rel VER</span>
+</div>
+<div class="flex items-center gap-space-xs mt-2 text-outline font-code-provenance text-code-provenance">
+<span>Actual VER: 1:36.195</span>
+</div>
+</div>
+<!-- Residual Gap -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col justify-between">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Residual Gap remaining</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-code-provenance text-code-provenance">DEFICIT HALVED</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-telemetry-metric text-telemetry-metric text-tertiary-fixed-dim font-bold">+0.092 <span class="font-body-sm text-body-sm text-outline">s</span></span>
+<span class="font-code-provenance text-code-provenance text-tertiary">49.7% of raw</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full w-[49.7%]"></div>
+</div>
+</div>
+<!-- Boundary Feasibility Check -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col justify-between">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Envelope Feasibility</span>
+<span class="px-1.5 py-0.5 rounded bg-primary-container/20 text-primary-container font-code-provenance text-code-provenance">VALIDATED</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-telemetry-metric text-telemetry-metric text-primary font-bold">3 / 3 <span class="font-body-sm text-body-sm text-outline">GATES PASS</span></span>
+<span class="material-symbols-outlined text-primary text-base">verified</span>
+</div>
+<div class="flex items-center gap-2 mt-2 text-on-surface-variant font-code-provenance text-code-provenance">
+<span class="w-2 h-2 rounded-full bg-primary inline-block"></span> LatG, Thermal, MGU-K OK
+      </div>
+</div>
+</div>
+<!-- Main Multi-Pane Workbench -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-xs p-space-sm pt-0">
+<!-- Left Console: Parameter & Intervention Controls (Col 1-4) -->
+<div class="xl:col-span-4 flex flex-col gap-space-xs">
+<!-- Comparative Pair Card -->
+<div class="bg-surface-container-low p-space-md rounded">
+<div class="flex items-center justify-between pb-space-xs mb-space-sm">
+<div class="flex items-center gap-space-xs font-label-md text-label-md text-on-surface">
+<span class="material-symbols-outlined text-primary text-base">compare_arrows</span>
+<span class="font-bold">Comparative Baseline & Target</span>
+</div>
+<span class="font-code-provenance text-code-provenance text-outline">STATION INTERVAL: 1.0m</span>
+</div>
+<div class="space-y-space-xs font-code-provenance text-code-provenance">
+<!-- Baseline VER -->
+<div class="p-space-xs bg-surface-container rounded flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="w-2.5 h-1 bg-primary rounded-full"></span>
+<span class="font-bold text-primary font-label-sm text-label-sm">VER (Baseline)</span>
+<span class="text-outline">#1 · RB19</span>
+</div>
+<div class="text-right">
+<span class="text-on-surface font-telemetry-metric text-body-sm">1:36.195</span>
+<span class="ml-1 text-primary-fixed-dim">[OBSERVED]</span>
+</div>
+</div>
+<!-- Target PER -->
+<div class="p-space-xs bg-surface-container rounded flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="w-2.5 h-1 bg-outline rounded-full"></span>
+<span class="font-bold text-on-surface-variant font-label-sm text-label-sm">PER (Target Ref)</span>
+<span class="text-outline">#11 · RB19</span>
+</div>
+<div class="text-right">
+<span class="text-on-surface-variant font-telemetry-metric text-body-sm">1:36.010</span>
+<span class="ml-1 text-outline">[-0.185s]</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Intervention Specifier -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-base">tune</span>
+<span class="font-label-md text-label-md font-bold text-on-surface">Intervention Parameters</span>
+</div>
+<span class="px-space-xs py-0.5 rounded bg-secondary-container/20 text-secondary font-code-provenance text-code-provenance uppercase">SPATIAL VELOCITY PATCH</span>
+</div>
+<!-- Slider & Numerical Field -->
+<div class="bg-surface-container p-space-sm rounded space-y-space-sm">
+<div class="flex items-center justify-between">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider" for="deficit-slider">
+              Deficit Recovery Ratio (<span class="font-code-provenance text-code-provenance text-secondary font-bold">λ</span>)
+            </label>
+<div class="flex items-center gap-space-xs">
+<span class="text-outline font-code-provenance text-code-provenance">VALUE:</span>
+<div class="bg-surface-container-lowest px-space-xs py-space-xxs rounded text-secondary font-telemetry-metric text-telemetry-metric font-bold">
+                0.50
+              </div>
+</div>
+</div>
+<div class="space-y-1">
+<input class="w-full accent-secondary bg-surface-container-highest h-1.5 rounded-lg appearance-none cursor-pointer" id="deficit-slider" max="1" min="0" step="0.05" type="range" value="0.5"/>
+<div class="flex justify-between font-code-provenance text-code-provenance text-outline">
+<span>0.00 (Zero Patch)</span>
+<span class="text-secondary font-bold">0.50 (Active)</span>
+<span>1.00 (Match Target)</span>
+</div>
+</div>
+</div>
+<!-- Spatial Region Descriptor -->
+<div class="space-y-space-xs">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Affected Spatial Sector</span>
+<div class="bg-surface-container p-space-sm rounded space-y-1 text-on-surface font-body-sm text-body-sm">
+<div class="flex items-center justify-between">
+<span class="font-semibold text-primary">Sector 2 · Turns 8 - 11</span>
+<span class="font-code-provenance text-code-provenance text-outline">S2_STATION</span>
+</div>
+<div class="text-on-surface-variant font-code-provenance text-code-provenance">
+              Station range: <span class="text-on-surface">2,150.0 m</span> → <span class="text-on-surface">3,890.0 m</span> (Total: 1,740 m)
+            </div>
+<p class="text-outline text-xs mt-1">
+              Primary speed recovery applied to the downhill off-camber entry into Turn 9 and apex deceleration of Turn 10.
+            </p>
+</div>
+</div>
+<!-- Mathematical Engine Model -->
+<div class="space-y-space-xs">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Physical Formulation</span>
+<div class="bg-surface-container p-space-sm rounded font-code-provenance text-code-provenance text-on-surface-variant space-y-1">
+<div class="text-secondary font-semibold">v_cf(s) = v_ver(s) + λ · max(0, v_per(s) - v_ver(s))</div>
+<div class="text-outline text-xs">dt_step = ds / v_cf(s) subject to friction-circle boundary limits:</div>
+<div class="text-outline text-xs">μ_peak = 1.68 · [1 - β_tire · ΔT_surface]</div>
+</div>
+</div>
+<!-- Validation Gates -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Physical Validation Gates</span>
+<span class="font-code-provenance text-code-provenance text-primary font-bold">ALL PASS</span>
+</div>
+<div class="space-y-1 font-code-provenance text-code-provenance">
+<!-- Gate 1 -->
+<div class="bg-surface-container px-space-sm py-1.5 rounded flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span class="text-on-surface">Gate 1: Lateral Acceleration</span>
+</div>
+<div class="text-right">
+<span class="text-primary font-bold">4.62 G</span>
+<span class="text-outline"> / ≤ 4.85 G</span>
+</div>
+</div>
+<!-- Gate 2 -->
+<div class="bg-surface-container px-space-sm py-1.5 rounded flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span class="text-on-surface">Gate 2: Tyre Bulk Temp (Rear)</span>
+</div>
+<div class="text-right">
+<span class="text-primary font-bold">114.2 °C</span>
+<span class="text-outline"> / ≤ 118 °C</span>
+</div>
+</div>
+<!-- Gate 3 -->
+<div class="bg-surface-container px-space-sm py-1.5 rounded flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span class="text-on-surface">Gate 3: MGU-K Balance Lap End</span>
+</div>
+<div class="text-right">
+<span class="text-primary font-bold">+14 kJ</span>
+<span class="text-outline"> / ≥ 0 kJ</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center gap-space-xs pt-space-xs">
+<button class="flex-1 flex items-center justify-center gap-space-xs py-space-sm px-space-md rounded bg-primary-container text-on-primary-container font-label-md text-label-md font-semibold hover:bg-primary-fixed-dim transition-colors">
+<span class="material-symbols-outlined text-sm">refresh</span>
+            Re-calculate Model
+          </button>
+<button class="p-space-sm rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors font-label-sm text-label-sm" title="Export Scenario">
+<span class="material-symbols-outlined text-base">download</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Center & Right Analytical Canvas (Col 5-12) -->
+<div class="xl:col-span-8 flex flex-col gap-space-xs">
+<!-- Plot 1: Primary Velocity Profile with Intervention Overlap -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col">
+<div class="flex flex-wrap items-center justify-between pb-space-xs mb-space-xs gap-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">Speed Profiles vs Spatial Distance (m)</span>
+<span class="px-space-xs py-0.5 rounded bg-surface-container text-outline font-code-provenance text-code-provenance">S2 ZOOM FOCUS: 2,000m - 4,000m</span>
+</div>
+<!-- Trace Legends -->
+<div class="flex items-center gap-space-md font-label-sm text-label-sm">
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-0.5 bg-primary"></span>
+<span class="text-on-surface-variant font-code-provenance text-code-provenance">Baseline VER (Observed: 1:36.195)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-0.5 bg-secondary border-b border-dashed"></span>
+<span class="text-secondary font-code-provenance text-code-provenance font-bold">Counterfactual VER (MODELLED: 1:36.102)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-0.5 bg-outline"></span>
+<span class="text-outline font-code-provenance text-code-provenance">Target PER (Observed: 1:36.010)</span>
+</div>
+</div>
+</div>
+<!-- SVG Speed Telemetry Canvas -->
+<div class="w-full bg-surface-container-lowest rounded p-space-sm relative overflow-hidden">
+<!-- Intervention Zone Highlighting Banner in graph -->
+<div class="absolute top-2 left-1/3 bg-secondary-container/20 text-secondary text-xs px-2 py-0.5 rounded font-code-provenance text-code-provenance flex items-center gap-1 z-10">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+            INTERVENTION REGION: T9/T10 APEX DEFICIT RECOVERY (λ=0.50)
+          </div>
+<svg class="w-full h-auto text-on-surface" preserveaspectratio="none" viewbox="0 0 900 280">
+<!-- Grid Lines Horizontal -->
+<line stroke="#1d2024" stroke-width="1" x1="60" x2="880" y1="30" y2="30"></line>
+<line stroke="#1d2024" stroke-width="1" x1="60" x2="880" y1="80" y2="80"></line>
+<line stroke="#1d2024" stroke-width="1" x1="60" x2="880" y1="130" y2="130"></line>
+<line stroke="#1d2024" stroke-width="1" x1="60" x2="880" y1="180" y2="180"></line>
+<line stroke="#1d2024" stroke-width="1" x1="60" x2="880" y1="230" y2="230"></line>
+<!-- Y Axis Tick Labels (km/h) -->
+<text fill="#849396" font-family="JetBrains Mono" font-size="10" text-anchor="end" x="50" y="34">320</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="10" text-anchor="end" x="50" y="84">260</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="10" text-anchor="end" x="50" y="134">200</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="10" text-anchor="end" x="50" y="184">140</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="10" text-anchor="end" x="50" y="234">80</text>
+<!-- Shaded Intervention Spatial Region: 2150m to 3890m mapped roughly x: 260 to 760 -->
+<rect fill="#0058e2" fill-opacity="0.07" height="220" width="460" x="250" y="20"></rect>
+<line opacity="0.4" stroke="#b3c5ff" stroke-dasharray="3,3" stroke-width="1" x1="250" x2="250" y1="20" y2="240"></line>
+<line opacity="0.4" stroke="#b3c5ff" stroke-dasharray="3,3" stroke-width="1" x1="710" x2="710" y1="20" y2="240"></line>
+<!-- Turn Annotations -->
+<text fill="#849396" font-family="JetBrains Mono" font-size="10" text-anchor="middle" x="180" y="255">Turn 8</text>
+<text fill="#b3c5ff" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle" x="360" y="255">Turn 9 (Deficit Entry)</text>
+<text fill="#b3c5ff" font-family="JetBrains Mono" font-size="10" font-weight="bold" text-anchor="middle" x="520" y="255">Turn 10 (Apex)</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="10" text-anchor="middle" x="750" y="255">Turn 11 (Exit Run)</text>
+<!-- X Axis Stations (m) -->
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="60" y="270">2,000m</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="250" y="270">2,500m</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="470" y="270">3,000m</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="690" y="270">3,500m</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="880" y="270">4,000m</text>
+<!-- Curve 1: Reference Target PER (Faint Grey Observed) -->
+<path d="M 60,60 
+                     C 120,60 150,195 180,210 
+                     C 210,225 240,110 320,70 
+                     C 380,45 420,130 460,185 
+                     C 500,230 540,215 580,120 
+                     C 640,40 700,50 780,115 
+                     C 830,150 850,55 880,50" fill="none" opacity="0.6" stroke="#849396" stroke-width="1.5"></path>
+<!-- Curve 2: Baseline Observed VER (Cyan Solid) -->
+<path d="M 60,60 
+                     C 120,60 150,198 180,212 
+                     C 210,226 240,115 320,75 
+                     C 380,50 415,160 455,215 
+                     C 495,245 535,232 575,145 
+                     C 635,65 700,52 780,118 
+                     C 830,152 850,55 880,50" fill="none" stroke="#c3f5ff" stroke-width="2.5"></path>
+<!-- Curve 3: Counterfactual Modelled VER (Violet dashed with glow) -->
+<!-- Deficit between 360 and 640 is closed by 50% toward PER -->
+<path d="M 60,60 
+                     C 120,60 150,198 180,212 
+                     C 210,226 240,115 320,72 
+                     C 380,47 418,145 458,198 
+                     C 498,236 538,222 578,132 
+                     C 638,52 700,51 780,117 
+                     C 830,151 850,55 880,50" fill="none" stroke="#b3c5ff" stroke-dasharray="4,2" stroke-width="2"></path>
+<!-- Delta Inspection Callout Point at Turn 10 Apex (460, 205) -->
+<circle cx="458" cy="198" fill="#b3c5ff" r="4"></circle>
+<circle cx="455" cy="215" fill="#c3f5ff" r="4"></circle>
+<line stroke="#b3c5ff" stroke-width="1.5" x1="458" x2="455" y1="198" y2="215"></line>
+<rect fill="#1d2024" height="42" rx="2" stroke="#b3c5ff" stroke-width="1" width="125" x="475" y="165"></rect>
+<text fill="#b3c5ff" font-family="JetBrains Mono" font-size="9" font-weight="bold" x="483" y="180">+11.4 km/h SYNTHETIC</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="8" x="483" y="196">Apex v_cf: 104.2 km/h</text>
+</svg>
+</div>
+<!-- Instantaneous Telemetry Inspection Matrix at Turn 10 Key Stations -->
+<div class="grid grid-cols-4 gap-space-xs mt-space-xs font-code-provenance text-code-provenance">
+<div class="bg-surface-container p-space-xs rounded">
+<span class="text-outline block">STATION 3,210m (T9 Turn-in)</span>
+<div class="flex justify-between items-baseline mt-1">
+<span class="text-primary">164.2 km/h</span>
+<span class="text-secondary font-bold">171.8 km/h</span>
+</div>
+<span class="text-secondary text-xs">+7.6 km/h (MODELLED)</span>
+</div>
+<div class="bg-surface-container p-space-xs rounded">
+<span class="text-outline block">STATION 3,420m (T10 Apex)</span>
+<div class="flex justify-between items-baseline mt-1">
+<span class="text-primary">92.8 km/h</span>
+<span class="text-secondary font-bold">104.2 km/h</span>
+</div>
+<span class="text-secondary text-xs">+11.4 km/h (MODELLED)</span>
+</div>
+<div class="bg-surface-container p-space-xs rounded">
+<span class="text-outline block">STATION 3,680m (T10 Exit)</span>
+<div class="flex justify-between items-baseline mt-1">
+<span class="text-primary">204.1 km/h</span>
+<span class="text-secondary font-bold">209.6 km/h</span>
+</div>
+<span class="text-secondary text-xs">+5.5 km/h (MODELLED)</span>
+</div>
+<div class="bg-surface-container p-space-xs rounded">
+<span class="text-outline block">STATION 3,890m (Straight)</span>
+<div class="flex justify-between items-baseline mt-1">
+<span class="text-primary">276.4 km/h</span>
+<span class="text-secondary font-bold">278.1 km/h</span>
+</div>
+<span class="text-secondary text-xs">+1.7 km/h (MODELLED)</span>
+</div>
+</div>
+</div>
+<!-- Plot 2: Sensitivity Analysis Curve & Delta Delta (ΔΔ) -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col">
+<div class="flex items-center justify-between pb-space-xs mb-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">Sensitivity Analysis: Deficit Parameter (λ) vs Delta Reduction (s)</span>
+<span class="px-space-xs py-0.5 rounded bg-secondary-container/20 text-secondary font-code-provenance text-code-provenance">SWEEP RANGE: 0.00 – 1.00</span>
+</div>
+<div class="flex items-center gap-space-xs font-code-provenance text-code-provenance text-outline">
+<span>CURVATURE:</span>
+<span class="text-on-surface">NON-LINEAR (AERO DECAY)</span>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-space-sm items-center">
+<!-- Graph: Sensitivity Curve (Cols 1-2) -->
+<div class="lg:col-span-2 bg-surface-container-lowest rounded p-space-sm">
+<svg class="w-full h-auto text-on-surface" preserveaspectratio="none" viewbox="0 0 540 180">
+<!-- Grid lines -->
+<line stroke="#1d2024" stroke-width="1" x1="50" x2="510" y1="20" y2="20"></line>
+<line stroke="#1d2024" stroke-width="1" x1="50" x2="510" y1="60" y2="60"></line>
+<line stroke="#1d2024" stroke-width="1" x1="50" x2="510" y1="100" y2="100"></line>
+<line stroke="#1d2024" stroke-width="1" x1="50" x2="510" y1="140" y2="140"></line>
+<!-- Y Axis Labels -->
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="24">-0.20s</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="64">-0.15s</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="104">-0.10s</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="144">-0.05s</text>
+<!-- X Axis Labels (λ ratio) -->
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="50" y="165">0.00</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="165" y="165">0.25</text>
+<text fill="#b3c5ff" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="middle" x="280" y="165">0.50 (ACT)</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="395" y="165">0.75</text>
+<text fill="#849396" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="510" y="165">1.00</text>
+<!-- Sensitivity Curve (Non-linear slope diminishing returns) -->
+<path d="M 50,158 
+                       Q 165,115 280,78 
+                       T 510,24" fill="none" stroke="#b3c5ff" stroke-width="2.5"></path>
+<!-- Discrete Evaluation Points -->
+<!-- 0.00 -> 0.000s -->
+<circle cx="50" cy="158" fill="#849396" r="3.5"></circle>
+<!-- 0.25 -> -0.046s -->
+<circle cx="165" cy="118" fill="#849396" r="3.5"></circle>
+<!-- 0.50 -> -0.093s (Active highlight) -->
+<circle cx="280" cy="80" fill="#0058e2" fill-opacity="0.4" r="6"></circle>
+<circle cx="280" cy="80" fill="#b3c5ff" r="3.5"></circle>
+<!-- 0.75 -> -0.141s -->
+<circle cx="395" cy="50" fill="#849396" r="3.5"></circle>
+<!-- 1.00 -> -0.188s -->
+<circle cx="510" cy="24" fill="#849396" r="3.5"></circle>
+<!-- Vertical Crosshair at 0.50 -->
+<line opacity="0.6" stroke="#b3c5ff" stroke-dasharray="2,2" stroke-width="1" x1="280" x2="280" y1="20" y2="155"></line>
+<!-- Active Marker Tag -->
+<rect fill="#1d2024" height="22" rx="2" stroke="#b3c5ff" stroke-width="1" width="105" x="290" y="70"></rect>
+<text fill="#b3c5ff" font-family="JetBrains Mono" font-size="9" font-weight="bold" x="296" y="84">λ=0.50: -0.093s</text>
+</svg>
+</div>
+<!-- Sensitivity Discrete Table & Dynamic Insights (Col 3) -->
+<div class="flex flex-col gap-space-xs font-code-provenance text-code-provenance">
+<div class="bg-surface-container p-space-sm rounded space-y-1">
+<span class="text-outline uppercase text-xs">Sensitivity Ledger</span>
+<div class="space-y-1 mt-1">
+<div class="flex justify-between py-0.5 border-b border-surface-container-highest">
+<span class="text-outline">λ = 0.00</span>
+<span class="text-on-surface">Δ: 0.000 s</span>
+<span class="text-outline">0% rec</span>
+</div>
+<div class="flex justify-between py-0.5 border-b border-surface-container-highest">
+<span class="text-outline">λ = 0.25</span>
+<span class="text-secondary">-0.046 s</span>
+<span class="text-outline">24.8%</span>
+</div>
+<div class="flex justify-between py-0.5 bg-secondary-container/10 px-1 rounded text-secondary font-bold">
+<span>λ = 0.50 [ACT]</span>
+<span>-0.093 s</span>
+<span>50.2%</span>
+</div>
+<div class="flex justify-between py-0.5 border-b border-surface-container-highest">
+<span class="text-outline">λ = 0.75</span>
+<span class="text-secondary">-0.141 s</span>
+<span class="text-outline">76.2%</span>
+</div>
+<div class="flex justify-between py-0.5">
+<span class="text-outline">λ = 1.00</span>
+<span class="text-secondary">-0.188 s</span>
+<span class="text-outline">101.6%</span>
+</div>
+</div>
+</div>
+<!-- Aero non-linearity footnote -->
+<div class="bg-surface-container p-space-xs rounded text-outline text-xs leading-relaxed font-body-sm text-body-sm">
+<span class="text-secondary font-bold font-code-provenance text-code-provenance uppercase">Aero Elasticity Note:</span>
+              Diminishing returns emerge above λ = 0.70 due to front-wing wake saturation and tire friction scrub under combined 4.6G braking.
+            </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Epistemic Audit Strip -->
+<div class="w-full bg-surface-container-low px-space-md py-space-xs mt-space-xs flex flex-wrap items-center justify-between text-outline font-code-provenance text-code-provenance">
+<div class="flex items-center gap-space-md">
+<span class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+        MODEL INTEGRATION: RUN #0492-CF
+      </span>
+<span>SOLVER THREAD: 8-CORE NUMERICAL</span>
+<span>FASTF1 CACHE SICE: #99B2-S2</span>
+</div>
+<div class="flex items-center gap-space-sm text-on-surface-variant font-label-sm text-label-sm">
+<span>RACEWISE HIGH-PRECISION COUNTERFACTUAL ENGINE</span>
+<span class="text-outline">·</span>
+<span class="text-primary font-code-provenance text-code-provenance">EPISTEMIC STATE: VERIFIED SIMULATION</span>
+</div>
+</div>
+</div>
+<script>
+  // Interactive micro-interaction for Slider Scrubbing
+  const slider = document.getElementById('deficit-slider');
+  if (slider) {
+    slider.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value).toFixed(2);
+      // Visual indicator updates smoothly for race engineers
+      const valDisplay = slider.closest('.bg-surface-container').querySelector('.font-telemetry-metric');
+      if (valDisplay) {
+        valDisplay.textContent = val;
+      }
+    });
+  }
+</script></main></div></body></html>

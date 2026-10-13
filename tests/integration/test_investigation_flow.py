@@ -120,3 +120,56 @@ def test_confidence_updates_are_bounded(registry):
     assert engine.hypotheses[0].confidence == 1.0
     engine.update_confidence("H1", -5.0, "contradiction")
     assert engine.hypotheses[0].confidence == 0.0
+
+
+def test_replay_verifies_deterministic_tools(registry):
+    """Replay should verify that tool outputs match recorded hashes."""
+    engine = InvestigationEngine(registry, provider=None, question="Replay test")
+
+    def plan(e: InvestigationEngine) -> None:
+        e._set_state(InvestigationState.HYPOTHESIS_GENERATION)
+        e.add_hypothesis(Hypothesis(id="H1", statement="Test hypothesis"))
+        e._set_state(InvestigationState.EVIDENCE_COLLECTION)
+        deg = e.run_tool("analyze_tyre_degradation", {"driver": "VER", "stint": 2})
+        assert "error" not in deg
+        # Find the tool execution for the degradation analysis
+        deg_te = next(te for te in e.tool_executions if te.tool == "analyze_tyre_degradation")
+        obs = e.observe("deg_slope", deg["slope_s_per_lap"], "s/lap", "analyze_tyre_degradation", "1.0.0", tool_execution_id=deg_te.id)
+        e.add_evidence("Degradation slope measured", EvidenceType.CALCULATION, [obs.id], deg_te.id, supports=["H1"], strength=0.5)
+        e._set_state(InvestigationState.FALSIFICATION)
+        # Add falsification evidence with proper tool execution ID
+        traffic = e.run_tool("analyze_traffic", {"driver": "VER", "lap_start": 16, "lap_end": 35})
+        traffic_te = next(te for te in e.tool_executions if te.tool == "analyze_traffic")
+        obs2 = e.observe("traffic_frac", traffic["traffic_fraction"], "fraction", "analyze_traffic", "1.0.0", tool_execution_id=traffic_te.id)
+        e.add_evidence("Falsification: low traffic fraction contradicts H1", EvidenceType.INFERENCE, [obs2.id], traffic_te.id, contradicts=["H1"], strength=0.3)
+        e._set_state(InvestigationState.COUNTERFACTUAL_ANALYSIS)
+        # Get laps from the registry context
+        laps = e.registry._tools["get_session"]._context.laps if hasattr(e.registry, "_tools") else []
+        if not laps:
+            # Fallback: get laps via adapter
+            from racewise.data.fastf1_adapter import FastF1Adapter
+            from pathlib import Path
+            adapter = FastF1Adapter(cache_dir=str(Path(__file__).resolve().parents[2] / ".fastf1-cache"))
+            session = adapter.load_session(2023, "Bahrain", "R")
+            laps = adapter.laps(session)
+        e.run_counterfactual({
+            "laps": laps,
+            "driver": "VER",
+            "original_pit_lap": 36,
+            "counterfactual_pit_lap": 31,
+            "pit_loss_s": 24.2,
+            "degradation_s_per_lap": 0.06,
+            "laps_remaining": 57,
+        })
+        e._set_state(InvestigationState.COMPLETED)
+
+    engine.run(plan)
+    assert engine.state == InvestigationState.COMPLETED
+
+    # Now replay the investigation
+    replay_result = engine.replay(engine.event_log)
+    assert replay_result.success is True
+    assert replay_result.total_tool_events >= 2
+    assert "analyze_tyre_degradation" in replay_result.verified_tools
+    assert "analyze_traffic" in replay_result.verified_tools
+    assert len(replay_result.failed_tools) == 0

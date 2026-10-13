@@ -1,0 +1,133 @@
+{
+  "provider": "f1db",
+  "provider_version": "v2026.14.0",
+  "release_name": "F1DB v2026.14.0",
+  "published_at": "2026-09-19T18:54:36.454374+00:00",
+  "retrieved_at": "2026-09-19T18:54:46.962502+00:00",
+  "source_url": "https://github.com/f1db/f1db/releases/tag/v2026.14.0",
+  "schema_version": "1.0",
+  "files": {
+    "seasons": {
+      "sha256": "1f4672273df4ebd8bd983c623022e0ea11d074f5edbbc6ff006f69df92e1fb82",
+      "size_bytes": 392
+    },
+    "races": {
+      "sha256": "31cf3607464bd459498d38598aa504b1bb362b04837bd101545ed7e1ccfc1c5a",
+      "size_bytes": 235618
+    },
+    "circuits": {
+      "sha256": "f5ee52a60b68ca940802809dbd048539290eddc5c322c7362a49c94cc081abf8",
+      "size_bytes": 10485
+    },
+    "drivers": {
+      "sha256": "55827cf43adc400e17da76773297f4118decb7eddc388b16f7533c33019dd929",
+      "size_bytes": 174158
+    },
+    "constructors": {
+      "sha256": "84209cdefc2e56ce111e81990ae262e05f8f9ddb93728f4cced821606858ed55",
+      "size_bytes": 17851
+    },
+    "race_results": {
+      "sha256": "b779d6af1e10b00ed405e78ac8a8678e0e1146f5b1f34b94c93b5c04bc8efa53",
+      "size_bytes": 4119998
+    },
+    "sprint_results": {
+      "sha256": "9c27e2ee6a71e65d5ff6f1899a4232aa2c90bcf208b5315b7bbdb4ed97a892fc",
+      "size_bytes": 104969
+    },
+    "qualifying_results": {
+      "sha256": "95d8c8e121eeb5f6f5107f5726aff6462e8f59c8995f1f6b046f71cf9fd06b5b",
+      "size_bytes": 3390607
+    },
+    "sprint_qualifying_results": {
+      "sha256": "953aee51aff0cf6ee44f4b741cc44e58b290fb36d9a5350ff24e8497c20bbefd",
+      "size_bytes": 62121
+    },
+    "starting_grid": {
+      "sha256": "5f41bfd83b91e50687b2396ae9587f46bb18aebe1c24e173b6e81fb0a92b23a5",
+      "size_bytes": 2567739
+    },
+    "pit_stops": {
+      "sha256": "ef2da2db2586e0248e30315f7678b7160c5ac31d3a7617811f49e9759fc6bfa4",
+      "size_bytes": 2153208
+    },
+    "fastest_laps": {
+      "sha256": "ba5d1eb5bd1f9ad05769cde87f9446659a6821f92ac86df2daf9e14ada32165c",
+      "size_bytes": 2046564
+    },
+    "free_practice_1": {
+      "sha256": "464756565c0639441a27257f2c64751de0bc816eab467124d8c208f6efcee737",
+      "size_bytes": 1920140
+    },
+    "free_practice_2": {
+      "sha256": "cbe67535b272e50d2534693780e23afa223cd0529aadd44a9a09792147130aeb",
+      "size_bytes": 1858312
+    },
+    "free_practice_3": {
+      "sha256": "4150845c79ba530cb8ceec67d8780ce8103bef7a509113ad4135eb98368cc9c4",
+      "size_bytes": 1060182
+    },
+    "free_practice_4": {
+      "sha256": "5e63878237aca0c77ac2ba90d0b66304010d1ffe1ec1b232c4ab60073790fee6",
+      "size_bytes": 84524
+    },
+    "warming_up": {
+      "sha256": "cf8693db6807a286e30e4a53a31dbba3beeef2694fd13c98160ee04a96c450de",
+      "size_bytes": 907803
+    },
+    "qualifying_1": {
+      "sha256": "bff79d6af9cc35027e8ff6f45f2935397c1e5e4cc96c34c7cde335da7a9afa49",
+      "size_bytes": 946840
+    },
+    "qualifying_2": {
+      "sha256": "ede47d391d1043c144a1305bea1d23dcd06af56891a3e44b2b274dc09a141e52",
+      "size_bytes": 923866
+    },
+    "pre_qualifying": {
+      "sha256": "7f06462f1783e4cc2558ab2cc03d110a59a1d56bda4891822ff73b966a1ffa9f",
+      "size_bytes": 76429
+    }
+  },
+  "ingestion": {
+    "seasons": 77,
+    "circuits": 78,
+    "drivers": 917,
+    "constructors": 187,
+    "races": 1172,
+    "_entity_seconds": 0.13,
+    "sessions": 5268,
+    "_session_seconds": 1.38,
+    "results": 27599,
+    "sprint_results": 590,
+    "qualifying": 27018,
+    "sprint_qualifying": 466,
+    "starting_grid": 25836,
+    "pit_stops": 22515,
+    "fastest_laps": 17148,
+    "practice_results": 41268,
+    "warming_up_results": 7683,
+    "qualifying_1_2": 15248,
+    "pre_qualifying": 647,
+    "_detail_seconds": 8.87,
+    "catalog_entries": 5268,
+    "canonical_counts": {
+      "canonical_seasons": 77,
+      "canonical_circuits": 78,
+      "canonical_drivers": 917,
+      "canonical_constructors": 187,
+      "canonical_races": 1172,
+      "canonical_sessions": 5268,
+      "canonical_results": 28189,
+      "canonical_qualifying": 118165,
+      "canonical_pit_stops": 22506,
+      "canonical_lap_times": 17148,
+      "canonical_stints": 0,
+      "canonical_weather": 0,
+      "canonical_race_control": 0,
+      "canonical_session_catalog": 5268
+    },
+    "runtime_seconds": 10.51,
+    "session_rows_per_second": 18203,
+    "db_size_bytes": 49635328
+  }
+}

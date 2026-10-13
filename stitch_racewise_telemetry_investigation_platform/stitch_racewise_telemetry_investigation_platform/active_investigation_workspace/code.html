@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-tertiary-fixed":"#001f26","outline-variant":"#3b494c","surface-tint":"#00daf3","on-primary":"#00363d","on-error-container":"#ffdad6","on-primary-fixed":"#001f24","surface-bright":"#36393e","surface-variant":"#323539","primary-fixed":"#9cf0ff","on-secondary-fixed-variant":"#003fa5","tertiary":"#cdf3ff","outline":"#849396","tertiary-container":"#60e1ff","on-surface-variant":"#bac9cc","surface":"#111418","primary-fixed-dim":"#00daf3","tertiary-fixed-dim":"#4cd7f6","surface-container-lowest":"#0b0e12","tertiary-fixed":"#acedff","error":"#ffb4ab","on-secondary-fixed":"#00184a","surface-container-highest":"#323539","surface-container-high":"#272a2e","inverse-primary":"#006875","on-secondary-container":"#d7dfff","inverse-on-surface":"#2e3135","secondary":"#b3c5ff","secondary-fixed":"#dbe1ff","on-tertiary-fixed-variant":"#004e5c","on-error":"#690005","surface-container":"#1d2024","background":"#111418","on-background":"#e1e2e8","on-secondary":"#002a76","inverse-surface":"#e1e2e8","on-surface":"#e1e2e8","secondary-fixed-dim":"#b3c5ff","on-tertiary":"#003640","primary-container":"#00e5ff","error-container":"#93000a","surface-dim":"#111418","primary":"#c3f5ff","on-primary-container":"#00626e","on-tertiary-container":"#006273","on-primary-fixed-variant":"#004f58","secondary-container":"#0058e2","surface-container-low":"#191c20"},"borderRadius":{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},"spacing":{"space-lg":"1rem","space-xs":"0.25rem","gutter-loose":"1rem","space-md":"0.75rem","space-xxs":"0.125rem","space-sm":"0.5rem","gutter":"0.5rem","margin":"0.75rem","margin-docked":"0.25rem","space-xl":"1.5rem"},"fontFamily":{"headline-md":["Inter"],"telemetry-metric":["JetBrains Mono"],"body-md":["Inter"],"code-provenance":["JetBrains Mono"],"headline-lg":["Inter"],"body-lg":["Inter"],"label-lg":["JetBrains Mono"],"body-sm":["Inter"],"headline-xl":["Inter"],"label-sm":["JetBrains Mono"],"label-md":["JetBrains Mono"]},"fontSize":{"headline-md":["1rem",{"lineHeight":"1.375rem","letterSpacing":"-0.01em","fontWeight":"600"}],"telemetry-metric":["1.125rem",{"lineHeight":"1.25rem","letterSpacing":"-0.03em","fontWeight":"700"}],"body-md":["0.8125rem",{"lineHeight":"1.1875rem","letterSpacing":"0em","fontWeight":"400"}],"code-provenance":["0.625rem",{"lineHeight":"0.75rem","letterSpacing":"0.03em","fontWeight":"400"}],"headline-lg":["1.25rem",{"lineHeight":"1.625rem","letterSpacing":"-0.015em","fontWeight":"600"}],"body-lg":["0.9375rem",{"lineHeight":"1.375rem","letterSpacing":"-0.005em","fontWeight":"400"}],"label-lg":["0.8125rem",{"lineHeight":"1.125rem","letterSpacing":"-0.01em","fontWeight":"500"}],"body-sm":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0em","fontWeight":"400"}],"headline-xl":["1.75rem",{"lineHeight":"2.125rem","letterSpacing":"-0.02em","fontWeight":"600"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.02em","fontWeight":"500"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"-0.01em","fontWeight":"500"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low z-50 flex flex-col justify-between select-none"><div class="flex flex-col flex-1 overflow-y-auto"><div class="p-space-md"><button class="w-full flex items-center justify-between px-space-md py-space-sm bg-primary-container text-on-primary-container rounded font-label-md text-label-md transition-all hover:bg-primary-fixed-dim"><span class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-base">add_circle</span><span>NEW INVESTIGATION</span></span><span class="px-space-xs py-space-xxs rounded bg-on-primary-container/20 text-on-primary-container font-code-provenance text-code-provenance">N</span></button></div><div class="px-space-md pb-space-xs"><span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Navigation Deck</span></div><nav class="flex flex-col gap-space-xxs px-space-xs" data-active-classes="bg-surface-container-highest text-primary font-label-md"><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-space-sm rounded transition-colors bg-surface-container-highest text-primary font-label-md" data-path="active-investigation" href="#"><span class="material-symbols-outlined text-base">troubleshoot</span><span>Active Investigation</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="investigations-ledger" href="#"><span class="material-symbols-outlined text-base">receipt_long</span><span>Investigations Ledger</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="engineering-memory" href="#"><span class="material-symbols-outlined text-base">memory</span><span>Engineering Memory</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="regime-timeline" href="#"><span class="material-symbols-outlined text-base">timeline</span><span>Regime Timeline</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="counterfactual-lab" href="#"><span class="material-symbols-outlined text-base">science</span><span>Counterfactual Lab</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="falsification-matrix" href="#"><span class="material-symbols-outlined text-base">grid_view</span><span>Falsification Matrix</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="cross-race-patterns" href="#"><span class="material-symbols-outlined text-base">hub</span><span>Cross-Race Patterns</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="investigation-graph" href="#"><span class="material-symbols-outlined text-base">account_tree</span><span>Investigation Graph</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="telemetry-channels" href="#"><span class="material-symbols-outlined text-base">insights</span><span>Telemetry Channels</span></a><a class="flex items-center gap-space-sm px-space-sm py-space-sm rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="sessions-and-drivers" href="#"><span class="material-symbols-outlined text-base">groups</span><span>Sessions & Drivers</span></a></nav></div><div class="p-space-md bg-surface-container-lowest flex flex-col gap-space-xs font-code-provenance text-code-provenance text-on-surface-variant"><div class="flex items-center justify-between"><span class="flex items-center gap-space-xxs"><span class="w-1.5 h-1.5 rounded-full bg-primary-container inline-block"></span>Data Sync:</span><span class="text-on-surface font-label-sm text-label-sm">FastF1 v3.4.1 (Clean)</span></div><div class="flex items-center justify-between"><span>Telemetry Cache:</span><span class="text-on-surface font-label-sm text-label-sm">42k slices</span></div><div class="flex items-center justify-between"><span>Environment:</span><span class="text-on-surface font-label-sm text-label-sm">Sakhir Pitlane LAN</span></div><div class="flex items-center justify-between pt-space-xs text-outline"><span>Help & Hotkeys:</span><span class="px-space-xs py-space-xxs rounded bg-surface-container-high text-on-surface font-code-provenance text-code-provenance">?</span></div></div></aside><div class="pl-72 flex flex-col min-h-screen"><header class="fixed top-0 left-72 right-0 h-14 bg-surface-container-lowest/90 backdrop-blur-xl z-40 px-space-md flex items-center justify-between"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm"><img alt="RACEWISE Engineering Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WCpmN-ub4MNz9LX7tp95pUQb3dnWbPsbSH0sccC-Bne2PPqAb-RsJankfm0o_A4lNNAu8IJjOh4qtRt-7KbGWvaw4EEMlVcdJBVplqy1_PO3tWWeGs8b3EklVrSfOQcMgPmODOlqKm2gjYMM-u4EPdXK11rBftdxzIdHwf8X0do2uTAXcBGKiiXh7cWjJL0Utqj4LOvpLeaqTDn4ACgrQzBPKlfoNlS86uDsAapr0rgpOdt2TmQZIKuUg"/><span class="font-headline-md text-headline-md tracking-tight text-primary font-bold">RACEWISE</span></div><div class="hidden xl:flex items-center gap-space-xs font-label-sm text-label-sm text-outline"><span class="text-on-surface-variant">2023 Bahrain GP</span><span>/</span><span class="text-on-surface-variant">Race</span><span>/</span><span class="text-on-surface-variant">Lap 57</span><span>/</span><span class="text-primary-container font-label-md text-label-md">VER vs PER</span><span>/</span><span class="font-code-provenance text-code-provenance text-tertiary-fixed-dim bg-surface-container-high px-space-xs py-space-xxs rounded">INV-2023-01-57B</span></div></div><div class="hidden lg:flex items-center gap-space-md bg-surface-container-low px-space-md py-space-xxs rounded"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface">FASTF1 SYNCED [99.8%]</span></div><div class="h-3 w-px bg-outline-variant"></div><div class="font-label-sm text-label-sm text-on-surface-variant"><span>DRY</span> <span class="text-on-surface">28.4°C</span> / TRK <span class="text-on-surface">34.2°C</span></div><div class="h-3 w-px bg-outline-variant"></div><div class="font-code-provenance text-code-provenance text-tertiary">#8F3A2E · IDENTICAL</div></div><div class="flex items-center gap-space-sm"><button class="flex items-center gap-space-sm px-space-sm py-space-xs rounded bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors font-label-sm text-label-sm"><span class="material-symbols-outlined text-sm">search</span><span class="hidden sm:inline">Command</span><span class="font-code-provenance text-code-provenance px-space-xs py-space-xxs bg-surface-container rounded text-outline">⌘K</span></button><div class="flex items-center gap-space-xs px-space-sm py-space-xxs rounded bg-surface-container-high font-label-sm text-label-sm"><span class="text-primary font-bold">VER #1</span><span class="text-outline">|</span><span class="text-secondary font-bold">PER #11</span></div><button class="flex items-center gap-space-xxs px-space-sm py-space-xs rounded bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-colors font-label-sm text-label-sm"><span class="material-symbols-outlined text-sm">ios_share</span><span class="hidden md:inline">Export</span></button><div class="flex items-center gap-space-xs pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnmu0RDu3-CEVU4KNdfTlEvaAxiyc0X7k3cnkburA1JQDr5nwdL8b_AErEUsGHDhog9wq_Bzm_A9eA7WjO8BZacWneC9UZtY9TNZdGmiSKzE8JI2qOt0VNa01BZU7tY-3N7JMqJ9sA4x3qE8RKyei9pos04sUKpCGGG9XIrScyHNPEJzyhLXxIIcLMlkRgXx09d-WSKtLZJUzLBW-bbYGGzgWFxXmaGZM9i5orSf32sM6fWWjgYe00"/><div class="hidden 2xl:flex flex-col"><span class="font-label-sm text-label-sm text-on-surface leading-none">Dr. H. Vance</span><span class="font-code-provenance text-code-provenance text-outline leading-tight">Lead Vehicle Dynamics</span></div></div></div></header><main class="w-full pt-14 bg-surface flex-1"><div class="flex flex-col w-full">
+<!-- Top Investigation Header & Context Strip -->
+<section class="w-full bg-surface-container-low px-space-md py-space-sm flex flex-col gap-space-xs shadow-md">
+<div class="flex flex-wrap items-center justify-between gap-space-sm">
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs text-outline font-label-sm text-label-sm">
+<span class="text-tertiary font-label-md text-label-md uppercase tracking-wider">INVESTIGATION INV-2023-01-57B</span>
+<span>/</span>
+<span class="text-on-surface-variant font-code-provenance text-code-provenance">FORMULATED 16:51:02 UTC</span>
+<span>/</span>
+<span class="text-primary-container font-label-sm text-label-sm font-semibold">LEAD: DR. H. VANCE</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight font-bold truncate mt-space-xxs">
+          Why did VER lose 0.185s to PER on lap 57?
+        </h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          2023 Bahrain GP · Race · Lap 57 · <span class="text-primary font-medium">VER (P1, Hard C1 28 laps)</span> vs <span class="text-secondary font-medium">PER (P2, Soft C3 14 laps)</span> · Stint 3 (Final Classification Run)
+        </p>
+</div>
+<div class="flex items-center gap-space-xs">
+<div class="flex flex-col items-end px-space-sm py-space-xs bg-surface-container rounded">
+<span class="font-code-provenance text-code-provenance text-outline uppercase tracking-wider">Epistemic Status</span>
+<div class="flex items-center gap-space-xs mt-space-xxs">
+<span class="px-space-xs py-space-xxs bg-tertiary-container/10 text-tertiary font-label-sm text-label-sm rounded uppercase tracking-wider">
+              MIXED EVIDENCE
+            </span>
+<span class="px-space-xs py-space-xxs bg-secondary-container/20 text-secondary-fixed font-code-provenance text-code-provenance rounded">
+              DUAL VERIFIED [FIA+FASTF1]
+            </span>
+</div>
+</div>
+</div>
+</div>
+<!-- KPI Metric Strip -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-space-xs pt-space-xs">
+<div class="bg-surface-container-lowest px-space-sm py-space-xs rounded flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Observed Gap</span>
+<div class="flex items-baseline gap-space-xs mt-space-xxs">
+<span class="font-telemetry-metric text-telemetry-metric text-error font-bold">+0.185</span>
+<span class="font-code-provenance text-code-provenance text-outline">s (VER Δ PER)</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest px-space-sm py-space-xs rounded flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Comparable</span>
+<div class="flex items-center gap-space-xs mt-space-xxs">
+<span class="px-space-xs py-space-xxs bg-primary-container/10 text-primary-container font-label-sm text-label-sm rounded font-bold">YES</span>
+<span class="font-code-provenance text-code-provenance text-on-surface-variant truncate">Clear air · DRS OFF</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest px-space-sm py-space-xs rounded flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Evidence Ingested</span>
+<div class="flex items-baseline gap-space-xs mt-space-xxs">
+<span class="font-telemetry-metric text-telemetry-metric text-primary font-bold">8 / 12</span>
+<span class="font-code-provenance text-code-provenance text-outline">Verified telemetry</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest px-space-sm py-space-xs rounded flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Hypotheses Tested</span>
+<div class="flex items-baseline gap-space-xs mt-space-xxs">
+<span class="font-telemetry-metric text-telemetry-metric text-on-surface font-bold">6</span>
+<span class="font-code-provenance text-code-provenance text-on-surface-variant">1S · 3C · 1P · 1I</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest px-space-sm py-space-xs rounded flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Unexplained Residual</span>
+<div class="flex items-center justify-between mt-space-xxs">
+<span class="font-telemetry-metric text-telemetry-metric text-tertiary-fixed-dim font-bold">-0.216s</span>
+<span class="px-space-xs py-space-xxs bg-error-container text-on-error-container font-code-provenance text-code-provenance rounded font-semibold">
+            UNRESOLVED
+          </span>
+</div>
+</div>
+<div class="bg-surface-container-lowest px-space-sm py-space-xs rounded flex flex-col justify-between">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Falsification Score</span>
+<div class="flex items-center gap-space-sm mt-space-xxs">
+<div class="w-full bg-surface-container-highest h-2 rounded overflow-hidden">
+<div class="bg-primary-container h-full" style="width: 78%;"></div>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-bold">78%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Three-Zone Forensic Investigation Workspace -->
+<section class="grid grid-cols-1 xl:grid-cols-12 gap-space-xs p-space-xs w-full bg-surface-container-lowest">
+<!-- ZONE 1: Pipeline Stepper & Epistemic Filter Deck (Left Rail, 2.5 Cols) -->
+<div class="xl:col-span-3 flex flex-col gap-space-xs">
+<!-- Stepper Container -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col gap-space-sm">
+<div class="flex items-center justify-between pb-space-xxs">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-sm text-primary-container">route</span>
+            Reasoning Pipeline
+          </span>
+<span class="font-code-provenance text-code-provenance text-outline">STG 05/07</span>
+</div>
+<nav class="flex flex-col gap-space-xs">
+<!-- Step 1 -->
+<div class="flex items-start gap-space-xs p-space-xs rounded bg-surface-container-highest/40">
+<span class="material-symbols-outlined text-sm text-primary-container mt-space-xxs">check_circle</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">01 Question Parsed</span>
+<span class="font-code-provenance text-code-provenance text-outline truncate">Delta scope: Lap 57 vs teammate</span>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="flex items-start gap-space-xs p-space-xs rounded bg-surface-container-highest/40">
+<span class="material-symbols-outlined text-sm text-primary-container mt-space-xxs">check_circle</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">02 Context Resolved</span>
+<span class="font-code-provenance text-code-provenance text-outline truncate">Track 34.2°C · Sector 2 localized</span>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="flex items-start gap-space-xs p-space-xs rounded bg-surface-container-highest/40">
+<span class="material-symbols-outlined text-sm text-primary-container mt-space-xxs">check_circle</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">03 Hypotheses Formulated</span>
+<span class="font-code-provenance text-code-provenance text-outline truncate">6 active branches registered</span>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="flex items-start gap-space-xs p-space-xs rounded bg-surface-container-highest/40">
+<span class="material-symbols-outlined text-sm text-primary-container mt-space-xxs">check_circle</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">04 Evidence Ingested</span>
+<span class="font-code-provenance text-code-provenance text-outline truncate">FastF1 100Hz telemetry slices (42k)</span>
+</div>
+</div>
+<!-- Step 5: ACTIVE -->
+<div class="flex items-start gap-space-xs p-space-xs rounded bg-surface-container-highest shadow-sm">
+<span class="material-symbols-outlined text-sm text-primary-container mt-space-xxs animate-spin">radio_button_checked</span>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-primary font-bold">05 Falsification Matrix</span>
+<span class="px-space-xxs py-space-xxs rounded bg-primary-container/20 text-primary-container font-code-provenance text-code-provenance">ACTIVE</span>
+</div>
+<span class="font-code-provenance text-code-provenance text-tertiary-fixed-dim">Cross-verifying H1-H6 telemetry</span>
+</div>
+</div>
+<!-- Step 6 -->
+<div class="flex items-start gap-space-xs p-space-xs rounded bg-surface-container-lowest/50 opacity-60">
+<span class="material-symbols-outlined text-sm text-outline mt-space-xxs">radio_button_unchecked</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-outline">06 Counterfactual Simulation</span>
+<span class="font-code-provenance text-code-provenance text-outline truncate">Sector 2 speed deficit removal model</span>
+</div>
+</div>
+<!-- Step 7 -->
+<div class="flex items-start gap-space-xs p-space-xs rounded bg-surface-container-lowest/50 opacity-60">
+<span class="material-symbols-outlined text-sm text-outline mt-space-xxs">radio_button_unchecked</span>
+<div class="flex flex-col min-w-0">
+<span class="font-label-sm text-label-sm text-outline">07 Synthesis & Trace</span>
+<span class="font-code-provenance text-code-provenance text-outline truncate">Engineering consensus document</span>
+</div>
+</div>
+</nav>
+</div>
+<!-- Quick Epistemic Category Filters -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Epistemic Class Filter</span>
+<div class="grid grid-cols-2 gap-space-xxs">
+<button class="flex items-center justify-between px-space-xs py-space-xs bg-surface-container-high rounded hover:bg-surface-container-highest transition-colors">
+<span class="font-code-provenance text-code-provenance text-secondary font-bold">FACT</span>
+<span class="font-code-provenance text-code-provenance text-outline bg-surface-container px-space-xxs rounded">4</span>
+</button>
+<button class="flex items-center justify-between px-space-xs py-space-xs bg-surface-container-high rounded hover:bg-surface-container-highest transition-colors">
+<span class="font-code-provenance text-code-provenance text-primary-fixed-dim font-bold">CALCULATION</span>
+<span class="font-code-provenance text-code-provenance text-outline bg-surface-container px-space-xxs rounded">3</span>
+</button>
+<button class="flex items-center justify-between px-space-xs py-space-xs bg-surface-container-high rounded hover:bg-surface-container-highest transition-colors">
+<span class="font-code-provenance text-code-provenance text-tertiary font-bold">INFERENCE</span>
+<span class="font-code-provenance text-code-provenance text-outline bg-surface-container px-space-xxs rounded">3</span>
+</button>
+<button class="flex items-center justify-between px-space-xs py-space-xs bg-surface-container-high rounded hover:bg-surface-container-highest transition-colors">
+<span class="font-code-provenance text-code-provenance text-secondary-fixed font-bold">COUNTERFACTUAL</span>
+<span class="font-code-provenance text-code-provenance text-outline bg-surface-container px-space-xxs rounded">2</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider mt-space-xs">Falsification Status</span>
+<div class="flex flex-col gap-space-xxs">
+<div class="flex items-center justify-between px-space-xs py-space-xxs rounded bg-surface-container-high text-on-surface">
+<span class="flex items-center gap-space-xs font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>Supported
+            </span>
+<span class="font-code-provenance text-code-provenance text-primary font-bold">1</span>
+</div>
+<div class="flex items-center justify-between px-space-xs py-space-xxs rounded bg-surface-container-high text-on-surface">
+<span class="flex items-center gap-space-xs font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-error"></span>Contradicted
+            </span>
+<span class="font-code-provenance text-code-provenance text-error font-bold">3</span>
+</div>
+<div class="flex items-center justify-between px-space-xs py-space-xxs rounded bg-surface-container-high text-on-surface">
+<span class="flex items-center gap-space-xs font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>Partially Supported
+            </span>
+<span class="font-code-provenance text-code-provenance text-tertiary-fixed-dim font-bold">1</span>
+</div>
+<div class="flex items-center justify-between px-space-xs py-space-xxs rounded bg-surface-container-high text-on-surface">
+<span class="flex items-center gap-space-xs font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-outline"></span>Inconclusive / Insufficient
+            </span>
+<span class="font-code-provenance text-code-provenance text-outline font-bold">1</span>
+</div>
+</div>
+</div>
+<!-- Live Session Constraints Box -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col gap-space-xxs">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Tyre Micro-Degradation</span>
+<div class="flex items-center justify-between font-label-sm text-label-sm">
+<span class="text-on-surface-variant">VER Hard C1 [28L]</span>
+<span class="text-error font-bold font-code-provenance text-code-provenance">-0.042s / lap</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded overflow-hidden">
+<div class="bg-error h-full" style="width: 72%;"></div>
+</div>
+<div class="flex items-center justify-between font-label-sm text-label-sm mt-space-xxs">
+<span class="text-on-surface-variant">PER Soft C3 [14L]</span>
+<span class="text-tertiary font-bold font-code-provenance text-code-provenance">-0.068s / lap</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded overflow-hidden">
+<div class="bg-tertiary-container h-full" style="width: 48%;"></div>
+</div>
+</div>
+</div>
+<!-- ZONE 2: High-Fidelity Engineering Canvas (Center, 6 Cols) -->
+<div class="xl:col-span-6 flex flex-col gap-space-xs">
+<!-- Interactive Telemetry Trace Module -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col gap-space-xs">
+<div class="flex flex-wrap items-center justify-between gap-space-xs pb-space-xxs">
+<div class="flex items-center gap-space-sm">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-sm text-primary">ssid_chart</span>
+              Synchronized Trace: Lap 57
+            </span>
+<span class="font-code-provenance text-code-provenance bg-surface-container-high text-primary px-space-xs py-space-xxs rounded">
+              0m – 5412m (SAKHIR)
+            </span>
+</div>
+<!-- Channels Legend & Scrubber Cursor -->
+<div class="flex items-center gap-space-sm font-code-provenance text-code-provenance">
+<div class="flex items-center gap-space-xxs">
+<span class="w-3 h-0.5 bg-primary inline-block"></span>
+<span class="text-primary font-bold">VER (184 km/h)</span>
+</div>
+<div class="flex items-center gap-space-xxs">
+<span class="w-3 h-0.5 bg-secondary inline-block border-b border-dashed"></span>
+<span class="text-secondary font-bold">PER (198 km/h)</span>
+</div>
+<div class="px-space-xs py-space-xxs bg-error-container text-on-error-container rounded font-bold">
+              Δ -14 km/h @ 3,240m
+            </div>
+</div>
+</div>
+<!-- Telemetry Canvas Visualizer (SVG) -->
+<div class="w-full bg-surface-container-lowest p-space-xs rounded relative overflow-hidden flex flex-col gap-space-xs">
+<!-- Sector 2 Caliper Marker Overlay -->
+<div class="absolute inset-y-0 left-[54%] w-[18%] bg-primary-container/5 pointer-events-none flex flex-col justify-between p-space-xxs">
+<div class="flex items-center justify-between text-primary font-code-provenance text-code-provenance">
+<span class="bg-primary-container/20 px-space-xxs rounded font-bold">TURN 9-10</span>
+<span class="text-error font-bold">+0.121s LOSS</span>
+</div>
+<div class="border-t border-dashed border-primary-container/40 w-full text-center text-primary-container font-code-provenance text-code-provenance">
+              SECTOR 2 APEX BIND
+            </div>
+</div>
+<!-- Synchronized Cursor Line @ 3,240m (Approx 60% mark) -->
+<div class="absolute inset-y-0 left-[60%] w-px bg-primary-container shadow-sm pointer-events-none flex flex-col justify-end pb-space-xxs">
+<span class="bg-primary-container text-on-primary-container font-code-provenance text-code-provenance px-space-xxs rounded transform -translate-x-1/2">
+              3,240m
+            </span>
+</div>
+<!-- Speed Plot (vCar) -->
+<div class="w-full h-32 relative">
+<div class="absolute top-1 left-2 font-code-provenance text-code-provenance text-outline">vCar [km/h] (320 max)</div>
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 600 120">
+<!-- Grid lines -->
+<line stroke="#232934" stroke-dasharray="2,2" stroke-width="0.5" x1="0" x2="600" y1="30" y2="30"></line>
+<line stroke="#232934" stroke-dasharray="2,2" stroke-width="0.5" x1="0" x2="600" y1="60" y2="60"></line>
+<line stroke="#232934" stroke-dasharray="2,2" stroke-width="0.5" x1="0" x2="600" y1="90" y2="90"></line>
+<!-- Sector Delimiters (S1, S2, S3) -->
+<line stroke="#323539" stroke-width="1" x1="195" x2="195" y1="0" y2="120"></line>
+<line stroke="#323539" stroke-width="1" x1="420" x2="420" y1="0" y2="120"></line>
+<!-- PER vCar Line (Secondary) -->
+<path d="M 0,25 Q 60,20 100,105 T 160,35 Q 220,25 280,100 T 360,65 Q 400,20 460,95 T 540,30 L 600,25" fill="none" stroke="#b3c5ff" stroke-dasharray="3,2" stroke-width="1.8"></path>
+<!-- VER vCar Line (Primary Cyan) -->
+<path d="M 0,25 Q 60,20 100,105 T 160,35 Q 220,25 280,100 T 360,82 Q 400,22 460,95 T 540,30 L 600,25" fill="none" stroke="#c3f5ff" stroke-width="2"></path>
+<!-- Delta Callout Circle at Turn 10 Apex -->
+<circle cx="360" cy="82" fill="#00e5ff" r="3"></circle>
+<circle cx="360" cy="65" fill="#b3c5ff" r="3"></circle>
+</svg>
+</div>
+<!-- Throttle % & Brake Pressure Micro-Traces -->
+<div class="grid grid-cols-2 gap-space-xs pt-space-xxs">
+<!-- Throttle Plot -->
+<div class="h-16 bg-surface-container rounded p-space-xxs relative flex flex-col justify-between">
+<div class="flex justify-between items-center font-code-provenance text-code-provenance text-outline">
+<span>rThrottle [%]</span>
+<span class="text-primary">VER: 92% · PER: 98%</span>
+</div>
+<svg class="w-full h-8" preserveaspectratio="none" viewbox="0 0 300 40">
+<path d="M 0,5 L 45,5 L 55,38 L 70,5 L 130,5 L 145,38 L 175,20 L 185,5 L 240,5 L 255,38 L 270,5 L 300,5" fill="none" stroke="#c3f5ff" stroke-width="1.5"></path>
+<path d="M 0,5 L 45,5 L 55,38 L 70,5 L 130,5 L 145,38 L 175,12 L 185,5 L 240,5 L 255,38 L 270,5 L 300,5" fill="none" stroke="#b3c5ff" stroke-dasharray="2,2" stroke-width="1"></path>
+</svg>
+</div>
+<!-- Brake Pressure Plot -->
+<div class="h-16 bg-surface-container rounded p-space-xxs relative flex flex-col justify-between">
+<div class="flex justify-between items-center font-code-provenance text-code-provenance text-outline">
+<span>pBrakeF [bar]</span>
+<span class="text-secondary">P_MAX: 122 BAR</span>
+</div>
+<svg class="w-full h-8" preserveaspectratio="none" viewbox="0 0 300 40">
+<path d="M 0,38 L 45,38 L 50,5 L 65,38 L 130,38 L 140,4 L 155,38 L 240,38 L 250,8 L 265,38 L 300,38" fill="none" stroke="#ffb4ab" stroke-width="1.5"></path>
+</svg>
+</div>
+</div>
+<!-- Bottom Metric Ticker inside Trace -->
+<div class="flex items-center justify-between font-code-provenance text-code-provenance text-outline px-space-xs pt-space-xxs">
+<span>S1: +0.021s</span>
+<span class="text-error font-bold">S2 (T9-T10 Focus): +0.121s</span>
+<span>S3: +0.043s</span>
+<span>Full Lap Delta: +0.185s</span>
+</div>
+</div>
+</div>
+<!-- Falsification Hypothesis Matrix -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col gap-space-xs">
+<div class="flex items-center justify-between pb-space-xxs">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-sm text-primary-container">science</span>
+            Hypothesis Testing Ledger (Falsification Matrix)
+          </span>
+<span class="font-code-provenance text-code-provenance text-outline">N=6 FORMULATED</span>
+</div>
+<div class="flex flex-col gap-space-xxs">
+<!-- H1: SUPPORTED -->
+<div class="p-space-xs rounded bg-surface-container hover:bg-surface-container-high transition-colors flex flex-col gap-space-xxs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-space-xxs rounded bg-primary-container/20 text-primary-container font-code-provenance text-code-provenance font-bold">H1</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">Corner Minimum Velocity (Turn 9/10)</span>
+</div>
+<span class="px-space-xs py-space-xxs bg-primary-container/10 text-primary-container font-code-provenance text-code-provenance font-bold rounded">
+                SUPPORTED
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Lower apex and minimum velocity in Turn 9/10 due to front understeer wash on aged C1 compound.
+            </p>
+<div class="flex flex-wrap items-center justify-between gap-space-xs pt-space-xxs font-code-provenance text-code-provenance text-outline">
+<span class="text-tertiary">Verified By: E-004 (+0.121s S2), E-001 (Apex Vmin -7km/h)</span>
+<span class="text-primary font-bold">Residual Impact: 65.4%</span>
+</div>
+</div>
+<!-- H2: CONTRADICTED -->
+<div class="p-space-xs rounded bg-surface-container hover:bg-surface-container-high transition-colors flex flex-col gap-space-xxs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-space-xxs rounded bg-surface-container-highest text-outline font-code-provenance text-code-provenance font-bold">H2</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">Hesitant Throttle Pickup</span>
+</div>
+<span class="px-space-xs py-space-xxs bg-error-container text-on-error-container font-code-provenance text-code-provenance font-bold rounded">
+                CONTRADICTED
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Hesitant throttle trace or delayed pick-up due to rear tyre overheating.
+            </p>
+<div class="flex flex-wrap items-center justify-between gap-space-xs pt-space-xxs font-code-provenance text-code-provenance text-outline">
+<span class="text-error">Falsified By: E-002 shows earlier throttle application (+4% @ 3,120m)</span>
+<span class="text-on-surface-variant">Residual Impact: -0.040s</span>
+</div>
+</div>
+<!-- H3: CONTRADICTED -->
+<div class="p-space-xs rounded bg-surface-container hover:bg-surface-container-high transition-colors flex flex-col gap-space-xxs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-space-xxs rounded bg-surface-container-highest text-outline font-code-provenance text-code-provenance font-bold">H3</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">Braking Zone Timidity</span>
+</div>
+<span class="px-space-xs py-space-xxs bg-error-container text-on-error-container font-code-provenance text-code-provenance font-bold rounded">
+                CONTRADICTED
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Early braking marker or reduced initial brake pressure leading into Turn 8 hairpin.
+            </p>
+<div class="flex flex-wrap items-center justify-between gap-space-xs pt-space-xxs font-code-provenance text-code-provenance text-outline">
+<span class="text-error">Falsified By: E-003 shows brake application marker identical within 1.8m</span>
+<span class="text-on-surface-variant">Residual Impact: 0.000s</span>
+</div>
+</div>
+<!-- H4: CONTRADICTED -->
+<div class="p-space-xs rounded bg-surface-container hover:bg-surface-container-high transition-colors flex flex-col gap-space-xxs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-space-xxs rounded bg-surface-container-highest text-outline font-code-provenance text-code-provenance font-bold">H4</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">Rear Tyre Thermal Degradation</span>
+</div>
+<span class="px-space-xs py-space-xxs bg-error-container text-on-error-container font-code-provenance text-code-provenance font-bold rounded">
+                CONTRADICTED
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Surface thermal blistering on C1 rear tyres causing excessive longitudinal slip.
+            </p>
+<div class="flex flex-wrap items-center justify-between gap-space-xs pt-space-xxs font-code-provenance text-code-provenance text-outline">
+<span class="text-error">Falsified By: E-005 shows rear slip ratio 1.02 within nominal envelope</span>
+<span class="text-on-surface-variant">Residual Impact: 0.000s</span>
+</div>
+</div>
+<!-- H5: NOT SUPPORTED -->
+<div class="p-space-xs rounded bg-surface-container hover:bg-surface-container-high transition-colors flex flex-col gap-space-xxs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-space-xxs rounded bg-surface-container-highest text-outline font-code-provenance text-code-provenance font-bold">H5</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">FIA Race Control Restriction</span>
+</div>
+<span class="px-space-xs py-space-xxs bg-surface-container-highest text-outline font-code-provenance text-code-provenance font-bold rounded">
+                NOT_SUPPORTED
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Yellow flag lift or micro-sector yellow restriction in marshal sector 6.
+            </p>
+<div class="flex items-center justify-between pt-space-xxs font-code-provenance text-code-provenance text-outline">
+<span>Evidence: FIA timing stream indicates GREEN flag condition across all sectors</span>
+<span>Testability: TOTAL</span>
+</div>
+</div>
+<!-- H6: PARTIALLY SUPPORTED -->
+<div class="p-space-xs rounded bg-surface-container hover:bg-surface-container-high transition-colors flex flex-col gap-space-xxs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="px-space-xs py-space-xxs rounded bg-tertiary-container/20 text-tertiary font-code-provenance text-code-provenance font-bold">H6</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">MGU-K SOC Derate / Clipping</span>
+</div>
+<span class="px-space-xs py-space-xxs bg-tertiary-container/10 text-tertiary font-code-provenance text-code-provenance font-bold rounded">
+                PARTIALLY_SUPPORTED
+              </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Hybrid battery State of Charge depletion clipping deployment before start/finish straight.
+            </p>
+<div class="flex items-center justify-between pt-space-xxs font-code-provenance text-code-provenance text-outline">
+<span class="text-tertiary">Verified By: E-008 shows MGU-K de-rate at 4,950m</span>
+<span class="text-tertiary font-bold">Residual Impact: +0.038s</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ZONE 3: Evidence Detail Drawer & Synthesis Deck (Right Rail, 3.5 Cols) -->
+<div class="xl:col-span-3 flex flex-col gap-space-xs">
+<!-- Drawer Inspecting E-004 -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between pb-space-xxs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-sm text-primary">visibility</span>
+<span class="font-label-sm text-label-sm text-on-surface font-bold uppercase tracking-wider">
+              Evidence Inspection: E-004
+            </span>
+</div>
+<span class="px-space-xs py-space-xxs bg-primary-fixed-dim/15 text-primary-fixed font-code-provenance text-code-provenance rounded font-bold">
+            CALCULATION
+          </span>
+</div>
+<!-- Measured Claim Card -->
+<div class="bg-surface-container-lowest p-space-xs rounded flex flex-col gap-space-xxs">
+<span class="font-code-provenance text-code-provenance text-outline uppercase tracking-wider">Measured Claim</span>
+<p class="font-body-sm text-body-sm text-primary font-medium">
+            "Sector 2 accounts for +0.121s of the observed gap (+65.4% of total lap loss)."
+          </p>
+</div>
+<!-- Metadata Spec Grid -->
+<div class="flex flex-col gap-space-xs font-code-provenance text-code-provenance">
+<div class="flex justify-between items-start bg-surface-container px-space-xs py-space-xxs rounded">
+<span class="text-outline">Data Source:</span>
+<span class="text-on-surface text-right font-medium">FastF1 v3.4.1 (100Hz interpolated)</span>
+</div>
+<div class="flex justify-between items-start bg-surface-container px-space-xs py-space-xxs rounded">
+<span class="text-outline">Math Method:</span>
+<span class="text-tertiary text-right font-medium">spatial_velocity_integration (dt = ds / v)</span>
+</div>
+<div class="flex justify-between items-start bg-surface-container px-space-xs py-space-xxs rounded">
+<span class="text-outline">Time Window:</span>
+<span class="text-on-surface text-right">16:48:12.440 – 16:48:51.290 UTC</span>
+</div>
+<div class="flex justify-between items-start bg-surface-container px-space-xs py-space-xxs rounded">
+<span class="text-outline">Derived From:</span>
+<span class="text-primary text-right font-medium">E-001 (GPS) + E-002 (RPM/Wheel)</span>
+</div>
+<div class="flex flex-col bg-surface-container px-space-xs py-space-xxs rounded gap-space-xxs">
+<span class="text-outline">Engineering Assumptions:</span>
+<span class="text-on-surface-variant font-body-sm text-body-sm">
+              Constant rolling tyre circumference assumed; track limits adherence verified via FIA timing loop 4 at Turn 10 exit.
+            </span>
+</div>
+</div>
+<!-- Operational Action Tools -->
+<div class="flex flex-col gap-space-xs pt-space-xs">
+<button class="w-full flex items-center justify-between px-space-sm py-space-xs bg-surface-container-high hover:bg-surface-container-highest text-on-surface rounded font-label-sm text-label-sm transition-colors">
+<span class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-sm text-primary">terminal</span>
+<span>View Formula & Python Source</span>
+</span>
+<span class="font-code-provenance text-code-provenance text-outline">src/dt_v2.py</span>
+</button>
+<button class="w-full flex items-center justify-between px-space-sm py-space-xs bg-surface-container-high hover:bg-surface-container-highest text-on-surface rounded font-label-sm text-label-sm transition-colors">
+<span class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-sm text-secondary">account_tree</span>
+<span>Trace Dependency Graph</span>
+</span>
+<span class="font-code-provenance text-code-provenance text-outline">DAG 2 Nodes</span>
+</button>
+<button class="w-full flex items-center justify-center gap-space-xs px-space-sm py-space-xs bg-error-container/20 hover:bg-error-container/30 text-error rounded font-label-sm text-label-sm transition-colors">
+<span class="material-symbols-outlined text-sm">remove_circle_outline</span>
+<span>Falsify & Reject Claim</span>
+</button>
+</div>
+</div>
+<!-- Synthesis & Verdict Box -->
+<div class="bg-surface-container-low p-space-sm rounded flex flex-col gap-space-xs flex-1 justify-between">
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-sm text-primary-container">psychology</span>
+            Epistemic Synthesis Preview
+          </span>
+<div class="bg-surface-container-lowest p-space-xs rounded">
+<p class="font-body-sm text-body-sm text-on-surface leading-relaxed">
+<strong class="text-primary font-semibold">Synthesis Verdict:</strong> VER delta is strictly localized to Turn 9–10 entry understeer caused by front tyre wash rather than power delivery or braking timidity. Throttle pickup was earlier and cleaner than PER.
+            </p>
+</div>
+</div>
+<div class="flex flex-col gap-space-xxs pt-space-xs bg-surface-container-lowest p-space-xs rounded">
+<div class="flex items-center justify-between font-label-sm text-label-sm">
+<span class="text-outline">Unresolved Residual:</span>
+<span class="text-error font-bold font-code-provenance text-code-provenance">-0.216 s</span>
+</div>
+<p class="font-code-provenance text-code-provenance text-on-surface-variant">
+            Residual exceeds 0.050s tolerance threshold. Further investigation required on differential preload locking torque between laps 55-57.
+          </p>
+<div class="flex gap-space-xs pt-space-xxs">
+<button class="flex-1 py-space-xs bg-primary-container text-on-primary-container rounded font-label-sm text-label-sm font-bold hover:bg-primary-fixed-dim transition-colors text-center">
+              SUBMIT VERDICT
+            </button>
+<button class="px-space-sm py-space-xs bg-surface-container-high text-on-surface rounded font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors">
+              SPAWN SUB-INV
+            </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Interactive Telemetry Crosshair Script for Micro-Interactions -->
+<script>
+    // Micro-interaction: Telemetry channel click indicator state
+    document.querySelectorAll('.falsify-trigger').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('opacity-50');
+      });
+    });
+  </script>
+</div></main></div></body></html>

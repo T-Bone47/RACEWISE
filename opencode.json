@@ -3,11 +3,26 @@
   "mcp": {
     "racewise": {
       "type": "local",
-      "command": ["python", "src/racewise/mcp/server.py"],
+      "command": [
+        "python",
+        "-m",
+        "racewise.mcp.server"
+      ],
+      "cwd": "C:\\Users\\olive\\Downloads\\RACEWISE",
       "environment": {
         "FASTF1_CACHE_DIR": ".fastf1-cache",
         "PYTHONPATH": "src"
       },
+      "enabled": true
+    },
+    "motion": {
+      "type": "remote",
+      "url": "https://mcp.motion.dev",
+      "enabled": true
+    },
+    "motion-plus": {
+      "type": "remote",
+      "url": "https://mcp.motion.dev/plus",
       "enabled": true
     }
   }

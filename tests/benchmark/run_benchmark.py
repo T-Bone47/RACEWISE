@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from racewise.api.app import app
 
 BENCHMARK_QUESTIONS = [
+    # Core categories (original 8)
     {"id": "B01", "category": "tyre_degradation", "driver": "VER", "question": "Why did VER lose pace in stint 2?"},
     {"id": "B02", "category": "traffic", "driver": "LEC", "question": "Did traffic cost LEC pace in the opening stint?"},
     {"id": "B03", "category": "strategy", "driver": "VER", "question": "Would an earlier pit stop have changed VER's race outcome?"},
@@ -26,6 +27,27 @@ BENCHMARK_QUESTIONS = [
     {"id": "B06", "category": "pit_timing", "driver": "PER", "question": "How much time did PER lose in pit cycles?"},
     {"id": "B07", "category": "weather", "driver": "SAI", "question": "Did weather changes affect SAI's second stint?"},
     {"id": "B08", "category": "counterfactual", "driver": "ALO", "question": "What if ALO had pitted five laps later?"},
+
+    # Adversarial questions (≥5) - challenge premises, test falsification
+    {"id": "B09", "category": "adversarial", "driver": "VER", "question": "Was tyre degradation actually the dominant explanation for VER's pace drop, or did traffic play a larger role?"},
+    {"id": "B10", "category": "adversarial", "driver": "HAM", "question": "Is the claim that HAM was slower than VER supported when controlling for tyre age and compound?"},
+    {"id": "B11", "category": "adversarial", "driver": "PER", "question": "Did PER's poor result stem from car pace or strategy execution errors?"},
+    {"id": "B12", "category": "adversarial", "driver": "SAI", "question": "Was SAI's second stint pace loss due to degradation or track evolution affecting all drivers?"},
+    {"id": "B13", "category": "adversarial", "driver": "ALO", "question": "Can ALO's race be explained by a single factor, or were multiple compounding issues present?"},
+
+    # Counterfactual questions (≥5) - require deterministic simulator
+    {"id": "B14", "category": "counterfactual", "driver": "VER", "question": "What if VER had pitted 5 laps earlier in stint 2?"},
+    {"id": "B15", "category": "counterfactual", "driver": "LEC", "question": "What if LEC had used HARD tyres instead of MEDIUM for stint 2?"},
+    {"id": "B16", "category": "counterfactual", "driver": "HAM", "question": "What if HAM had a two-stop strategy instead of one-stop?"},
+    {"id": "B17", "category": "counterfactual", "driver": "ALO", "question": "What if ALO had pitted under the virtual safety car?"},
+    {"id": "B18", "category": "counterfactual", "driver": "PER", "question": "What if PER had started on SOFT instead of MEDIUM compound?"},
+
+    # Comparative driver questions (≥5) - multi-driver analysis
+    {"id": "B19", "category": "driver_comparison", "driver": "VER", "question": "Compare VER vs PER vs ALO: who had the best race pace in clean air?"},
+    {"id": "B20", "category": "driver_comparison", "driver": "HAM", "question": "Compare HAM vs RUS: was the teammate gap explained by strategy or pace?"},
+    {"id": "B21", "category": "driver_comparison", "driver": "LEC", "question": "Compare LEC vs SAI: did tyre management differ between Ferrari drivers?"},
+    {"id": "B22", "category": "driver_comparison", "driver": "NOR", "question": "Compare NOR vs PIA: rookie vs experienced driver race craft in traffic?"},
+    {"id": "B23", "category": "driver_comparison", "driver": "GAS", "question": "Compare GAS vs OCO: Alpine vs AlphaTauri tyre degradation profile?"},
 ]
 
 

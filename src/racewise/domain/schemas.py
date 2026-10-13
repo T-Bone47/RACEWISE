@@ -20,6 +20,14 @@ class EvidenceType(str, Enum):
     ASSUMPTION = "ASSUMPTION"
 
 
+class EvidenceRelationshipType(str, Enum):
+    SUPPORTS = "SUPPORTS"
+    CONTRADICTS = "CONTRADICTS"
+    DERIVES_FROM = "DERIVES_FROM"
+    INFORMS = "INFORMS"
+    CONSTRAINS = "CONSTRAINS"
+
+
 class HypothesisStatus(str, Enum):
     PROPOSED = "PROPOSED"
     SUPPORTED = "SUPPORTED"
@@ -135,6 +143,16 @@ class Evidence(BaseModel):
     strength: float = Field(0.0, ge=0.0, le=1.0)
 
 
+class EvidenceRelationship(BaseModel):
+    id: str
+    investigation_id: str
+    source_id: str
+    target_id: str
+    relationship_type: EvidenceRelationshipType
+    provenance: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class Hypothesis(BaseModel):
     id: str
     statement: str
@@ -187,3 +205,13 @@ class EventLogEntry(BaseModel):
     type: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReplayResult(BaseModel):
+    investigation_id: str
+    total_tool_events: int
+    verified_tools: list[str] = Field(default_factory=list)
+    failed_tools: list[str] = Field(default_factory=list)
+    state_transitions: int
+    evidence_events: int
+    success: bool

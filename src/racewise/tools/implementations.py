@@ -34,6 +34,12 @@ from racewise.tools.race_state import (
     stint_boundary_laps,
     time_gap_at_lap,
 )
+from racewise.simulator.strategy import (
+    SIMULATOR_VERSION,
+    compare_strategy_scenarios,
+    simulate_compound_change,
+    simulate_pit_timing,
+)
 
 PIT_LOSS_VERSION = "1.0.0"
 
@@ -758,6 +764,167 @@ class GetPitStopsTool(Tool):
         }
 
 
+class SimulatePitTimingTool(Tool):
+    """Counterfactual: what if pit timing changed?"""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "simulate_pit_timing",
+            "Compare observed vs counterfactual pit timing for a driver; returns predicted race delta under stated assumptions.",
+            {
+                "driver": DRIVER_PARAM,
+                "original_pit_lap": {"type": "integer", "description": "Observed pit-in lap"},
+                "counterfactual_pit_lap": {"type": "integer", "description": "Alternative pit-in lap"},
+                "pit_loss_s": {"type": "number", "description": "Total pit cycle loss in seconds"},
+                "degradation_s_per_lap": {"type": "number", "description": "Linear tyre degradation rate (s/lap)"},
+                "laps_remaining": {"type": "integer", "description": "Laps remaining in race"},
+                "traffic_assumption_s_per_lap": {"type": "number", "description": "Traffic effect assumption (s/lap)", "default": 0.0},
+            },
+            ["driver", "original_pit_lap", "counterfactual_pit_lap", "pit_loss_s", "degradation_s_per_lap", "laps_remaining"],
+            SIMULATOR_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "intervention": {"type": "string"},
+                    "predicted_delta_s": {"type": "number"},
+                    "uncertainty_s": {"type": "number"},
+                    "assumptions": {"type": "array", "items": {"type": "string"}},
+                    "baseline_cost_s": {"type": "number"},
+                    "counterfactual_cost_s": {"type": "number"},
+                    "simulator_version": {"type": "string"},
+                },
+                "required": ["intervention", "predicted_delta_s", "uncertainty_s", "assumptions", "baseline_cost_s", "counterfactual_cost_s", "simulator_version"],
+            },
+            ["Deterministic model; not a physics simulator. Assumptions are explicit; uncertainty is heuristic."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        return simulate_pit_timing(
+            laps=self._context.laps,
+            driver=kwargs["driver"],
+            original_pit_lap=int(kwargs["original_pit_lap"]),
+            counterfactual_pit_lap=int(kwargs["counterfactual_pit_lap"]),
+            pit_loss_s=float(kwargs["pit_loss_s"]),
+            degradation_s_per_lap=float(kwargs["degradation_s_per_lap"]),
+            laps_remaining=int(kwargs["laps_remaining"]),
+            traffic_assumption_s_per_lap=float(kwargs.get("traffic_assumption_s_per_lap", 0.0)),
+        )
+
+
+class SimulateCompoundChangeTool(Tool):
+    """Counterfactual: what if a different tyre compound was used?"""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "simulate_compound_change",
+            "Compare observed vs counterfactual tyre compound for a driver's stint; returns predicted pace delta under stated assumptions.",
+            {
+                "driver": DRIVER_PARAM,
+                "original_compound": {"type": "string", "description": "Observed compound (SOFT/MEDIUM/HARD)"},
+                "counterfactual_compound": {"type": "string", "description": "Alternative compound (SOFT/MEDIUM/HARD)"},
+                "stint_start_lap": {"type": "integer", "description": "First lap of the stint window"},
+                "stint_end_lap": {"type": "integer", "description": "Last lap of the stint window"},
+                "degradation_s_per_lap": {"type": "number", "description": "Linear tyre degradation rate (s/lap)"},
+                "laps_remaining": {"type": "integer", "description": "Laps remaining in race"},
+            },
+            ["driver", "original_compound", "counterfactual_compound", "stint_start_lap", "stint_end_lap", "degradation_s_per_lap", "laps_remaining"],
+            SIMULATOR_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "intervention": {"type": "string"},
+                    "predicted_delta_s": {"type": "number"},
+                    "uncertainty_s": {"type": "number"},
+                    "assumptions": {"type": "array", "items": {"type": "string"}},
+                    "compound_delta_per_lap_s": {"type": "number"},
+                    "stint_laps_count": {"type": "integer"},
+                    "simulator_version": {"type": "string"},
+                },
+                "required": ["intervention", "predicted_delta_s", "uncertainty_s", "assumptions", "compound_delta_per_lap_s", "stint_laps_count", "simulator_version"],
+            },
+            ["Deterministic model; compound offsets are fixed assumptions. Degradation assumed equal for both compounds."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        return simulate_compound_change(
+            laps=self._context.laps,
+            driver=kwargs["driver"],
+            original_compound=kwargs["original_compound"],
+            counterfactual_compound=kwargs["counterfactual_compound"],
+            stint_start_lap=int(kwargs["stint_start_lap"]),
+            stint_end_lap=int(kwargs["stint_end_lap"]),
+            degradation_s_per_lap=float(kwargs["degradation_s_per_lap"]),
+            laps_remaining=int(kwargs["laps_remaining"]),
+        )
+
+
+class CompareStrategyScenariosTool(Tool):
+    """Counterfactual: compare multiple strategy scenarios."""
+
+    def __init__(self, context: SessionContext) -> None:
+        self._context = context
+        self.spec = _spec(
+            "compare_strategy_scenarios",
+            "Compare multiple pit/compound strategy scenarios against a baseline; returns ranked deltas.",
+            {
+                "driver": DRIVER_PARAM,
+                "scenarios": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "pit_laps": {"type": "array", "items": {"type": "integer"}},
+                            "compounds": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": ["pit_laps", "compounds"],
+                    },
+                },
+                "pit_loss_s": {"type": "number", "description": "Total pit cycle loss in seconds"},
+                "degradation_s_per_lap": {"type": "number", "description": "Linear tyre degradation rate (s/lap)"},
+                "laps_remaining": {"type": "integer", "description": "Laps remaining in race"},
+                "traffic_assumption_s_per_lap": {"type": "number", "description": "Traffic effect assumption (s/lap)", "default": 0.0},
+            },
+            ["driver", "scenarios", "pit_loss_s", "degradation_s_per_lap", "laps_remaining"],
+            SIMULATOR_VERSION,
+            {
+                "type": "object",
+                "properties": {
+                    "baseline_cost_s": {"type": "number"},
+                    "scenarios": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "scenario_id": {"type": "string"},
+                                "intervention": {"type": "string"},
+                                "predicted_delta_s": {"type": "number"},
+                                "uncertainty_s": {"type": "number"},
+                            },
+                            "required": ["scenario_id", "intervention", "predicted_delta_s", "uncertainty_s"],
+                        },
+                    },
+                    "assumptions": {"type": "array", "items": {"type": "string"}},
+                    "simulator_version": {"type": "string"},
+                },
+                "required": ["baseline_cost_s", "scenarios", "assumptions", "simulator_version"],
+            },
+            ["Deterministic model; scenarios ranked by predicted delta. Not a full physics simulation."],
+        )
+
+    def execute(self, **kwargs: Any) -> dict[str, Any]:
+        return compare_strategy_scenarios(
+            laps=self._context.laps,
+            driver=kwargs["driver"],
+            scenarios=kwargs["scenarios"],
+            pit_loss_s=float(kwargs["pit_loss_s"]),
+            degradation_s_per_lap=float(kwargs["degradation_s_per_lap"]),
+            laps_remaining=int(kwargs["laps_remaining"]),
+            traffic_assumption_s_per_lap=float(kwargs.get("traffic_assumption_s_per_lap", 0.0)),
+        )
+
+
 def build_default_registry(context: SessionContext) -> ToolRegistry:
     registry = ToolRegistry()
     for tool in (
@@ -773,6 +940,9 @@ def build_default_registry(context: SessionContext) -> ToolRegistry:
         GetWeatherTool(context),
         GetRaceControlTool(context),
         GetPitStopsTool(context),
+        SimulatePitTimingTool(context),
+        SimulateCompoundChangeTool(context),
+        CompareStrategyScenariosTool(context),
     ):
         registry.register(tool)
     return registry
