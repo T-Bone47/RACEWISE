@@ -1,0 +1,112 @@
+{
+  "holdout_set": "racewise_frontier_holdout",
+  "version": "1.0",
+  "created": "2026-10-14",
+  "purpose": "Race-grouped holdout evaluation set. Never used for training or tuning. Near-duplicate questions are grouped together.",
+  "grouping_strategy": "race-session-scenario",
+  "cases": [
+    {
+      "holdout_id": "H01",
+      "group": "2023-bahrain-race",
+      "benchmark_ids": ["EQ-A01", "EQ-A02", "EQ-A04"],
+      "reason": "Core lap performance on the reference session"
+    },
+    {
+      "holdout_id": "H02",
+      "group": "2023-bahrain-stint",
+      "benchmark_ids": ["EQ-B01", "EQ-B02", "EQ-B03"],
+      "reason": "Stint performance on the reference session"
+    },
+    {
+      "holdout_id": "H03",
+      "group": "2023-bahrain-racegap",
+      "benchmark_ids": ["EQ-C01", "EQ-C02"],
+      "reason": "Race gap decomposition on the reference session"
+    },
+    {
+      "holdout_id": "H04",
+      "group": "2023-bahrain-hypothesis",
+      "benchmark_ids": ["EQ-D01", "EQ-D02", "EQ-D03"],
+      "reason": "Hypothesis evaluation on the reference session"
+    },
+    {
+      "holdout_id": "H05",
+      "group": "2023-bahrain-regime",
+      "benchmark_ids": ["EQ-E01", "EQ-E02"],
+      "reason": "Performance regime analysis"
+    },
+    {
+      "holdout_id": "H06",
+      "group": "2023-bahrain-crossrace",
+      "benchmark_ids": ["EQ-F01", "EQ-F02", "EQ-F03"],
+      "reason": "Cross-race pattern analysis"
+    },
+    {
+      "holdout_id": "H07",
+      "group": "2023-bahrain-counterfactual",
+      "benchmark_ids": ["EQ-G01", "EQ-G02"],
+      "reason": "Counterfactual eligibility"
+    },
+    {
+      "holdout_id": "H08",
+      "group": "2023-bahrain-qualifying",
+      "benchmark_ids": ["EQ-H01", "EQ-H02"],
+      "reason": "Qualifying lap honesty"
+    },
+    {
+      "holdout_id": "H09",
+      "group": "2023-bahrain-memory",
+      "benchmark_ids": ["EQ-I01", "EQ-I02", "EQ-I03"],
+      "reason": "Memory retrieval"
+    },
+    {
+      "holdout_id": "H10",
+      "group": "2023-bahrain-synthesis",
+      "benchmark_ids": ["EQ-J01", "EQ-J02"],
+      "reason": "Investigation synthesis"
+    },
+    {
+      "holdout_id": "H11",
+      "group": "2023-bahrain-graph",
+      "benchmark_ids": ["EQ-K01", "EQ-K02"],
+      "reason": "Graph construction"
+    },
+    {
+      "holdout_id": "H12",
+      "group": "2023-bahrain-graphbyid",
+      "benchmark_ids": ["EQ-L01", "EQ-L02"],
+      "reason": "Graph-by-id retrieval"
+    },
+    {
+      "holdout_id": "H13",
+      "group": "2023-bahrain-fused",
+      "benchmark_ids": ["EQ-N01", "EQ-N02"],
+      "reason": "Fused lap coverage"
+    },
+    {
+      "holdout_id": "H14",
+      "group": "2023-bahrain-replay",
+      "benchmark_ids": ["EQ-P01", "EQ-P02"],
+      "reason": "Deterministic replay"
+    },
+    {
+      "holdout_id": "H15",
+      "group": "2024-dutch-race",
+      "benchmark_ids": ["EQ-A05"],
+      "reason": "Cross-season validation"
+    },
+    {
+      "holdout_id": "H16",
+      "group": "1950-british-historical",
+      "benchmark_ids": ["EQ-O01"],
+      "reason": "Historical data availability"
+    }
+  ],
+  "usage_rules": [
+    "Holdout set is NEVER used for training or tuning",
+    "Holdout set is ONLY used for final evaluation",
+    "Near-duplicate questions are grouped together",
+    "Race/session grouping prevents leakage",
+    "Results are recorded with holdout_id for traceability"
+  ]
+}
