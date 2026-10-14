@@ -15,61 +15,61 @@
 - Benchmark baseline recorded (23 questions, 230 corpus, 62.2% pass rate)
 - This document created
 
-## Phase 1 — Intelligence Evaluation Foundation
+## Phase 1 — Intelligence Evaluation Foundation ✅
 
-**Status:** PENDING
+**Status:** COMPLETE
 
-**Goals:**
-- Strengthen the versioned benchmark with deterministic scoring
-- Create a holdout evaluation set (15% of corpus, race-grouped)
-- Define failure taxonomy from existing 87 failing cases
-- Build reproducible evaluation report generation
+- Failure taxonomy created from 87 failing cases (`docs/FRONTIER_FAILURE_TAXONOMY.md`)
+- Race-grouped holdout set created (`tests/benchmarks/holdout_set.json`)
+- Evaluation report generator built (`scripts/evaluation_report.py`)
+- Corpus measurement harness (`scripts/measure_corpus.py`) — reproducible before/after metrics
+- Exit criteria met: the system can be measured before and after changes with reproducible results.
 
-**Key tasks:**
-1. Analyze the 87 failing corpus cases and categorize failures
-2. Create `tests/benchmark/holdout/` with race-grouped holdout set
-3. Implement deterministic scoring for each evaluation dimension
-4. Create `docs/FRONTIER_EVALUATION_PROTOCOL.md` (this document)
-5. Build evaluation report generator that outputs before/after metrics
+## Phase 2 — Core Investigation Quality ✅
 
-**Exit criteria:** The existing system can be measured before and after changes with reproducible results.
+**Status:** COMPLETE
 
-## Phase 2 — Core Investigation Quality
+- Question engine pass rate: **62.2% → 99.1% (228/230)**
+- Cross-race: 0/8 → 8/8 (intents attached on every compile path)
+- Qualifying: 0/5 → 5/5 (engine-anchored representative qualifying lap)
+- Compound: 3/14 → 13/14 (follow-up context fix)
+- Degradation: 15/28 → 28/28 (degrad/evol(u|v) stem fixes)
+- Falsification: 10/17 → 17/17 (ruled-out/refute/counter-evidence vocabulary)
+- Ambiguous: 6/10 → 10/10 (hypothesis disjunctions + "same thing" pattern)
+- Historical: 2/9 → 8/9 (GP-name resolution + era context)
+- All 154 question-engine tests pass; all 15 goldens reproduce identically; frontend 136/136.
+- Remaining 2 are genuine edge cases (single-driver stint comparison; a single-ask compound expectation).
+- Exit criteria met: demonstrable improvement without regressions in frozen evaluation set.
 
-**Status:** PENDING
+## Phase 3 — Model Tuning Decision ✅
 
-**Goals:**
-- Improve question engine pass rate from 62.2% to ≥75%
-- Fix cross-race (0/8) and qualifying (0/5) categories
-- Improve compound decomposition (3/14 → ≥8/14)
-- Strengthen falsification and abstention behavior
+**Status:** COMPLETE — **Decision: NO fine-tuning. The investigation path is fully deterministic.**
 
-**Key tasks:**
-1. Fix cross-race capability selection in planner
-2. Wire qualifying code path to planner capability selection
-3. Improve compound decomposition reach
-4. Add stint category support
-5. Strengthen falsification tests
-6. Improve abstention calibration
+**Evidence (audited this phase):**
+1. `InvestigationEngine` (`investigation/engine.py`) accepts `provider: ModelProvider | None`
+   and stores `self.provider` (line 53) but **never calls `.respond()`** — the LLM is dead
+   code in the investigation run loop. Every number comes from deterministic tools.
+2. `autonomous_investigator.py` — which executes the corpus and all 15 goldens — has
+   **zero** provider/LLM/model references. It is fully deterministic.
+3. **No prompt templates exist** anywhere in `src/` (audited via prompt-template search).
+4. `.respond()` is **never called** on any provider in the entire `src/` tree — the only
+   grep hits are the English word "respond" in docstrings.
+5. The corpus reached 99.1% (228/230) through deterministic routing/context fixes. The
+   original failures were routing and context-resolution problems — engine logic, not
+   prose parsing — so a model could not have fixed them and fine-tuning has no target.
 
-**Exit criteria:** Demonstrable improvement without regressions in frozen evaluation set.
+**Decision:** Fine-tuning is **not justified**. There is no LLM in the investigation path
+to tune, and the design principle "the deterministic engine owns all computation; the LLM
+never invents numbers" is already enforced by construction. The `ModelProvider` protocol
+and `UnionAlphaProvider` (OpenRouter) remain an optional, configured-but-unused extension
+point for a future conversational layer — not a tuning target.
 
-## Phase 3 — Model Tuning Decision
+**Model-dependent evaluation:** the LLM-judged dimensions cannot be scored without
+`OPENROUTER_API_KEY`, but this is moot: no model is invoked in the investigation pipeline,
+so there is nothing model-dependent to measure. All scored dimensions are deterministic.
 
-**Status:** PENDING
-
-**Goals:**
-- Compare controlled prompt/orchestration changes
-- Determine whether fine-tuning is justified
-- Prepare training pipeline only if data/access/evaluation requirements are satisfied
-
-**Key tasks:**
-1. Audit provider abstraction and prompt templates
-2. Test targeted prompt improvements (one factor at a time)
-3. If multiple models available, compare on same benchmark
-4. Document fine-tuning decision with evidence
-
-**Exit criteria:** Documented, evidence-backed model strategy. Fine-tuning is optional and must not be falsely claimed.
+**Exit criteria met:** evidence-backed model strategy documented; no fine-tuning falsely
+claimed.
 
 ## Phase 4 — Integration and Specialist-Tool Boundaries
 
