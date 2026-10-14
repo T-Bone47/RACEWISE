@@ -248,6 +248,33 @@ describe('InvestigationView (Active Investigation workstation)', () => {
     })
   })
 
+  it('decision-trace tabs move selection with arrow keys (same contract as the stage rail)', async () => {
+    mockFetch({
+      '/api/catalog/engineering-investigation?': investigationPayload({
+        decision_trace: [
+          { trace_id: 'TRACE-001', statement: 'first trace step recorded', basis: [], type: 'FACT', supporting_hypotheses: [], contradictory_evidence: [], status: 'OBSERVED' },
+          { trace_id: 'TRACE-002', statement: 'second trace step recorded', basis: [], type: 'CALCULATION', supporting_hypotheses: [], contradictory_evidence: [], status: 'SUPPORTED' },
+        ],
+      }),
+    })
+    render(<InvestigationView presetParams={preset()} />)
+    await waitFor(() => {
+      expect(screen.getByText('TRACE-002')).toBeTruthy()
+    })
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(2)
+    fireEvent.keyDown(tabs[0], { key: 'ArrowRight' })
+    await waitFor(() => {
+      expect(screen.getByText('second trace step recorded')).toBeTruthy()
+    })
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(tabs[1], { key: 'ArrowLeft' })
+    await waitFor(() => {
+      expect(screen.getByText('first trace step recorded')).toBeTruthy()
+    })
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+  })
+
   it('qualifying scopes are never substituted with race telemetry (honest canvas state)', async () => {
     const fn = mockFetch({
       '/api/catalog/engineering-investigation?': investigationPayload({

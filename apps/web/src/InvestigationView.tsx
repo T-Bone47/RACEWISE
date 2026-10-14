@@ -572,6 +572,24 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
     }
   }
 
+  /* decision-trace tabs: same keyboard contract as the stage rail —
+     arrows move selection and focus together (Home/End jump) */
+  const onTraceKeyDown = (e: ReactKeyboardEvent, index: number) => {
+    const trace = result?.decision_trace ?? []
+    if (trace.length === 0) return
+    let next: number | null = null
+    if (e.key === 'ArrowRight') next = Math.min(index + 1, trace.length - 1)
+    else if (e.key === 'ArrowLeft') next = Math.max(index - 1, 0)
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = trace.length - 1
+    if (next == null) return
+    e.preventDefault()
+    const t = trace[next]
+    setOpenTrace(t.trace_id)
+    const btn = document.getElementById(`trace-node-${t.trace_id}`)
+    btn?.focus()
+  }
+
   return (
     <div className={inspector ? 'inv-layout with-inspector' : 'inv-layout'}>
       <div className="inv-main">
@@ -1388,13 +1406,15 @@ export default function InvestigationView({ presetParams }: { presetParams?: URL
                 <span className="muted small">click a step for its basis</span>
               </div>
               <div className="trace-strip" role="tablist" aria-label="Decision trace steps">
-                {result.decision_trace.map((t) => (
+                {result.decision_trace.map((t, i) => (
                   <button
                     key={t.trace_id}
+                    id={`trace-node-${t.trace_id}`}
                     role="tab"
                     aria-selected={openTrace === t.trace_id}
                     className={`trace-node ${openTrace === t.trace_id ? 'active' : ''}`}
                     onClick={() => setOpenTrace(openTrace === t.trace_id ? null : t.trace_id)}
+                    onKeyDown={(e) => onTraceKeyDown(e, i)}
                   >
                     <span className={`trace-dot ${stateChipClassSafe(t.status)}`} aria-hidden="true" />
                     <span className="mono">{t.trace_id}</span>
