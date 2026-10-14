@@ -1320,7 +1320,8 @@ button.primary:hover:not(:disabled) { background: rgba(0, 229, 255, 0.2); border
 .tv-badges { display: flex; gap: var(--sp-sm); flex-wrap: wrap; margin-bottom: var(--sp-xs); }
 .tv-badge { font-family: var(--font-metric); font-size: 0.62rem; letter-spacing: 0.06em; color: var(--st-primary-text); background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.25); padding: 1px 6px; border-radius: 2px; }
 .tv-badge-dim { color: var(--st-outline); background: var(--st-element); border-color: var(--st-line); }
-.tv-svg { width: 100%; height: auto; display: block; }
+.tv-svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+.tv-svg:focus-visible { outline: 2px solid var(--st-primary); outline-offset: 2px; }
 .tv-grid { stroke: var(--st-line); stroke-width: 1; stroke-dasharray: 2 4; }
 .tv-tick { fill: var(--st-outline); font-family: var(--font-metric); font-size: 9px; }
 .tv-trace { fill: none; stroke-width: 2; }

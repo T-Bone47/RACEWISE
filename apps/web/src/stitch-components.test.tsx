@@ -2,7 +2,7 @@
    The context strip, the telemetry canvas and the degradation panel render
    only real API payloads with honest unavailable states. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ContextStrip, ComparabilityChip, SpeedProfileCanvas } from './stitch'
 import type { ProfileSamples } from './types'
 import { mockFetch, sessionContextPayload } from './test-utils'
@@ -157,6 +157,10 @@ const SAMPLES: ProfileSamples = {
 }
 
 describe('SpeedProfileCanvas (real aligned traces)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   it('renders the traces, the honest grid badge and the decimation note', () => {
     render(
       <SpeedProfileCanvas
@@ -194,5 +198,44 @@ describe('SpeedProfileCanvas (real aligned traces)', () => {
       />,
     )
     expect(screen.getByText(/counterfactual.*MODELLED/i)).toBeTruthy()
+  })
+
+  it('exposes a keyboard-operable crosshair with arrow-key instructions', () => {
+    render(
+      <SpeedProfileCanvas
+        samples={SAMPLES}
+        targetLabel="target"
+        referenceLabel="reference"
+      />,
+    )
+    const chart = within(screen.getByTestId('speed-profile-canvas')).getByRole('img')
+    expect(chart.getAttribute('tabindex')).toBe('0')
+    expect(chart.getAttribute('aria-label')).toMatch(/arrow keys/i)
+    /* readout is a polite live region so moves are announced */
+    expect(screen.getByLabelText('Trace readout').getAttribute('aria-live')).toBe('polite')
+  })
+
+  it('steps the readout through real samples with arrows, End and Escape', () => {
+    render(
+      <SpeedProfileCanvas
+        samples={SAMPLES}
+        targetLabel="target"
+        referenceLabel="reference"
+      />,
+    )
+    const chart = within(screen.getByTestId('speed-profile-canvas')).getByRole('img')
+    fireEvent.keyDown(chart, { key: 'ArrowRight' })
+    expect(screen.getByText('0.00 s')).toBeTruthy()
+    expect(screen.getByText('target 300.0 km/h')).toBeTruthy()
+    fireEvent.keyDown(chart, { key: 'ArrowRight' })
+    expect(screen.getByText('5.00 s')).toBeTruthy()
+    expect(screen.getByText('target 120.0 km/h')).toBeTruthy()
+    fireEvent.keyDown(chart, { key: 'ArrowLeft' })
+    expect(screen.getByText('0.00 s')).toBeTruthy()
+    fireEvent.keyDown(chart, { key: 'End' })
+    expect(screen.getByText('35.00 s')).toBeTruthy()
+    expect(screen.getByText('target 310.0 km/h')).toBeTruthy()
+    fireEvent.keyDown(chart, { key: 'Escape' })
+    expect(screen.queryByText('35.00 s')).toBeNull()
   })
 })

@@ -264,6 +264,16 @@ export function SpeedProfileCanvas({
     const hi = Math.min(samples.t_s[n - 1], c + half)
     setView(hi - lo < 0.5 ? null : [lo, hi])
   }
+  /* keyboard crosshair: arrows step through the visible samples so the
+     readout is operable without a pointer (one sample per press,
+     Shift = 10, Home/End = edges, Escape clears) */
+  const stepHover = (delta: number) => {
+    const pos = hover == null ? -1 : geo.idxs.indexOf(hover)
+    const next = pos === -1
+      ? (delta < 0 ? geo.idxs.length - 1 : 0)
+      : Math.max(0, Math.min(geo.idxs.length - 1, pos + delta))
+    setHover(geo.idxs[next])
+  }
 
   const yTicks = 5
   const xTicks = 6
@@ -296,24 +306,40 @@ export function SpeedProfileCanvas({
         className="tv-svg"
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label="Aligned speed profiles on the lap-relative analysis grid"
-        onMouseMove={(e) => {
+        aria-label="Aligned speed profiles on the lap-relative analysis grid. Focus and use left and right arrow keys to inspect samples."
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault()
+            stepHover((e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 10 : 1))
+          } else if (e.key === 'Home') {
+            e.preventDefault()
+            setHover(geo.idxs[0])
+          } else if (e.key === 'End') {
+            e.preventDefault()
+            setHover(geo.idxs[geo.idxs.length - 1])
+          } else if (e.key === 'Escape') {
+            setHover(null)
+          }
+        }}
+        onPointerMove={(e) => {
           const rect = e.currentTarget.getBoundingClientRect()
           if (drag) setDrag({ ...drag, t1: tAt(e.clientX, rect) })
           setHover(idxAt(e.clientX, rect))
         }}
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect()
           const t = tAt(e.clientX, rect)
           setDrag({ t0: t, t1: t })
         }}
-        onMouseUp={() => {
+        onPointerUp={() => {
           if (drag && Math.abs(drag.t1 - drag.t0) > 1.0) {
             setView([Math.min(drag.t0, drag.t1), Math.max(drag.t0, drag.t1)])
           }
           setDrag(null)
         }}
-        onMouseLeave={() => { setHover(null); setDrag(null) }}
+        onPointerLeave={() => { setHover(null); setDrag(null) }}
+        onPointerCancel={() => { setHover(null); setDrag(null) }}
         onDoubleClick={() => setView(null)}
       >
         {/* engine windows on the time axis (real comparison windows) */}
@@ -426,8 +452,9 @@ export function SpeedProfileCanvas({
           </g>
         )}
       </svg>
-      {/* synchronized readout HUD - real samples at the hovered index */}
-      <div className="tv-hud" aria-label="Trace readout">
+      {/* synchronized readout HUD - real samples at the hovered index;
+          polite live region so keyboard crosshair moves are announced */}
+      <div className="tv-hud" aria-label="Trace readout" aria-live="polite" aria-atomic="true">
         <span className="tv-hud-item">
           <span className="ctx-label">T</span>
           <span className="mono">{hover != null ? `${samples.t_s[hover].toFixed(2)} s` : '—'}</span>
