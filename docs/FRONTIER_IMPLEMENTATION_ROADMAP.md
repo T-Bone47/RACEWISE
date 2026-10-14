@@ -71,22 +71,41 @@ so there is nothing model-dependent to measure. All scored dimensions are determ
 **Exit criteria met:** evidence-backed model strategy documented; no fine-tuning falsely
 claimed.
 
-## Phase 4 — Integration and Specialist-Tool Boundaries
+## Phase 4 — Integration and Specialist-Tool Boundaries ✅
 
-**Status:** PENDING
+**Status:** COMPLETE
 
-**Goals:**
-- Verify LFI evidence_v1 integration
-- Inspect whether simulator integration is justified
-- Preserve separate repositories and authoritative calculation ownership
+**Evidence (audited and tested this phase):**
+1. **evidence_v1 contract — verified.** Every evidence stream is
+   internally versioned and deterministic:
+   `6m_evidence_v1` (cross-race), `stint_evidence_v1` (stint),
+   `q9_stint_evidence_v1`, `q15_cross_race_evidence_v1`. 136
+   contract tests pass (`test_evidence_fusion`,
+   `test_performance_evidence`, `test_stint_evidence`,
+   `test_simulator`, `test_counterfactual`).
+2. **No blind duplication.** Each capability has one authoritative
+   owner: `loss_attribution` owns attribution, `evidence_fusion`
+   owns fusion, `performance_patterns` owns patterns. The fusion
+   module "consumes Phase 6L patterns verbatim — no second pattern
+   matcher, no second evidence-fusion engine."
+3. **No semantic drift.** The fusion layer's evidence states
+   (`SUPPORTED/CONTRADICTED/NOT_SUPPORTED/NOT_TESTABLE` and
+   relationship `SUPPORTS/CONTRADICTS/DOES_NOT_TEST`) are a
+   deliberately richer, documented vocabulary than the domain
+   `EvidenceRelationshipType` enum. `DOES_NOT_TEST`/`NOT_TESTABLE`
+   are honest abstention states ("required evidence unavailable"),
+   distinct from `NOT_SUPPORTED` — an invariant, not drift.
+4. **Simulator boundary — justified and preserved.** `simulate_pit_timing`
+   (`racewise.simulator.strategy`, `SIMULATOR_VERSION="1.0.0"`) is an
+   INTERNAL deterministic counterfactual model, explicitly "NOT a
+   physics simulator": it replays observed laps, applies interventions,
+   and reports deltas under stated assumptions, always labeled
+   COUNTERFACTUAL. The external **F1 Pro Simulator** and **Live F1
+   Intelligence** remain separate repositories — RaceWise consumes
+   fastf1 data (`provider="fastf1"`) but absorbs neither.
 
-**Key tasks:**
-1. Audit LFI evidence_v1 contract and runtime
-2. Test evidence_v1 schema compliance
-3. Evaluate simulator integration feasibility
-4. Document integration contracts
-
-**Exit criteria:** Tested contracts and no blind duplication or semantic drift.
+**Exit criteria met:** contracts tested (136 passing); no blind
+duplication; no semantic drift; specialist-tool boundaries preserved.
 
 ## Phase 5 — Design System and UI/UX Audit
 
