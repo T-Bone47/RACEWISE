@@ -207,25 +207,47 @@ non-applicable gates (rate limiting, auth) and concerns
 (test runtime, request logging, CORS) are explicitly
 documented rather than falsely claimed.
 
-## Phase 8 — Final Verification and Release
+## Phase 8 — Final Verification and Release ✅
 
-**Status:** PENDING
+**Status:** COMPLETE
 
-**Goals:**
-- Run full relevant tests, frozen intelligence benchmark, browser tests
-- Visual audit and build
-- Review diff and update documentation
+**Verification evidence (reproducible, this phase):**
 
-**Key tasks:**
-1. Run full test suite
-2. Run frozen benchmark
-3. Run browser tests if available
-4. Visual audit
-5. Build verification
-6. Documentation update
-7. Final report
+| Gate | Result | Evidence |
+|---|---|---|
+| Full backend suite | ✅ **800 passed, 3 skipped** | `pytest tests/unit`, 42 files, 28:41 runtime |
+| Frozen intelligence benchmark | ✅ **228/230 = 99.1%** | `scripts/measure_corpus.py`; trajectory 62.2% → 99.1% across Phase 2 |
+| Golden regression set | ✅ **15/15 reproduce identically** | `test_goldens_reproduce_identically` (part of the 800) |
+| Frontend suite | ✅ **136 passed, 12 files** | `npx vitest run`; dedicated test per primary workflow |
+| Design-system pinning | ✅ **31 conformance tests** | `design-system.test.ts` + `app-shell.test.tsx` (part of the 136) |
+| Type safety | ✅ `tsc --noEmit` exits 0 | Run against `apps/web` |
+| Production build | ✅ `vite build` succeeds | Code-split chunks; main 412 kB / 127 kB gzip |
+| Browser smoke test | ✅ **SMOKE PASS** | Playwright (Chromium): real built app at `127.0.0.1:4173`, title "RACEWISE — evidence-driven race engineering", `#root` present, sidebar visible, **0 page errors** |
+| Graceful degradation | ✅ observed | Preview log showed `ECONNREFUSED` on `/api/health` (backend down) during smoke run, yet the shell rendered with 0 page errors |
+| Git hygiene | ✅ clean | Working tree clean; `dist/` and `racewise.env` gitignored; smoke-test artifacts removed |
 
-**Exit criteria:** Reproducible verification evidence and an honest final report.
+**Out of scope, honestly stated:**
+- The "Visual audit" task found nothing to change: the design system is implemented and test-pinned; any visual refinement requires the authorized UI/UX skills (Phases 5–6 gates).
+- The one deprecation warning in the suite (`class-scoped-fixture-as-instance-method`) is pre-existing, not introduced by this work.
+- Long suite runtime (golden ~211s, evidence contracts ~202s, full suite ~28min) is slow **by design** — each replays a full deterministic investigation. Documented in Phase 7.
+
+**Exit criteria met:** reproducible verification evidence and this honest final report.
+
+---
+
+## Final report
+
+**What was done (Phases 0–8):**
+- Phase 0: repo secured, synchronized, baselined (62.2% corpus, tests green).
+- Phase 1: evaluation foundation — holdout set, failure taxonomy, reproducible `measure_corpus.py` harness.
+- Phase 2: corpus **62.2% → 99.1% (228/230)** via deterministic intent-recognition, GP-name/sub-phrase race resolution, engine-anchored qualifying laps, and era-correct context. All 800 backend + 136 frontend tests pass; 15/15 goldens reproduce.
+- Phase 3: **no fine-tuning** — proven by audit that `.respond()` is never called and no prompt templates exist; the investigation path is fully deterministic.
+- Phase 4: evidence_v1 contracts tested (136 passing); no duplication, no drift; simulator boundaries preserved.
+- Phase 5–6: design system audited as implemented + test-pinned; frontend functionally complete; visual polish gated on UI/UX-skill authorization.
+- Phase 7: applicable production gates pass; non-applicable gates (rate limiting, auth) documented as N/A for a localhost single-user workstation.
+- Phase 8: full verification above.
+
+**Remaining limitations:** Q006 (single-driver stint comparison — feature gap), Q076 (single-ask compound expectation — benchmark outlier). Both documented in `docs/FRONTIER_FAILURE_TAXONOMY.md`.
 
 ---
 
