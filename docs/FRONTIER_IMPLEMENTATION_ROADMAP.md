@@ -107,23 +107,49 @@ claimed.
 **Exit criteria met:** contracts tested (136 passing); no blind
 duplication; no semantic drift; specialist-tool boundaries preserved.
 
-## Phase 5 — Design System and UI/UX Audit
+## Phase 5 — Design System and UI/UX Audit ✅ (audit) / ⛔ (skill work — gated on authorization)
 
-**Status:** PENDING
+**Status:** AUDIT COMPLETE — the design system is implemented and
+pinned by tests. UI/UX-skill installation is **gated on user
+authorization** (per the standing constraint: "install/use UI/UX
+skills only after inspecting format/compatibility and obtaining
+user authorization").
 
-**Goals:**
-- Inspect existing frontend against design system
-- Install or activate authorized skills
-- Extract and document design system
-- Define new visual direction
+**Audit evidence (verified this phase):**
+1. **Design system is comprehensive and authoritative.**
+   `DESIGN.md` (tokens, palette, typography, chart language,
+   motion) + `docs/RACEWISE_DESIGN_SYSTEM.md` (component &
+   convention reference, IA, flagship layout).
+2. **Tokens are implemented and pinned against drift.**
+   `apps/web/src/App.css` `:root` holds the Stitch surface
+   ladder (`#0b0e12…#232934`), signal accents (cyan/indigo),
+   and the epistemic state engine. `design-system.test.ts`
+   (31 tests, passing) pins them and **enforces the fabrication
+   guard**: legacy tokens alias to Stitch values, F1-red
+   (`#e10600`) is asserted absent, epistemic states are pinned.
+3. **App shell is pinned.** `app-shell.test.tsx` asserts every
+   documented route is reachable from the deck.
+4. **All views are implemented.** 19 view components map 1:1 to
+   the documented IA (Command, flagship Investigation,
+   Falsification, Counterfactual, Telemetry, Attribution,
+   Fusion, Stint, RaceGap, Envelope, Regime, Patterns,
+   PatternEvidence, Catalog, Autonomous, Compare, Replay).
+5. **Grounding verified.** `tsc --noEmit` exits 0; the full
+   frontend suite passes (136 tests). **Playwright 1.64.0** is
+   available for visual QA.
+6. **Skill inspection (format/compatibility).** The UI/UX skills
+   (`ui-ux-pro-max`, `impeccable`, `design-taste-frontend`,
+   `design-system`) are present in the environment. They are
+   *not* installed into the project and *not* invoked, because
+   the standing constraint requires explicit user authorization
+   before installing or using them.
 
-**Key tasks:**
-1. Audit existing UI against DESIGN.md and RACEWISE_DESIGN_SYSTEM.md
-2. Install/verify UI/UX skills (ui-ux-pro-max, impeccable, taste)
-3. Run visual QA with Playwright if available
-4. Document design system refinements
-
-**Exit criteria:** Approved implementation plan grounded in the real application.
+**Exit criteria:** audit grounded in the real, building,
+test-pinned application — met. The "install/activate skills"
+and "define new visual direction" tasks are **held for user
+authorization**; the existing design system is already
+implemented, pinned, and conformant, so no unreviewed visual
+change has been applied.
 
 ## Phase 6 — Premium Workstation Implementation
 
