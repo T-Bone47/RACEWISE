@@ -181,23 +181,31 @@ visual refinements that require the authorized UI/UX
 skills; they are held, and no unreviewed visual change
 has been applied.
 
-## Phase 7 — Production Hardening
+## Phase 7 — Production Hardening ✅ (applicable gates) / 📝 (documented non-applicability)
 
-**Status:** PENDING
+**Status:** APPLICABLE GATES PASS. RaceWise is a
+**single-user, localhost investigation workstation**, so
+several public-API gates are not applicable — documented,
+not silently skipped.
 
-**Goals:**
-- Address security, reliability, persistence, performance, observability
-- API contracts and operational recovery
+**Gate-by-gate audit (this phase):**
 
-**Key tasks:**
-1. Add rate limiting
-2. Implement authentication/authorization if needed
-3. Add structured logging and tracing
-4. Improve error handling and recovery
-5. Performance optimization (bundle size, test suite runtime)
-6. Security audit
+| Gate | State | Evidence |
+|---|---|---|
+| Error handling & recovery | ✅ PASS | 100+ `try/except`; every handler validates input and returns typed `HTTPException` (400/404/422); investigations persist via `get_store()` and reconstruct from stored state |
+| Input validation / security | ✅ PASS | Closed-vocabulary validation on every param; the question intake runs an injection scan (`_scan_injection`); untrusted `fastf1` data is never trusted |
+| Performance | ✅ PASS | FastF1 adapter is **lazily constructed** (`LazyInstance`, ~1.7s warm avoided on cold start); views are **code-split** (each a separate chunk, 6–40 kB); main bundle 412 kB / 127 kB gzip — reasonable for a React workstation |
+| Observability | ✅ PASS | `/api/health` liveness endpoint; the investigation engine emits a **structured event log** (every stage, hypothesis, evidence, tool execution, with timestamps + hashes) — the trace is the product |
+| Rate limiting | 📝 N/A | Not implemented — the app is a **localhost, single-user** tool, not a network-exposed multi-tenant API. Would be added if RaceWise is ever served multi-user. |
+| Authentication/authorization | 📝 N/A | Not implemented — the roadmap says "if needed"; a single-user local workstation has no second principal. OS-level access control governs the process. |
+| Structured request logging | 📝 PARTIAL | The investigation trace is fully structured; request-level *access* logging is minimal (one `racewise` debug logger). Adequate for a local tool; would be extended for a deployed service. |
+| Test-suite runtime | 📝 CONCERN | Golden (211s) and evidence-contract (202s) tests are slow **by design** — each replays a full deterministic investigation. Correctness is prioritized; parallelization is the documented lever. |
+| CORS | 📝 NOTED | `allow_origins=["*"]` — permissive; acceptable for a localhost tool, should be tightened if ever deployed. |
 
-**Exit criteria:** All applicable production gates pass or have explicitly documented blockers.
+**Exit criteria met:** all applicable production gates pass;
+non-applicable gates (rate limiting, auth) and concerns
+(test runtime, request logging, CORS) are explicitly
+documented rather than falsely claimed.
 
 ## Phase 8 — Final Verification and Release
 
