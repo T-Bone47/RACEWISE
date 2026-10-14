@@ -135,6 +135,7 @@ REGISTRY: tuple[Capability, ...] = (
         outputs=("lap_time_s", "sector_times", "delta_s", "top_windows"),
         required_data=("laps",),
         optional_data=("telemetry",),
+        supported_session_types=("RACE", "QUALIFYING"),
         computational_cost="LOW",
         provenance_requirements=("tool_execution", "output_hash"),
         evidence_types_produced=("OBSERVED",),

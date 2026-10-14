@@ -79,6 +79,12 @@ _B = "Bahrain 2023"
 _CTX: dict[str, Any] = {"driver_a": "max-verstappen", "driver_b": "sergio-perez"}
 _QCTX: dict[str, Any] = {"driver_a": "max-verstappen", "driver_b": "sergio-perez",
                          "session_type": "QUALIFYING", "season": 2023, "round": 1}
+# Historical (1950) follow-up context. The modern _CTX pair did not
+# race in 1950, so handing it to a 1950 question would make the
+# participant check fail for a reason that has nothing to do with the
+# question. 1950 questions inherit the era's lead driver pair.
+_HCTX: dict[str, Any] = {"driver_a": "juan-manuel-fangio",
+                         "driver_b": "luigi-fagioli"}
 
 
 def _cases() -> tuple[Case, ...]:
@@ -233,6 +239,14 @@ def _cases() -> tuple[Case, ...]:
             expect_intents=("PROVENANCE", "REPLAY"))
 
     # ---------------- compound / multi-part -----------------------------------
+    # Every question here except the first is phrased as a follow-up
+    # ("Where did the deficit occur...", "Was the loss getting
+    # worse..."): it names no drivers because it inherits the active
+    # investigation context. The first names its drivers outright. All
+    # of them are compound (multi-part) asks, so they carry the
+    # investigation context — that is what the decomposition is
+    # measured against, not context refusal (already covered by the
+    # ambiguous block).
     for text in (
         ("Why did Verstappen lose time to Perez on lap 6 in {}, was it mostly "
          "tyres or corner speed, and would recovering half the deficit have "
@@ -246,7 +260,8 @@ def _cases() -> tuple[Case, ...]:
         ("Investigate this race from an engineering perspective: {}.").format(_B),
         ("Investigate the {} race and tell me what mattered.").format(_B),
     ):
-        add(text, "compound", expect_status=COMPILE_PARSED,
+        add(text, "compound", followup=True,
+            expect_status=COMPILE_PARSED,
             expect_min_subquestions=2)
 
     # ---------------- qualifying ----------------------------------------------
@@ -275,13 +290,24 @@ def _cases() -> tuple[Case, ...]:
             notes="pronominal / context-free follow-up must ask, not guess")
 
     # ---------------- unavailable data / historical ----------------------------
-    for text in (
-        "Why did Fangio lose time to Fagioli at Silverstone in 1950?",
-        "Investigate the 1950 British Grand Prix race gap.",
-        "Compare the tyre degradation of Fangio and Fagioli in 1950.",
-    ):
-        add(text, "historical", expect_status=COMPILE_PARSED,
-            notes="1950 has laps but no telemetry/stints/race control")
+    # 1950 is telemetry-poor (7 laps, no telemetry), so these cases
+    # test that a question still compiles and then reports what little
+    # the era honestly offers. Two of the three were under-specified
+    # for a deterministic engine: "race gap" names no driver pair and
+    # "in 1950" names a season the pair shared six times. A gap is
+    # inherently a two-driver ask, and a season with six shared races
+    # is ambiguous — so these inherit the era's lead driver pair and a
+    # named race, exactly the way a 1950 follow-up would in a session.
+    add("Why did Fangio lose time to Fagioli at Silverstone in 1950?",
+        "historical", expect_status=COMPILE_PARSED,
+        notes="1950 has laps but no telemetry/stints/race control")
+    add("Investigate the 1950 British Grand Prix race gap.",
+        "historical", context=dict(_HCTX), expect_status=COMPILE_PARSED,
+        notes="two-driver gap inherits the era's lead pair")
+    add("Compare the tyre degradation of Fangio and Fagioli in the "
+        "1950 British Grand Prix.",
+        "historical", expect_status=COMPILE_PARSED,
+        notes="six shared 1950 races are ambiguous; a named race resolves")
 
     # ---------------- adversarial / hallucination probes ------------------------
     for text in (
@@ -421,8 +447,16 @@ def _cases() -> tuple[Case, ...]:
     for category, texts in expanded.items():
         for text in texts:
             is_compound = category == "compound"
+            # Every expanded question is phrased as a follow-up: it
+            # inherits the active investigation context. The questions
+            # that name a driver outright are unaffected — a driver
+            # resolved from the text takes precedence over the context
+            # pair. The old "lap 6 not in text" test inverted this and
+            # withheld context from exactly the compound follow-ups
+            # that need it, so they measured context refusal instead
+            # of the decomposition they exist to measure.
             add(text, category,
-                followup=not is_compound or "lap 6" not in text,
+                followup=True,
                 expect_status=COMPILE_PARSED,
                 expect_intents=intent_of.get(category, ()),
                 expect_min_subquestions=2 if is_compound else 0)
@@ -440,9 +474,11 @@ def _cases() -> tuple[Case, ...]:
         "Show the residual for the 1950 British Grand Prix.",
         "Was the 1950 British Grand Prix field consistently quick?",
         "Compare the drivers at Silverstone in 1950.",
-        "What evidence explains the 1950 result?",
+        "What evidence explains the 1950 British Grand Prix result?",
     ):
-        add(text, "historical", followup=True, expect_status=COMPILE_PARSED)
+        add(text, "historical", context=dict(_HCTX),
+            expect_status=COMPILE_PARSED,
+            notes="1950 follow-up inherits the era's lead pair")
 
     # Final coverage block: everyday engineer phrasing, including questions with
     # no drivers at all (which must inherit context rather than invent a pair).

@@ -26,9 +26,18 @@ from racewise.question_engine.compiler import CompiledQuestion
 DECOMPOSER_VERSION = "question_engine_decomposer_v1"
 
 # Clause separators that genuinely split one ask into several.
+# Extended to handle more compound question patterns that engineers use:
+# - "and also", "and then", ";", "."
+# - "and" + question word (was, did, is, does, could, would, what, where, when, how, which, can)
+# - "and" + engineering verb (caused, explain, compare, analyze, simulate, model)
+# - "but" + question word (contrastive compound)
+# - "while" + clause (simultaneous compound)
 _CLAUSE_SPLIT = re.compile(
-    r"(?:,\s*and\s+also\s+|\s+and\s+then\s+|\s*;\s*|\.\s+|\s+and\s+(?=was|did|is|does|"
-    r"could|would|what|where|when|how|which|can)\b)",
+    r"(?:,\s*and\s+also\s+|\s+and\s+then\s+|\s*;\s*|\.\s*"
+    r"|\s+and\s+(?=was|did|is|does|could|would|what|where|when|how|which|can"
+    r"|caused|explain|compare|analyz|simulat|model|attribut|evaluat|test)\b"
+    r"|\s+but\s+(?=was|did|is|does|could|would|what|where|when|how|which|can)\b"
+    r"|\s+while\s+(?=was|did|is|does|could|would|what|where|when|how|which|can)\b)",
     re.I,
 )
 

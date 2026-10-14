@@ -56,6 +56,7 @@ INTAKE_QUESTION_TYPES = (
     "LAP_PERFORMANCE", "STINT_PERFORMANCE", "RACE_GAP",
     "PERFORMANCE_REGIME", "CROSS_RACE_PATTERN", "HYPOTHESIS_EVALUATION",
     "COUNTERFACTUAL_ELIGIBILITY", "QUALIFYING_LAP_PERFORMANCE",
+    "SESSION_CONTEXT",
 )
 
 # Hypothesis-phrase mapping (deterministic; used for hypothesis SUBSET
@@ -85,12 +86,22 @@ _TYPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     # recurring pattern across races
     ("CROSS_RACE_PATTERN", re.compile(
         r"\b(recur\w*|pattern|repeat\w*|again in (other|another|different)"
-        r"\s+(races?|seasons?))\b", re.I)),
+        r"\s+(races?|seasons?))\b"
+        # "did the same thing happen", "the same pattern" — a
+        # precedent ask is a cross-race pattern ask.
+        r"|\b(same (thing|pattern)|happen(ed|s)? again)\b", re.I)),
     # stint-scope question (number extracted separately)
     ("STINT_PERFORMANCE", re.compile(
-        r"\bstint\s*\d*\b[\s\S]{0,60}\b(degrade|trend|evolv|perform|pace|"
-        r"drop|fall)\w*\b|\b(degrade|trend|evolv)\w*\b[\s\S]{0,60}\bstint\b",
-        re.I)),
+        # a specific stint is named either by number ("stint 2") or
+        # by ordinal ("the second stint"); a bare "stint" with no
+        # number is a whole-session trend and belongs to
+        # PERFORMANCE_REGIME — unless a context stint number anchors
+        # it (handled after detection).
+        r"\bstint\s*\d{1,2}\b[\s\S]{0,60}\b(degrad|trend|evolv|perform|"
+        r"pace|drop|fall|worse|better|accelerat|steady)\w*\b"
+        r"|\b(first|second|third)\s+stint\b"
+        r"|\b(degrad|trend|evolv|worse|falling|accelerat)\w*\b"
+        r"[\s\S]{0,60}\bstint\s*\d{1,2}\b", re.I)),
     # regime / phase decomposition
     ("PERFORMANCE_REGIME", re.compile(
         r"\b(regimes?|phases?|segments?)\b[\s\S]{0,40}\b(race|stint|lap)\b"
@@ -103,10 +114,47 @@ _TYPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"|\b(materially|really|actually)\b[^?]{0,40}\b(change|changed|differ)\b"
         r"|\bwhat[^?]{0,20}\bchange\b"
         r"|\bwalk me through\b|\bchange character\b"
-        r"|\bacross the race\b|\bthe whole race\b", re.I)),
+        r"|\bacross the race\b|\bthe whole race\b"
+        # pace-evolution phrasings engineers use: "get worse toward
+        # the end", "pace falling", "accelerating or steady", "step
+        # change in pace", "how did pace evolve", "degradation",
+        # "tyre life", "second stint slower than the first".
+        r"|\b(get|got|getting)\s+(worse|better)\b"
+        r"|\bfall\w*\b|\baccelerat\w*|\bsteady\b"
+        r"|\bstep change\b|\bevol(u|v)\w*|\bdegrad\w*\b"
+        r"|\b(tyre|tire)\s+life\b"
+        r"|\b(worse|better)\b[\s\S]{0,20}\b(toward|end|over|through)\b"
+        # driver-consistency asks: "consistently weaker in slow
+        # corners", "the field consistently quick".
+        r"|\bconsistently\b[\s\S]{0,30}\b(weaker|stronger|slower|"
+        r"faster|quicker|quick|quickly)\b",
+        re.I)),
+    # session/context description: "describe the session context",
+    # "summarize the engineering picture", "what does the data show".
+    # Served by resolve_session_context (DESCRIBE intent, level 0).
+    ("SESSION_CONTEXT", re.compile(
+        r"\b(describe|summar\w*)\b[\s\S]{0,50}\b(context|picture|"
+        r"session|overview|summary)\b"
+        r"|\bwhat (does|did) the data\b"
+        r"|\bsession context\b|\bengineering picture\b", re.I)),
     # formal hypothesis evaluation
     ("HYPOTHESIS_EVALUATION", re.compile(
-        r"\bhypothes[ie]s\b|\bcaused by\b", re.I)),
+        r"\bhypothes[ie]s\b|\bcaused by\b"
+        # a hypothesis disjunction ("was it braking or corner speed",
+        # "was it the throttle or the brakes") and a bare causal ask
+        # ("did DRS cause the loss", "prove that tyres caused it").
+        # The hypothesis-term window keeps spatial "was it the exit
+        # or the entry" out of this type.
+        r"|\b(was|is|are|were)\s+(it|the)\b[\s\S]{0,50}\b(or|vs)\b"
+        r"[\s\S]{0,50}\b(brak|corner|throttle|tyre|tire|drs|fuel|"
+        r"compound|speed|grip)\b"
+        r"|\bprove\b",
+        re.I)),
+    # qualifying-lap scope without an explicit number ("which
+    # qualifying lap should I compare") — a qualifying comparison the
+    # engine anchors to the representative lap.
+    ("QUALIFYING_LAP_PERFORMANCE", re.compile(
+        r"\bqualifying\s+lap\b|\bqualifying\s+comparison\b", re.I)),
     # lap-scope with explicit lap number (extracted separately)
     ("LAP_PERFORMANCE", re.compile(r"\blap\s*\d{1,3}\b", re.I)),
     # race-level gap / time loss without a lap qualifier. This is the LAST
@@ -129,7 +177,24 @@ _TYPE_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"|\bafter the (safety car|pit stop)\b"
         r"|\bintermittent\b"
         r"|\binvestigate\b"
-        r"|\bwhat mattered\b",
+        r"|\bwhat mattered\b"
+        # residual / reconciliation asks ("what remains unexplained",
+        # "the residual") and cost asks ("how much time did the pit
+        # phase cost", "did tyre life affect pace").
+        r"|\bunexplained\b|\bresidual\b|\bremains?\b"
+        r"|\b(affect|impact)\b[\s\S]{0,20}\b(pace|performance|time)\b"
+        r"|\bhow much\b[\s\S]{0,30}\b(cost|time)\b"
+        r"|\bpit phase\b"
+        # race-level evidence asks ("what evidence explains the
+        # result") — a whole-race question, not a lap-scoped
+        # hypothesis test.
+        r"|\bwhat evidence\b|\bevidences?\b[\s\S]{0,20}\bexplain\w*\b"
+        # spatial time-loss asks ("where on the lap did the time go")
+        # and bare driver-comparison asks ("compare the drivers at
+        # Silverstone") that name no lap.
+        r"|\bwhere\b[\s\S]{0,40}\b(time|pace)\b"
+        r"|\bcompare\b[\s\S]{0,30}\b(drivers?|driver|pace|"
+        r"performance)\b",
         re.I)),
 )
 
@@ -287,6 +352,18 @@ def _resolve_driver_name(
     return None
 
 
+# Ceremonial Grand Prix names -> canonical country key. The store keys
+# races by country ("great-britain"), but engineers say the ceremonial
+# name ("British Grand Prix"). Both are closed vocabularies; the map is
+# the deterministic bridge, and it only ever fires on an exact match.
+_GP_NAME_ALIASES: dict[str, str] = {
+    "british": "great-britain",
+    "great-britain": "great-britain",
+    "american": "united-states",
+    "united-states": "united-states",
+}
+
+
 def _resolve_race(
     queries: CanonicalQueries, season: int, place_tokens: list[str],
 ) -> tuple[Optional[int], Optional[str]]:
@@ -315,8 +392,12 @@ def _resolve_race(
                 aliases.add(_strip_accents(str(v)).lower())
         keys.append((int(r["round"]), _strip_accents(
             r["grand_prix"] or ""), aliases))
-    for tok in place_tokens:
-        t = _strip_accents(tok).lower().replace(" ", "-")
+    def _match(t: str) -> tuple[Optional[int], Optional[str]]:
+        """Match one normalized token against the season's race keys.
+
+        Returns (round, label) on a single match, (None, reason) on an
+        ambiguity, (None, None) when nothing matches.
+        """
         exact = [k for k in keys if k[1] == t]
         if len(exact) == 1:
             return exact[0][0], exact[0][1]
@@ -324,14 +405,14 @@ def _resolve_race(
         if len(like) == 1:
             return like[0][0], like[0][1]
         if len(like) > 1:
-            return None, (f"ambiguous race name '{tok}': "
+            return None, (f"ambiguous race name '{t}': "
                           f"{sorted(k[1] for k in like)}")
         # circuit/city/country aliases (deterministic, single-round only)
         alias_exact = [k for k in keys if t in k[2]]
         if len(alias_exact) == 1:
             return alias_exact[0][0], alias_exact[0][1]
         if len(alias_exact) > 1:
-            return None, (f"ambiguous race name '{tok}': "
+            return None, (f"ambiguous race name '{t}': "
                           f"{sorted(k[1] for k in alias_exact)}")
         alias_like = [k for k in keys
                       if any(all(p in a for p in t.split("-"))
@@ -339,8 +420,32 @@ def _resolve_race(
         if len(alias_like) == 1:
             return alias_like[0][0], alias_like[0][1]
         if len(alias_like) > 1:
-            return None, (f"ambiguous race name '{tok}': "
+            return None, (f"ambiguous race name '{t}': "
                           f"{sorted(k[1] for k in alias_like)}")
+        return None, None
+
+    for tok in place_tokens:
+        t = _strip_accents(tok).lower().replace(" ", "-")
+        # A ceremonial "Grand Prix"/"gp" suffix carries no matching
+        # information once the country key is known, and the ceremonial
+        # adjective ("British") differs from the canonical key
+        # ("great-britain"). Strip the suffix and bridge the name so
+        # "British Grand Prix" resolves to the same race as "Silverstone".
+        t = re.sub(r"(-grand-prix|-gp)$", "", t)
+        t = _GP_NAME_ALIASES.get(t, t)
+        # A leading verb glues to the place in "Investigate Bahrain"
+        # (both capitalized), so the place arrives as one token. Try
+        # the whole token, then every consecutive sub-phrase longest
+        # first; the sub-phrase that names the place is the match.
+        parts = t.split("-")
+        for width in range(len(parts), 0, -1):
+            for i in range(len(parts) - width + 1):
+                cand = "-".join(parts[i:i + width])
+                round_num, label = _match(cand)
+                if round_num is not None:
+                    return round_num, label
+                if label is not None:
+                    return None, label
     if place_tokens:
         return None, f"no canonical race for {season} matching {place_tokens}"
     return None, None
@@ -557,6 +662,13 @@ def parse_question(
         if rule.search(text):
             qt = qt_candidate
             break
+    # A bare "stint" with no number in the TEXT is a whole-session
+    # trend (PERFORMANCE_REGIME) — unless a context stint number
+    # anchors it to a specific stint, which makes it a stint-scope
+    # question. Without that anchor the trend rules keep it.
+    if qt in (None, "PERFORMANCE_REGIME") and stint_number is not None \
+            and re.search(r"\bstint\b", text, re.I):
+        qt = "STINT_PERFORMANCE"
 
     # --- numbers from text ---------------------------------------------------
     years = [int(m) for m in re.findall(r"\b(19[5-9]\d|20[0-7]\d)\b", text)]
@@ -618,6 +730,18 @@ def parse_question(
         stint_number = int(stint_match.group(1))
         log.append({"kind": "STINT", "text": stint_match.group(0),
                     "resolved": stint_number, "source": "question_text"})
+    else:
+        # ordinal stint phrasing ("the second stint", "first stint")
+        # carries the same information as "stint 2"; resolve it
+        # deterministically rather than asking the user to rephrase.
+        ordinal = re.search(r"\b(first|second|third)\s+stint\b",
+                            text, re.I)
+        if ordinal:
+            stint_number = {"first": 1, "second": 2,
+                            "third": 3}[ordinal.group(1).lower()]
+            log.append({"kind": "STINT", "text": ordinal.group(0),
+                        "resolved": stint_number,
+                        "source": "ordinal stint phrase"})
 
     # --- session type ---------------------------------------------------------
     if session_type is None:
@@ -688,11 +812,17 @@ def parse_question(
                    injection_scan=injection)
     if qt == "QUALIFYING_LAP_PERFORMANCE":
         qt = "LAP_PERFORMANCE"
+    _qualifying_from_hypothesis = False
     if session_type == "QUALIFYING" and \
             qt in (None, "RACE_GAP", "HYPOTHESIS_EVALUATION"):
         # qualifying deficit/hypothesis phrasing maps to the measured
         # single-lap comparison (Phase 6S semantics: no qualifying
-        # telemetry exists, so the honest capability is lap evidence)
+        # telemetry exists, so the honest capability is lap evidence).
+        # A hypothesis ask stays lap-scoped (it must be tested at a
+        # named lap); a deficit/comparison ask lets the engine anchor
+        # the representative lap when the scope is complete.
+        if qt == "HYPOTHESIS_EVALUATION":
+            _qualifying_from_hypothesis = True
         if qt is not None:
             log.append({"kind": "TYPE_MAPPING", "text": qt,
                         "resolved": "LAP_PERFORMANCE",
@@ -700,16 +830,41 @@ def parse_question(
         qt = "LAP_PERFORMANCE"
     if qt == "LAP_PERFORMANCE" and lap_number is None:
         if session_type == "QUALIFYING":
-            # qualifying comparison needs a specific lap; context critical
-            return out(INTAKE_UNRESOLVED,
-                       reason=("qualifying lap question without a lap "
-                               "number; provide the qualifying lap to "
-                               "compare (e.g. 'lap 2')"),
-                       injection_scan=injection)
-        # race-scope loss phrasing without a lap qualifier is a race-gap
-        # question (documented deterministic mapping, not a guess: no lap
-        # fact can be invented)
-        qt = "RACE_GAP"
+            # A qualifying deficit/comparison that names a complete
+            # scope (season, race, both drivers) but no explicit lap is
+            # answerable: the engine anchors the representative
+            # qualifying lap deterministically (_anchor_lap picks the
+            # first descending shared lap yielding a clean two-driver
+            # comparison). A qualifying HYPOTHESIS ask is different —
+            # a hypothesis must be tested at a named lap, so it stays
+            # lap-scoped and asks. An incomplete scope also asks.
+            if _qualifying_from_hypothesis:
+                return out(INTAKE_UNRESOLVED,
+                           reason=("qualifying lap question without a lap "
+                                   "number; a hypothesis must be tested at a "
+                                   "named qualifying lap (e.g. 'lap 2')"),
+                           injection_scan=injection)
+            if season is not None and round_num is not None \
+                    and driver_a and driver_b:
+                log.append({
+                    "kind": "LAP_ANCHOR", "text": None,
+                    "resolved": "engine-anchored qualifying lap",
+                    "source": ("full qualifying scope present; the "
+                               "engine anchors the representative "
+                               "lap deterministically"),
+                })
+            else:
+                return out(INTAKE_UNRESOLVED,
+                           reason=("qualifying lap question without a lap "
+                                   "number and without a complete scope; "
+                                   "provide the qualifying lap to compare "
+                                   "(e.g. 'lap 2')"),
+                           injection_scan=injection)
+        else:
+            # race-scope loss phrasing without a lap qualifier is a
+            # race-gap question (documented deterministic mapping, not
+            # a guess: no lap fact can be invented)
+            qt = "RACE_GAP"
     if qt is None:
         if re.match(rf"^({'|'.join(_INTERROGATIVES)})\b", text, re.I) or \
                 text.endswith("?"):

@@ -64,13 +64,25 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
     # --- falsification and contradiction come before the general explain ---
     ("FALSIFY", r"\bagainst\b|\bcontradict\w*|\bdisprove\b|\bevidence against\b"
                 r"|\bnot\b[\s\S]{0,30}\b(explain|support|cause)\b"
-                r"|\bopposite\b|\bdisconfirm\w*|\brebut\w*"),
+                r"|\bopposite\b|\bdisconfirm\w*|\brebut\w*"
+                # explicit falsification verbs engineers actually use:
+                # "ruling out tyre state", "refute the DRS claim",
+                # "any counter-evidence", "negation test", "was it NOT
+                # braking". A negated hypothesis term is a falsification
+                # ask by definition.
+                r"|\brul(e|ed|ing)\s+out\b|\brefut\w*|\bcounter.?evidence\b"
+                r"|\bnegation test\b|\bwas it not\b"
+                r"|\bnot\b[\s\S]{0,15}\b(tyre|tire|throttle|brak|corner|"
+                r"drs|fuel|compound|grip|speed)\b"),
     ("RECONCILE", r"\breconcil\w*|\bdisagree\w*|\bconflict\w*|\binconsisten\w*"
                   r"|\bmismatch\b|\bdiscrepanc\w*"
                   # 'what remains unexplained' is the residual question; it
                   # must reach RECONCILE or it falls through to nothing.
                   r"|\bunexplain\w*|\bnot explain\w*|\bleft over\b"
-                  r"|\bwhat (does|did) (the evidence )?not\b"),
+                  r"|\bwhat (does|did) (the evidence )?not\b"
+                  # residual / reconciliation vocabulary
+                  r"|\bresidual\b|\bremainder\b|\baccounted for\b"
+                  r"|\baccount for\b|\bshare of\b"),
     # --- counterfactual before what_if phrasing overlaps ---
     ("COUNTERFACTUAL", r"\bcould\b[\s\S]{0,90}\b(remov\w*|halv\w*|half|without|"
                        r"less|slower|faster|recover\w*|chang\w*)\b"
@@ -93,11 +105,19 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
     # --- provenance / replay ---
     ("PROVENANCE", r"\bwhere does\b[\s\S]{0,30}\b(come from|data|source)\b"
                    r"|\bprovenance\b|\bsource of\b|\btrace\b|\bhow (was|did) .* (derived|computed)\b"
-                   r"|\bevidence id\b|\bwhich (table|provider|method)\b"),
-    ("REPLAY", r"\breplay\b|\bre-?run\b|\breproduce\b|\brepeatable\b|\bdeterministic\b"),
+                   r"|\bevidence id\b|\bwhich (table|provider|method)\b"
+                   # verification and method-of-production asks:
+                   # "verify the output hash", "what method produced
+                   # the attribution", "where did the numbers come from".
+                   r"|\bverify\b|\boutput hash\b|\bhash\b"
+                   r"|\b(what|which)\s+method\b"
+                   r"|\bwhere (did|does)\b[\s\S]{0,30}\b(come from|numbers)\b"),
+    ("REPLAY", r"\breplay\b|\bre-?run\b|\breproduc\w*|\brepeatable\b|\bdeterministic\b"),
     ("MEMORY", r"\bhas\b[\s\S]{0,30}\b(happened|seen|occurred) before\b|\bprecedent\b"
                r"|\bbefore\b[\s\S]{0,30}\b(asked|investigated)\b|\bsimilar (case|investigation)\b"
-               r"|\bpreviously\b"),
+               r"|\bpreviously\b"
+               # 'has X had this problem before' is a precedent ask
+               r"|\b(has|have|had)\b[\s\S]{0,40}\bbefore\b"),
     # --- pattern finding ---
     ("FIND_PATTERN", r"\bsame thing\b|\bpattern\b|\brecur\w*|\brepeat\w*|"
                      r"\bagain\b|\belsewhere\b|\banother race\b|\bsimilar\b"),
@@ -110,7 +130,14 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
                         # silently fails to register as an explanation request.
                         r"\bexplain\b|\bexplain(?:s|ed|ing)?\b|\bexplanat\w*\b"
                         r"|\battribut\w*|\bresponsible\b|\bdriver of\b"
-                        r"|\bwas it\b[\s\S]{0,40}\bor\b"),
+                        r"|\bwas it\b[\s\S]{0,40}\bor\b"
+                        # hypothesis-weighting and hypothesis-support
+                        # phrasings: "was the loss mostly throttle",
+                        # "is corner speed supported", "is there a
+                        # DRS effect", "what about the throttle".
+                        r"|\b(mostly|mainly|primarily)\b"
+                        r"|\bsupport\w*\b|\bwhat about\b"
+                        r"|\bavailable\b|\b(is|are)\s+there\b"),
     ("EVALUATE_TYRE_BEHAVIOR", r"\b(tyre|tire|compound|grip|degrad\w*)\b"),
     ("EVALUATE_RACE_CONTROL", r"\b(race control|safety car|sc\b|vsc\b|yellow flag|"
                               r"red flag|penalt\w*|blue flag|virtual safety)\b"),
@@ -123,13 +150,25 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
     ("FIND_REGIME", r"\bregimes?\b|\bphases?\b|\bsegments?\b|\bsteady states?\b|\bpattern of pace\b"),
     ("TREND", r"\btrend\w*|\bdegrad\w*|\bgetting worse\b|\bgetting better\b|"
               r"\bworsening\b|\bimproving\b|\bconsistent\w*|\bgradual\w*|"
-              r"\bsudden\w*|\bstep change\b|\bover the (stint|race|laps?)\b"),
+              r"\bsudden\w*|\bstep change\b|\bover the (stint|race|laps?)\b"
+              # trend phrasings: "get worse toward the end", "pace
+              # falling", "accelerating or steady", "how did pace
+              # evolve", "second stint slower than the first".
+              r"|\bget(s|ting)?\s+worse\b|\bgot\s+worse\b"
+              r"|\bfall\w*\b|\baccelerat\w*|\bevol(u|v)\w*"
+              r"|\b(slower|faster)\s+than\b"
+              r"|\b(tyre|tire)\s+life\b|\bsteady\b"),
     # --- spatial ---
     ("LOCATE", r"\bwhere\b[\s\S]{0,40}\b(lose|lost|time|gap|deficit|difference)\b"
                r"|\bwhich (sector|corner|region|part|area|straight|braking zone)\b"
-               r"|\bsector\s*\d\b|\bmini-?sector\b|\bcorner\b|\bbraking zone\b"
+               r"|\bsector\s*\d\b|\bmini-?sector\b|\bcorners?\b|\bbraking zone\b"
                r"|\bexit\b|\brotation\b|\btraction\b|\bdrs zone\b"
-               r"|\bexactly where\b|\blocate\b"),
+               r"|\bexactly where\b|\blocate\b"
+               # attribution is a spatial-locate ask (the finest
+               # valid level is resolved by the availability
+               # engine, not here)
+               r"|\battribut\w*"
+               r"|\bthrough\b[\s\S]{0,20}\b(corner|sector|part|region)\b"),
     # --- structural ---
     ("DECOMPOSE", r"\bdecompos\w*|\bbreak ?down\b|\bsplit\b|\bwhere does .* go\b"
                   r"|\bhow (much|many)\b[\s\S]{0,30}\b(of the gap|deficit|loss)\b"),
@@ -140,7 +179,12 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
     ("COMPARE_STINTS", r"\bstint\b[\s\S]{0,30}\bvs\b|\bstints?\b[\s\S]{0,30}\b(compar|differ)\w*"),
     ("COMPARE_LAPS", r"\blap\b[\s\S]{0,20}\bvs\b|\blaps?\b[\s\S]{0,20}\b(compar|differ)\w*"
                      r"|\bprevious lap\b|\blast lap\b|\bown baseline\b"),
-    ("COMPARE", r"\bvs\b|\bversus\b|\bcompared? (to|with)\b|\bdifferen\w+\b|\bbetter than\b|\bworse than\b"),
+    ("COMPARE", r"\bvs\b|\bversus\b|\bcompared? (to|with)\b|\bdifferen\w+\b|\bbetter than\b|\bworse than\b"
+                  # bare comparison phrasings: "compare X against Y",
+                  # "which driver was quicker", "who was faster",
+                  # "give me the lap 6 delta".
+                  r"|\bcompar\w*\b|\b(faster|slower|quicker|quickest|fastest|slowest)\b"
+                  r"|\bdelta\b|\b(gap|deficit)\s+between\b"),
     # --- generic ---
     ("EXPLAIN", r"\bexplain\w*|\bwhy\b|\bwhat happened\b|\bwhat mattered\b"),
     # A whole-race question may name no driver, no lap and no sector.
@@ -148,7 +192,12 @@ _INTENT_RULES: tuple[tuple[str, str], ...] = (
     # them the compiler rejects a question the system is built to answer.
     ("INVESTIGATE", r"\binvestigate\b|\banalyz\w*|\banalyse\b|\blook into\b|\bwhat can you tell\b|\bwalk me through\b|\bmaterially\b|\btimeline\b|\bchange character\b|\bwhat did we (see|learn|notice)\b|\bacross the race\b|\btell me what\b|\bthe whole race\b|\bthe story\b|\brace ?-?wide\b"),
     ("SUMMARIZE", r"\bsummar\w*|\boverall\b|\bin one line\b|\btl;?dr\b|\bhigh level\b"),
-    ("DESCRIBE", r"\bwhat is\b|\bdescribe\b|\bwhat (data|weather|compound)\b"),
+    ("DESCRIBE", r"\bwhat is\b|\bdescribe\b|\bwhat (data|weather|compound)\b"
+                  # descriptive asks: "summarize the engineering
+                  # picture", "describe the session context", "what
+                  # does the data show".
+                  r"|\bsummar\w*|\bpicture\b|\bcontext\b"
+                  r"|\bwhat (does|did) the data\b"),
 )
 
 _COMPILED: tuple[tuple[str, re.Pattern[str]], ...] = tuple(

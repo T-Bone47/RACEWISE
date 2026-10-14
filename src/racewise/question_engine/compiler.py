@@ -256,9 +256,17 @@ def compile_question(
     log: list[dict[str, Any]] = []
 
     def _finish(**kwargs: Any) -> CompiledQuestion:
+        # Intents describe *what kind of question* was asked, which is
+        # knowable from the text alone — independent of whether the
+        # scope (season/race/driver) resolved. A cross-race follow-up
+        # with no drivers in it is still a FIND_PATTERN ask; reporting
+        # that honestly is more useful than an empty intent list. So
+        # intents are attached on every outcome, including the
+        # unresolved and unsupported paths.
         base = dict(
             raw_question=raw,
             status=COMPILE_INVALID,
+            detected_intents=lang.detect_intents(raw),
             provenance={
                 "method": "deterministic_question_compiler",
                 "compiler_version": COMPILER_VERSION,
@@ -371,6 +379,20 @@ def compile_question(
 
     # --- 2. enrich into a structured engineering question -------------------
     detected_intents = lang.detect_intents(raw)
+    temporal_scopes = lang.detect_temporal_scope(raw)
+    # Cross-race pattern seasons: derive from temporal scope when the intake
+    # did not explicitly resolve them. A cross-race question needs a season
+    # span to search; if the user named seasons explicitly, use those.
+    pattern_seasons = tuple(parsed.get("pattern_seasons") or ())
+    if not pattern_seasons and "cross_race" in temporal_scopes:
+        # Extract explicit season mentions from the question text
+        import re as _re
+        season_matches = _re.findall(r"\b(19[5-9]\d|20[0-7]\d)\b", raw)
+        if season_matches:
+            pattern_seasons = tuple(sorted(set(int(s) for s in season_matches)))
+        elif parsed.get("season") is not None:
+            # Default to the resolved season and the next one for cross-race
+            pattern_seasons = (int(parsed["season"]),)
     compiled = CompiledQuestion(
         raw_question=raw,
         status=COMPILE_PARSED,
@@ -384,7 +406,7 @@ def compile_question(
         lap_number=parsed.get("lap_number"),
         stint_number=parsed.get("stint_number"),
         pattern_id=parsed.get("pattern_id"),
-        pattern_seasons=tuple(parsed.get("pattern_seasons") or ()),
+        pattern_seasons=pattern_seasons,
         detected_intents=detected_intents,
         spatial_scopes=lang.detect_spatial_scope(raw),
         temporal_scopes=lang.detect_temporal_scope(raw),
