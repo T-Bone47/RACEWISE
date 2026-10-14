@@ -148,13 +148,14 @@ def _extract_observations(results: dict[str, Any]) -> list[dict[str, Any]]:
     """
     out: list[dict[str, Any]] = []
 
-    def _add(statement: str, value: Any, unit: Optional[str], cap_id: str) -> None:
+    def _add(statement: str, value: Any, unit: Optional[str], cap_id: str,
+             claim_class: str = "OBSERVED") -> None:
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             out.append({
                 "statement": statement,
                 "value": value,
                 "unit": unit,
-                "claim_class": "OBSERVED",
+                "claim_class": claim_class,
                 "capability_id": cap_id,
             })
 
@@ -182,8 +183,24 @@ def _extract_observations(results: dict[str, Any]) -> list[dict[str, Any]]:
 
     compare = results.get("compare_laps")
     if isinstance(compare, dict) and not compare.get("error"):
-        _add("Telemetry-window estimated time loss",
-             compare.get("total_est_time_loss_s"), "s", "compare_laps")
+        # The gross positive-only exposure is a localisation aid, not an
+        # additive loss: windows where B is faster are zeroed, not offset.
+        # The signed net is the figure that reconciles with the measured
+        # delta. Both are DERIVED estimates, never OBSERVED facts.
+        gross = compare.get("total_est_time_loss_s")
+        net = compare.get("net_est_time_loss_s")
+        if isinstance(gross, (int, float)):
+            _add("Telemetry-window gross slower-phase exposure (non-additive)",
+                 gross, "s", "compare_laps", claim_class="DERIVED")
+        if isinstance(net, (int, float)):
+            _add("Telemetry-window net time-loss estimate (signed, reconcilable)",
+                 net, "s", "compare_laps", claim_class="DERIVED")
+            observed = fusion.get("observed_delta_s") \
+                if isinstance(fusion, dict) and not fusion.get("error") else None
+            if isinstance(observed, (int, float)):
+                _add("Reconciliation residual (measured delta minus net telemetry estimate)",
+                     round(observed - net, 4), "s", "compare_laps",
+                     claim_class="DERIVED")
 
     gap = results.get("decompose_race_gap")
     if isinstance(gap, dict) and not gap.get("error"):
@@ -304,6 +321,37 @@ def _extract_calculations(results: dict[str, Any]) -> list[dict[str, Any]]:
         trend = stint.get("trend") if isinstance(stint.get("trend"), dict) else {}
         _add("Measured degradation slope per stint-lap",
              trend.get("slope_per_stint_lap"), "s", "analyze_stint")
+
+    compare = results.get("compare_laps")
+    if isinstance(compare, dict) and not compare.get("error"):
+        # Worst-window mechanism evidence: where B is slowest relative to A
+        # and which channels differ there. Association, not proven causation
+        # (the tool's own assumptions say so); this is what lets the answer
+        # address "why" in engineering terms instead of listing numbers.
+        worst = compare.get("max_loss_window")
+        if isinstance(worst, dict):
+            _add("Speed deficit in the highest-loss window",
+                 worst.get("speed_delta_kmh"), "km/h", "compare_laps",
+                 hypothesis_id="H1_corner_speed")
+            _add("Throttle delta in the highest-loss window",
+                 worst.get("throttle_delta_pct"), "%", "compare_laps",
+                 hypothesis_id="H2_throttle")
+            _add("Braking-fraction delta in the highest-loss window",
+                 worst.get("brake_delta_frac"), "fraction", "compare_laps",
+                 hypothesis_id="H3_braking")
+        for key, statement in (
+            ("throttle_association", "Throttle association in the highest-loss window"),
+            ("brake_association", "Brake association in the highest-loss window"),
+        ):
+            assoc = compare.get(key)
+            if isinstance(assoc, str) and assoc.strip():
+                out.append({
+                    "statement": statement,
+                    "detail": assoc,
+                    "unit": None,
+                    "claim_class": "DERIVED",
+                    "capability_id": "compare_laps",
+                })
     return out
 
 

@@ -317,7 +317,8 @@ def attribute_lap_loss(
       2. classify context/validity for both laps
       3. resample telemetry onto the shared lap-relative grid
       4. compute per-region speed-based loss estimates (CALCULATION)
-      5. reconcile: measured delta ≈ sum(region losses) + residual
+      5. reconcile: measured delta ≈ signed-net region sum + residual
+         (the gross positive-only exposure is non-additive localisation)
       6. attach per-signal metrics for the divergent regions
 
     Returns INSUFFICIENT_EVIDENCE / UNAVAILABLE rather than guessing.
@@ -426,9 +427,14 @@ def attribute_lap_loss(
         t_end = min(t + region_s, t1)
         va = _mean_in(speed_a, t, t_end)
         vb = _mean_in(speed_b, t, t_end)
-        loss = 0.0
-        if va and vb and va > 0 and vb < va:
-            loss = (t_end - t) * (1.0 - vb / va)
+        # Signed first-order region estimate (negative when B is faster
+        # in the region). The positive-only figure exists for worst-region
+        # localisation only; summing it rectifies faster regions away and
+        # cannot equal a net lap delta when signs mix within the lap.
+        signed = 0.0
+        if va and vb and va > 0 and vb > 0:
+            signed = (t_end - t) * (1.0 - vb / va)
+        loss = signed if va and vb and va > 0 and vb < va else 0.0
         regions.append({
             "region": len(regions) + 1,
             "t_start_s": round(t, 3),
@@ -436,11 +442,19 @@ def attribute_lap_loss(
             "mean_speed_a_kmh": round(va, 2) if va else None,
             "mean_speed_b_kmh": round(vb, 2) if vb else None,
             "speed_delta_kmh": round((vb or 0) - (va or 0), 2),
+            "signed_loss_s": round(signed, 4),
             "attributed_loss_s": round(loss, 4),
         })
         t = t_end
     estimated_total = round(sum(r["attributed_loss_s"] for r in regions), 4)
-    residual = round(observed_delta_s - estimated_total, 4)
+    net_total = round(sum(r["signed_loss_s"] for r in regions), 4)
+    # Gross positive-only exposure minus the signed net: the amount of
+    # loss created by zeroing faster regions instead of offsetting them.
+    # Large values mean the time-aligned windows are mixing track phases
+    # (equal lap time is not equal track position; no distance channel
+    # is ingested), not that the lap delta is larger than measured.
+    rectification_gap = round(estimated_total - net_total, 4)
+    residual = round(observed_delta_s - net_total, 4)
 
     # signal metrics attached for cross-checking regions
     metrics = _signal_metrics(grid, res_a, res_b)
@@ -465,21 +479,48 @@ def attribute_lap_loss(
                 r["attributed_loss_s"] for r in regions
                 if r["t_start_s"] >= w_start - region_s and r["t_end_s"] <= w_end + region_s
             ]
+            region_signed = [
+                r["signed_loss_s"] for r in regions
+                if r["t_start_s"] >= w_start - region_s and r["t_end_s"] <= w_end + region_s
+            ]
             sectors_out.append({
                 "sector": i + 1,
                 "delta_s": round(s_b[i] - s_a[i], 4),          # FACT
                 "telemetry_estimated_loss_s": round(sum(region_losses), 4),  # CALCULATION
+                "telemetry_net_estimate_s": round(sum(region_signed), 4),    # CALCULATION
                 "note": "delta is measured; telemetry estimate covers A's sector window",
             })
 
-    # (5) reconciliation verdict
-    reconciliation = {
-        "observed_delta_s": observed_delta_s,
-        "estimated_pace_component_s": estimated_total,
-        "residual_s": residual,
-        "tolerance_s": RESIDUAL_TOLERANCE_S,
-        "within_tolerance": abs(residual) <= RESIDUAL_TOLERANCE_S,
-        "interpretation": (
+    # (5) reconciliation verdict — the residual is measured minus the SIGNED
+    # net estimate (the reconcilable figure). A large gap between the gross
+    # positive-only exposure and the net means the time-aligned windows are
+    # mixing track phases; that gap is reported, never assigned. A sector
+    # whose measured fact and telemetry net disagree by far more than
+    # tolerance is the same failure localised: methodological, not physical.
+    sector_mismatch = any(
+        abs(s["delta_s"] - s["telemetry_net_estimate_s"])
+        > 5 * RESIDUAL_TOLERANCE_S
+        for s in (sectors_out or [])
+        if isinstance(s, dict)
+        and isinstance(s.get("delta_s"), (int, float))
+        and isinstance(s.get("telemetry_net_estimate_s"), (int, float))
+    )
+    phase_mixing = (
+        (rectification_gap > RESIDUAL_TOLERANCE_S
+         and rectification_gap > 0.5 * abs(observed_delta_s))
+        or (abs(residual) > RESIDUAL_TOLERANCE_S and sector_mismatch)
+    )
+    if phase_mixing:
+        interpretation = (
+            "window estimates mix track phases (time-aligned, not "
+            "distance-aligned): the gross positive-only exposure "
+            f"({estimated_total} s) exceeds the signed net "
+            f"({net_total} s) because faster windows were zeroed instead "
+            "of offsetting. The net estimate is the reconcilable figure; "
+            "the gross exposure localises slower windows but is non-additive"
+        )
+    else:
+        interpretation = (
             "speed-trace deficit accounts for the measured delta within tolerance"
             if abs(residual) <= RESIDUAL_TOLERANCE_S
             else (
@@ -487,11 +528,28 @@ def attribute_lap_loss(
                 "explain - look for pit-path/track-position effects or lap-time measurement "
                 "differences outside the speed traces"
                 if residual > 0
-                else "negative residual: driver B's speed trace does not explain their "
-                     "faster lap - window means smooth corner-exit differences the "
-                     "straight-line model cannot see"
+                else (
+                    "negative residual with B slower than A: the speed-trace model "
+                    "OVERESTIMATES the pace component here (time-aligned windows mix "
+                    "track phases and window-mean ratios overstate the deficit); the "
+                    "net is an upper bound, not a measurement - the measured delta stands"
+                    if observed_delta_s > 0
+                    else "negative residual: driver B's speed trace does not explain their "
+                         "faster lap - window means smooth corner-exit differences the "
+                         "straight-line model cannot see"
+                )
             )
-        ),
+        )
+    reconciliation = {
+        "observed_delta_s": observed_delta_s,
+        "estimated_pace_component_s": net_total,
+        "gross_positive_exposure_s": estimated_total,
+        "rectification_gap_s": rectification_gap,
+        "phase_mixing_flag": phase_mixing,
+        "residual_s": residual,
+        "tolerance_s": RESIDUAL_TOLERANCE_S,
+        "within_tolerance": abs(residual) <= RESIDUAL_TOLERANCE_S,
+        "interpretation": interpretation,
     }
 
     ranked = sorted(regions, key=lambda r: r["attributed_loss_s"], reverse=True)
@@ -507,13 +565,21 @@ def attribute_lap_loss(
         "regions": regions,
         "top_loss_regions": ranked[:3],
         "sector_attribution": sectors_out,
-        "estimated_pace_component_s": estimated_total,
+        "estimated_pace_component_s": net_total,
+        "gross_positive_exposure_s": estimated_total,
+        "gross_scope_note": (
+            "gross positive-only region exposure (faster regions zeroed, "
+            "not offset); NON-ADDITIVE — for worst-region localisation "
+            "only; use estimated_pace_component_s (signed net) for "
+            "reconciliation"
+        ),
         "residual_s": residual,
         "reconciliation": reconciliation,
         "signal_metrics": metrics,
         "evidence_typing": {
             "FACT": ["observed_delta_s", "lap_times"],
-            "CALCULATION": ["regions[].attributed_loss_s", "estimated_pace_component_s",
+            "CALCULATION": ["regions[].attributed_loss_s", "regions[].signed_loss_s",
+                            "estimated_pace_component_s", "gross_positive_exposure_s",
                             "residual_s", "signal_metrics"],
             "INFERENCE": ["reconciliation.interpretation"],
         },
@@ -521,6 +587,9 @@ def attribute_lap_loss(
             "linear interpolation of car-local telemetry onto a 0.25 s shared grid",
             "straight-line region loss dt*(1 - v_B/v_A); ignores racing line, tyre state, fuel",
             "region losses estimate the pace deficit embedded in the speed traces only",
+            "regions align by lap-relative TIME (SessionTime - LapStartTime per driver); "
+            "equal lap time is not equal track position and no distance channel is "
+            "ingested, so neighbouring regions can mix track phases",
             "both laps ran in comparable context (see context flags for caveats)",
         ],
         "provenance": {

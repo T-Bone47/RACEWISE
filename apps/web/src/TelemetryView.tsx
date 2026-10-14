@@ -19,6 +19,14 @@ interface TelemetryComparison {
   driver_b?: string
   n_windows?: number
   total_est_time_loss_s?: number
+  total_scope_note?: string | null
+  net_est_time_loss_s?: number
+  measured_delta_s?: number | null
+  net_residual_s?: number | null
+  reconciles_within_tolerance?: boolean | null
+  rectification_gap_s?: number
+  phase_mixing_flag?: boolean
+  phase_mixing_note?: string | null
   max_loss_window?: MaxLossWindow
   top_windows?: MaxLossWindow[]
   throttle_association?: string | null
@@ -160,9 +168,21 @@ export default function TelemetryView() {
             Lap {result.lap_number}: {result.driver_b} vs {result.driver_a}
           </h3>
           <div className="tv-headline">
-            Estimated total time loss:{' '}
-            <strong>{result.total_est_time_loss_s}s</strong> across {result.n_windows} windows
+            Measured lap delta:{' '}
+            <strong>{result.measured_delta_s != null ? `${result.measured_delta_s}s` : '—'}</strong>
+            {' '}· net telemetry estimate:{' '}
+            <strong>{result.net_est_time_loss_s}s</strong>
+            {result.net_residual_s != null && (
+              <> (residual <strong>{result.net_residual_s}s</strong>)</>
+            )}
           </div>
+          <div className="muted small">
+            Gross slower-window exposure: {result.total_est_time_loss_s}s across {result.n_windows} windows —
+            non-additive localisation aid (faster windows zeroed, not offset), not a second loss figure.
+          </div>
+          {result.phase_mixing_flag && result.phase_mixing_note && (
+            <div className="catalog-empty">{result.phase_mixing_note}</div>
+          )}
           <div className="tv-assoc">
             {result.throttle_association && <div>Throttle: {result.throttle_association}</div>}
             {result.brake_association && <div>Brake: {result.brake_association}</div>}

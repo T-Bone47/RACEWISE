@@ -14,6 +14,7 @@ interface SectorAttrib {
   sector: number
   delta_s: number
   telemetry_estimated_loss_s: number
+  telemetry_net_estimate_s?: number | null
   note: string
 }
 
@@ -36,6 +37,9 @@ interface Attribution {
   reconciliation?: {
     observed_delta_s: number
     estimated_pace_component_s: number
+    gross_positive_exposure_s?: number
+    rectification_gap_s?: number
+    phase_mixing_flag?: boolean
     residual_s: number
     within_tolerance: boolean
     interpretation: string
@@ -195,7 +199,8 @@ export default function AttributionView() {
                   <tr>
                     <th>Sector</th>
                     <th>Δ (B − A)</th>
-                    <th>Telemetry estimate</th>
+                    <th>Telemetry net est.</th>
+                    <th>Telemetry gross</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -206,6 +211,7 @@ export default function AttributionView() {
                         <span className="tv-cell">{s.delta_s}s</span>
                         <DeltaBar value={s.delta_s} max={maxSector} negative={s.delta_s < 0} />
                       </td>
+                      <td>{s.telemetry_net_estimate_s != null ? `${s.telemetry_net_estimate_s}s` : '—'}</td>
                       <td>{s.telemetry_estimated_loss_s}s</td>
                     </tr>
                   ))}
@@ -241,8 +247,11 @@ export default function AttributionView() {
             <div className="tv-assoc">
               <div>
                 Residual: <strong>{result.reconciliation.residual_s}s</strong> (observed{' '}
-                {result.reconciliation.observed_delta_s}s vs estimated{' '}
+                {result.reconciliation.observed_delta_s}s vs net estimate{' '}
                 {result.reconciliation.estimated_pace_component_s}s)
+                {result.reconciliation.gross_positive_exposure_s != null && (
+                  <> · gross positive-only exposure: {result.reconciliation.gross_positive_exposure_s}s (non-additive)</>
+                )}
               </div>
               <div>{result.reconciliation.interpretation}</div>
             </div>

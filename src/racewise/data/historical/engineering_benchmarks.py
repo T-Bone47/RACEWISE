@@ -505,16 +505,28 @@ class EngineeringBenchmarks:
         )
         if result.get("verdict") != "PASS":
             return {**out, **result}
+        measured = result.get("measured_delta_s")
+        net = result.get("net_est_time_loss_s")
+        residual = result.get("net_residual_s")
         out.update({
             "verdict": "PASS",
             "lap_number": lap_number,
             "analysis": result,
             "interpretation": (
-                f"Lap {lap_number}: estimated {result['total_est_time_loss_s']}s lost by {driver_b} to "
-                f"{driver_a}; largest loss window starts at {result['max_loss_window']['t_start_s']}s "
-                f"(speed delta {result['max_loss_window']['speed_delta_kmh']} km/h)."
+                f"Lap {lap_number}: "
+                + (f"measured delta {measured}s ({driver_b} minus {driver_a}); "
+                   if measured is not None else "")
+                + (f"signed net telemetry estimate {net}s "
+                   f"(residual {residual}s); "
+                   if net is not None and residual is not None else "")
+                + (f"gross slower-window exposure {result['total_est_time_loss_s']}s is "
+                   f"non-additive localisation, not a second loss figure. ")
+                + (f"Largest loss window "
+                   f"starts at {result['max_loss_window']['t_start_s']}s "
+                   f"(speed delta {result['max_loss_window']['speed_delta_kmh']} km/h).")
                 + (f" {result['throttle_association']}." if result.get("throttle_association") else "")
                 + (f" {result['brake_association']}." if result.get("brake_association") else "")
+                + (f" {result['phase_mixing_note']}" if result.get("phase_mixing_flag") else "")
             ),
         })
         return out
@@ -599,12 +611,18 @@ class EngineeringBenchmarks:
                 "which lap times, stints and positions cannot localise."
             ),
             "conclusion": (
-                f"Lap {lap}: PER loses an estimated {analysis['total_est_time_loss_s']}s to VER "
-                f"across {analysis['n_windows']} windows; the largest window "
+                f"Lap {lap}: measured delta {analysis.get('measured_delta_s')}s "
+                f"(PER minus VER); signed net telemetry estimate "
+                f"{analysis.get('net_est_time_loss_s')}s "
+                f"(residual {analysis.get('net_residual_s')}s); gross slower-window "
+                f"exposure {analysis['total_est_time_loss_s']}s across "
+                f"{analysis['n_windows']} windows is non-additive localisation. "
+                f"The largest window "
                 f"({worst['t_start_s']}-{worst['t_end_s']}s) shows "
                 f"{worst['speed_delta_kmh']} km/h mean-speed delta"
                 + (f" with {analysis['throttle_association']}" if analysis.get("throttle_association") else "")
                 + ". Straight-line time-loss approximation; documented assumptions apply."
+                + (f" {analysis['phase_mixing_note']}" if analysis.get("phase_mixing_flag") else "")
             ),
             "status": "PASS",
             "provenance": {

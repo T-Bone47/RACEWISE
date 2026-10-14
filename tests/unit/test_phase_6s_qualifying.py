@@ -198,7 +198,10 @@ class TestRacePathUnchanged:
         inv = _run("LAP_PERFORMANCE", "max-verstappen", "sergio-perez",
                    2023, 1, lap=6)
         assert inv["investigation_id"] == "fcc1bf694daada8e"
-        assert inv["output_hash"] == "e8263d8a0e191839"
+        # Re-baselined with the Phase 6E reconciliation fix (residual and
+        # pace component on the signed-net basis; was e8263d8a0e191839 on
+        # the rectified-sum basis). Structure and identity unchanged.
+        assert inv["output_hash"] == "e2082f5bb39c4386"
 
     def test_qualifying_id_differs_from_race_id_for_same_round(self):
         q = _run("LAP_PERFORMANCE", "max-verstappen", "sergio-perez",
