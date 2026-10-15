@@ -79,8 +79,9 @@ class UnionAlphaProvider:
 class NvidiaNimProvider:
     """NVIDIA NIM implementation of ModelProvider.
 
-    Uses NVIDIA's OpenAI-compatible endpoint. All settings configurable
-    via environment variables. Credentials never logged or exposed.
+    Uses NVIDIA's NIM endpoint (https://integrate.api.nvidia.com/v1).
+    All settings configurable via environment variables.
+    Credentials never logged or exposed.
     """
 
     name = "nvidia_nim"
