@@ -347,6 +347,9 @@ def _build_default_registry() -> ModelRegistry:
     #   moonshotai/kimi-k2.6
     #   moonshotai/kimi-k3
     #   openai/gpt-oss-20b
+    # Live test attempted 2026-10-15: FAILED (401 invalid API key).
+    # The key in .env is invalid/expired. Live verification pending
+    # valid credentials.
     nvidia_model = os.environ.get("NVIDIA_MODEL", "openai/gpt-oss-20b")
     nvidia_key_present = bool(_env_key("NVIDIA_API_KEY"))
     nvidia = ModelRecord(
@@ -355,8 +358,8 @@ def _build_default_registry() -> ModelRegistry:
         display_name=f"NVIDIA NIM ({nvidia_model})",
         configured=nvidia_key_present,
         supported=True,  # adapter is implemented
-        reachable=False,  # only True after a real successful request
-        integration_tested=False,  # only True after live test succeeds
+        reachable=False,  # live test failed (401)
+        integration_tested=False,  # live test failed
         supports_structured_output=None,  # unknown until verified
         supports_tool_calls=None,  # unknown until verified
         supports_streaming=None,  # unknown until verified
