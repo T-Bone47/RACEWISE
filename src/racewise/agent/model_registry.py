@@ -5,6 +5,7 @@ and task-aware routing policies for model selection.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
@@ -334,6 +335,25 @@ def _build_default_registry() -> ModelRegistry:
         integration_tested=False,
     )
     registry.register(gemini)
+
+    # NVIDIA NIM — adapter implemented; configured if key present
+    nvidia_model = os.environ.get("NVIDIA_MODEL", "openai/gpt-oss-120b")
+    nvidia_key_present = bool(_env_key("NVIDIA_API_KEY"))
+    nvidia = ModelRecord(
+        provider="nvidia_nim",
+        model_id=nvidia_model,
+        display_name=f"NVIDIA NIM ({nvidia_model})",
+        configured=nvidia_key_present,
+        supported=True,  # adapter is implemented
+        reachable=False,  # only True after a real successful request
+        integration_tested=False,  # only True after live test succeeds
+        supports_structured_output=None,  # unknown until verified
+        supports_tool_calls=None,  # unknown until verified
+        supports_streaming=None,  # unknown until verified
+        context_limit=None,  # unknown until verified
+        cost_per_1m_tokens=None,  # unknown — never claim zero
+    )
+    registry.register(nvidia)
 
     return registry
 
