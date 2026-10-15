@@ -92,3 +92,58 @@ def provider_from_env() -> ModelProvider | None:
             return None
         return UnionAlphaProvider(model_id=model_id, api_key=api_key)
     raise ProviderUnavailable(f"Unknown MODEL_PROVIDER '{provider_name}'")
+
+
+# ---------------------------------------------------------------------------
+# Prompt-template-backed generation (Phase D integration)
+# ---------------------------------------------------------------------------
+
+
+def generate_with_template(
+    provider: ModelProvider,
+    task: str,
+    version: str = "latest",
+    **template_vars: Any,
+) -> ModelResponse:
+    """Generate a response using a versioned prompt template.
+
+    Selects the template for the given task, renders it with the provided
+    variables, and invokes the provider. The template's output_schema is
+    passed as response_format when the provider supports it.
+
+    Raises ProviderUnavailable if the template is not found or required
+    variables are missing.
+    """
+    from racewise.question_engine.prompt_templates import (
+        PromptTask,
+        PROMPT_REGISTRY,
+    )
+
+    try:
+        task_enum = PromptTask(task)
+    except ValueError:
+        raise ProviderUnavailable(f"Unknown prompt task: {task}")
+
+    template = PROMPT_REGISTRY.get(task_enum, version)
+
+    # Validate required template variables
+    required = _template_required_vars(template.user_template)
+    missing = [v for v in required if v not in template_vars]
+    if missing:
+        raise ProviderUnavailable(
+            f"Template {task} v{version} missing required variables: {missing}"
+        )
+
+    messages = template.render(**template_vars)
+    response_format = None
+    if template.output_schema:
+        response_format = {"type": "json_schema", "json_schema": template.output_schema}
+
+    return provider.respond(messages, response_format=response_format)
+
+
+def _template_required_vars(template: str) -> list[str]:
+    """Extract required variable names from a template string."""
+    import re
+    # Find all ${var} patterns
+    return re.findall(r"\$\{(\w+)\}", template)

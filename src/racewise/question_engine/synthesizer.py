@@ -793,7 +793,7 @@ def synthesize(
         established.append({"statement": "what remains unexplained",
                             "detail": residuals})
 
-    return Answer(
+    answer = Answer(
         status=status,
         question=compiled.raw_question,
         scope=compiled.resolved_context(),
@@ -822,6 +822,69 @@ def synthesize(
         decision_trace=[s.as_dict() for s in plan.steps],
         follow_ups=_follow_ups(plan),
     )
+
+    # --- schema validation + evidence-reference validation (Phase D) ---
+    # Validate the structured answer against the AnswerSchema and verify
+    # that every claim referencing evidence actually references real evidence.
+    _validate_answer_schema(answer, results)
+
+    return answer
+
+
+def _validate_answer_schema(
+    answer: Answer,
+    results: dict[str, Any],
+) -> None:
+    """Validate answer structure and evidence references.
+
+    Raises ValueError if the answer violates the schema or references
+    evidence that was not actually produced.
+    """
+    from racewise.question_engine.answer_schemas import AnswerSchema
+
+    # schema validation
+    schema = AnswerSchema.model_validate(answer.as_dict())
+
+    # evidence-reference validation: every claim that references evidence
+    # must reference evidence that was actually produced
+    produced = {
+        e.get("evidence_id")
+        for e in (schema.evidence_ledger or [])
+        if e.get("evidence_id")
+    }
+    # Also accept capabilities that ran as valid sources
+    ran_capabilities = {
+        cid for cid, payload in results.items()
+        if isinstance(payload, dict) and not payload.get("error")
+    }
+
+    def _check_refs(refs: list[str], context: str) -> None:
+        for ref in refs:
+            if ref not in produced and ref not in ran_capabilities:
+                raise ValueError(
+                    f"answer references unknown evidence: {ref} "
+                    f"(context: {context})"
+                )
+
+    for obs in (schema.observations or []):
+        cap = obs.get("capability_id")
+        if cap and cap not in ran_capabilities:
+            raise ValueError(
+                f"observation references unknown capability: {cap}"
+            )
+
+    for calc in (schema.calculations or []):
+        cap = calc.get("capability_id")
+        if cap and cap not in ran_capabilities:
+            raise ValueError(
+                f"calculation references unknown capability: {cap}"
+            )
+
+    for hyp in (schema.hypotheses or []):
+        _check_refs(hyp.get("supporting_evidence_ids") or [],
+                    f"hypothesis {hyp.get('hypothesis_id')} supporting")
+        _check_refs(hyp.get("contradicting_evidence_ids") or [],
+                    f"hypothesis {hyp.get('hypothesis_id')} contradicting")
 
 
 def REGISTRY_LIMITATIONS(plan: InvestigationPlan) -> list[str]:

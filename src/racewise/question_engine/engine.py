@@ -469,6 +469,14 @@ def ask(
         )
     stage("SYNTHESIZE", "COMPLETED", answer.status)
 
+    # --- optional LLM-assisted synthesis (Phase D) ---
+    # When a provider is configured, use the prompt registry to generate
+    # an enriched answer. The deterministic answer remains the fallback.
+    llm_answer = _maybe_llm_synthesize(compiled, plan, results, answer)
+    if llm_answer is not None:
+        answer = llm_answer
+        stage("SYNTHESIZE", "COMPLETED", answer.status)
+
     stage("VERIFY", "RUNNING", None)
     report = verify_answer(answer, results)
     stage("VERIFY", "COMPLETED", "passed" if report.passed else "failed")
@@ -502,6 +510,53 @@ def ask(
             "answer_hash": answer.as_dict()["answer_hash"],
         }),
     }
+
+
+def _maybe_llm_synthesize(
+    compiled: CompiledQuestion,
+    plan: InvestigationPlan,
+    results: dict[str, Any],
+    deterministic_answer: "Answer",
+) -> Optional["Answer"]:
+    """Optional LLM-assisted answer synthesis (Phase D).
+
+    When a provider is configured, use the prompt registry to generate
+    an enriched answer. The deterministic answer remains the fallback.
+
+    Returns the LLM answer if synthesis succeeded, None otherwise.
+    Never raises — the deterministic answer is always the fallback.
+    """
+    try:
+        from racewise.agent.provider import provider_from_env, generate_with_template
+        provider = provider_from_env()
+        if provider is None:
+            return None
+
+        # Use the ANSWER_SYNTHESIS template with the investigation results
+        import json
+        response = generate_with_template(
+            provider,
+            "ANSWER_SYNTHESIS",
+            question=compiled.raw_question,
+            scope_json=json.dumps(compiled.resolved_context()),
+            results_json=json.dumps(results, default=str, sort_keys=True),
+        )
+
+        # Parse the LLM response as a structured answer
+        llm_answer_dict = json.loads(response.content)
+        from racewise.question_engine.answer_schemas import (
+            answer_to_schema,
+            schema_to_answer,
+        )
+        schema = answer_to_schema(deterministic_answer)
+        # Update the schema with LLM-generated content
+        for key in ("short_answer", "engine_conclusion"):
+            if key in llm_answer_dict and llm_answer_dict[key]:
+                setattr(schema, key, llm_answer_dict[key])
+        return schema_to_answer(schema)
+
+    except Exception:
+        return None
 
 
 def follow_up(
