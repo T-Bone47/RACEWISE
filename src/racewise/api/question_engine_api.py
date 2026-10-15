@@ -90,6 +90,14 @@ class AskRequest(BaseModel):
         ),
     )
     budget: Optional[dict[str, int]] = Field(default=None)
+    critique: bool = Field(
+        default=False,
+        description=(
+            "Request an independent model review of the answer. Runs only when "
+            "the critique gate fires and a provider is configured; the "
+            "deterministic answer is always authoritative."
+        ),
+    )
 
 
 class FollowUpRequest(BaseModel):
@@ -105,12 +113,45 @@ def ask_question(payload: AskRequest) -> dict[str, Any]:
     verification report. An unanswerable question is a successful response with
     an honest status, not an HTTP error — "we cannot establish this" is a
     result, and the frontend renders it as one.
+
+    When ``critique`` is true, an independent model review is attempted iff
+    the critique gate fires and a provider is configured. The review is
+    appended beside the authoritative deterministic answer and never
+    modifies it.
     """
     from racewise.data.historical.canonical_queries import get_canonical_queries
     from racewise.question_engine.engine import ask
 
-    return ask(get_canonical_queries(), payload.question,
-               context=payload.context, budget=payload.budget)
+    out = ask(get_canonical_queries(), payload.question,
+              context=payload.context, budget=payload.budget)
+    if payload.critique:
+        out["critique"] = _maybe_critique(out)
+    return out
+
+
+def _maybe_critique(out: dict[str, Any]) -> dict[str, Any]:
+    """Attempt an independent review; always degrade honestly."""
+    from racewise.agent.critique import run_critique, should_critique
+    from racewise.agent.provider import provider_from_env
+
+    answer = out.get("answer") or {}
+    fire, reason = should_critique(answer)
+    if not fire:
+        return {"status": "not_justified", "reason": reason}
+    provider = provider_from_env()
+    if provider is None:
+        return {"status": "unavailable",
+                "reason": "no model provider configured"}
+    evidence_ids = [
+        str(e.get("evidence_id") or e.get("id") or "")
+        for e in (answer.get("evidence_ledger") or [])
+    ]
+    try:
+        result = run_critique(provider, answer, evidence_ids)
+    except Exception as exc:  # noqa: BLE001 — review never breaks answers
+        return {"status": "error",
+                "reason": f"{type(exc).__name__}: {exc}"}
+    return {"status": "completed", **result.as_dict()}
 
 
 @router.post("/api/investigations/{investigation_id}/follow-up")
