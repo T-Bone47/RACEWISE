@@ -8,23 +8,29 @@ measured first (canonical lap facts), and telemetry is used only to
 EXPLAIN it. Telemetry never defines the delta.
 
 Alignment decision (documented, §4 of the phase plan):
-    Both drivers' telemetry is resampled onto a fixed lap-relative time
-    grid (DEFAULT_STEP_S = 0.25 s) spanning the overlapping lap-time span.
-    Why: FastF1 samples are timestamped per car at ~3.8 Hz with no shared
-    time base between cars; lap-relative time (SessionTime - LapStartTime)
-    is already canonical in canonical_telemetry.lap_time_s. Distance
-    normalization is NOT used: no distance channel exists (positional
-    channels deferred in 6C). Linear interpolation, clamped to the
-    observed span (no extrapolation) - boundary samples are dropped when
-    either driver lacks coverage. Original telemetry is never modified.
+    Both drivers' telemetry is compared on a COMMON DISTANCE grid (see
+    alignment.py): per-driver cumulative distance from measured speeds,
+    rescaled to their mean lap distance, resampled to equal spans, with
+    speeds linearly interpolated. Why distance, not lap-relative time:
+    equal lap time is not equal track position, and time-window means
+    overstate the deficit where speed varies (Jensen gap) — measured
+    2-4x inflation on real laps. Distance-fraction alignment compares
+    both drivers at the same fraction of lap distance; the signed sum
+    reconciles with the measured delta up to interpolation error.
+    Regions are equal-distance spans; t_start/t_end map through driver
+    A's distance->time for display on time-axis views. Original
+    telemetry is never modified.
 
 Loss model (§9, conservative):
-    The lap is divided into fixed TIME WINDOWS (region grid). For each
-    region, the straight-line time-loss estimate
-        loss_r = dt * (1 - v_B/v_A)          (when v_B < v_A)
-    attributes the observed pace deficit to the region. Region losses sum
-    to a total which is RECONCILED against the independently measured
+    The lap is divided into equal-DISTANCE spans on the common grid. For
+    each span, the straight-line time-loss estimate
+        loss_s = ds * (1/v_B - 1/v_A)
+    attributes the observed pace deficit to the span. Span losses sum to
+    a signed net which is RECONCILED against the independently measured
     lap-time delta; the residual is reported explicitly, never discarded.
+    Regions aggregate spans for display and ranking; the positive-only
+    regional figure exists for worst-region localisation only and is
+    non-additive.
 
     Important honesty boundary: this straight-line model ignores racing
     line, tyre state, and fuel; the sum of region losses is an ESTIMATE
@@ -421,31 +427,86 @@ def attribute_lap_loss(
     if t1 <= t0:
         return {**base, "status": INSUFFICIENT, "reason": "no overlapping speed-trace span"}
 
+    # (4) per-region losses from the speed traces, computed on the COMMON
+    # DISTANCE grid (see alignment.py): equal lap time is not equal track
+    # position, so time-window means overstate the deficit where speed
+    # varies (Jensen gap). Distance-fraction alignment compares both
+    # drivers at the same fraction of lap distance using their NATIVE
+    # samples (resampling would smooth corner entries/exits and reintroduce
+    # bias); the signed sum reconciles with the measured delta up to
+    # interpolation error.
+    from racewise.data.historical.alignment import (
+        cumulative_distance,
+        distance_aligned_losses,
+    )
+    nat_a = [(t, v) for t, v in sig_a["speed"]
+             if v is not None]
+    nat_b = [(t, v) for t, v in sig_b["speed"]
+             if v is not None]
+    if len(nat_a) < 2 or len(nat_b) < 2:
+        return {**base, "status": INSUFFICIENT, "reason": "no overlapping speed-trace span"}
+    # Full laps, fraction-aligned: both series span their driver's lap, and
+    # the common-distance rescale maps them onto the same [0, D]. Clipping
+    # to the time overlap would discard real lap content (up to ~1% of the
+    # lap); edge offsets (~0.1 s) are second-order and documented.
+    t0 = max(nat_a[0][0], nat_b[0][0])
+    t1 = min(nat_a[-1][0], nat_b[-1][0])
+    aligned = distance_aligned_losses(
+        [t for t, _ in nat_a], [v for _, v in nat_a],
+        [t for t, _ in nat_b], [v for _, v in nat_b],
+        n_spans=400)
+    if aligned is None:
+        return {**base, "status": INSUFFICIENT,
+                "reason": "derived lap distances disagree beyond tolerance"}
+    spans = aligned["span_losses"]
+    dist_total = aligned["distance_m"]
+    n_regions = max(1, round((t1 - t0) / region_s)) if region_s > 0 else 1
+    # driver A distance->time inverse for display mapping (native samples)
+    cum_a = cumulative_distance([t for t, _ in nat_a],
+                                [v for _, v in nat_a])
+    D_a = cum_a[-1] if cum_a[-1] > 0 else dist_total
+
+    def _time_at_distance(s: float) -> float:
+        import bisect as _bisect
+        i = _bisect.bisect_left(cum_a, s)
+        if i <= 0:
+            return nat_a[0][0]
+        if i >= len(cum_a):
+            return nat_a[-1][0]
+        c0, c1 = cum_a[i - 1], cum_a[i]
+        if c1 == c0:
+            return nat_a[i][0]
+        f = (s - c0) / (c1 - c0)
+        t0_, t1_ = nat_a[i - 1][0], nat_a[i][0]
+        return t0_ + f * (t1_ - t0_)
+
     regions: list[dict[str, Any]] = []
-    t = t0
-    while t < t1:
-        t_end = min(t + region_s, t1)
-        va = _mean_in(speed_a, t, t_end)
-        vb = _mean_in(speed_b, t, t_end)
-        # Signed first-order region estimate (negative when B is faster
-        # in the region). The positive-only figure exists for worst-region
-        # localisation only; summing it rectifies faster regions away and
-        # cannot equal a net lap delta when signs mix within the lap.
-        signed = 0.0
-        if va and vb and va > 0 and vb > 0:
-            signed = (t_end - t) * (1.0 - vb / va)
-        loss = signed if va and vb and va > 0 and vb < va else 0.0
+    for r in range(n_regions):
+        lo, hi = dist_total * r / n_regions, dist_total * (r + 1) / n_regions
+        in_region = [sp for sp in spans if lo <= (sp["s_start_m"] + sp["s_end_m"]) / 2 < hi]
+        if r == n_regions - 1:
+            in_region = [sp for sp in spans if (sp["s_start_m"] + sp["s_end_m"]) / 2 >= lo]
+        if not in_region:
+            continue
+        signed = round(sum(sp["signed_loss_s"] for sp in in_region), 4)
+        va = sum(sp["v_a_kmh"] for sp in in_region) / len(in_region)
+        vb = sum(sp["v_b_kmh"] for sp in in_region) / len(in_region)
+        # map region distance bounds to A-lap time via A's own cumulative
+        # distance rescaled to the common total (same rescaling as alignment)
+        t_start = _time_at_distance(lo / dist_total * D_a)
+        t_end = _time_at_distance(min(hi, dist_total) / dist_total * D_a)
         regions.append({
             "region": len(regions) + 1,
-            "t_start_s": round(t, 3),
+            "t_start_s": round(t_start, 3),
             "t_end_s": round(t_end, 3),
-            "mean_speed_a_kmh": round(va, 2) if va else None,
-            "mean_speed_b_kmh": round(vb, 2) if vb else None,
-            "speed_delta_kmh": round((vb or 0) - (va or 0), 2),
-            "signed_loss_s": round(signed, 4),
-            "attributed_loss_s": round(loss, 4),
+            "mean_speed_a_kmh": round(va, 2),
+            "mean_speed_b_kmh": round(vb, 2),
+            "speed_delta_kmh": round(vb - va, 2),
+            "signed_loss_s": signed,
+            "attributed_loss_s": round(max(signed, 0.0), 4),
         })
-        t = t_end
+    if not regions:
+        return {**base, "status": INSUFFICIENT, "reason": "no overlapping speed-trace span"}
     estimated_total = round(sum(r["attributed_loss_s"] for r in regions), 4)
     net_total = round(sum(r["signed_loss_s"] for r in regions), 4)
     # Gross positive-only exposure minus the signed net: the amount of
@@ -461,34 +522,47 @@ def attribute_lap_loss(
 
     # (4b) authoritative sector attribution when canonical sector splits
     # exist for BOTH laps: sector deltas are measured FACTS and sum exactly
-    # to the lap delta (no model, no residual). Time-window regions above
-    # remain the telemetry-side estimate; sectors are the authoritative
-    # decomposition of the measured delta.
+    # to the lap delta (no model, no residual). Sector telemetry nets are
+    # assigned in DISTANCE space: each sector's time share of A's lap maps
+    # to a distance share via A's cumulative distance, and distance-span
+    # losses sum within it. No padding, no time-window overlap heuristics.
     sectors_out: Optional[list[dict[str, Any]]] = None
     s_a = [lap_a.get("sector1_s"), lap_a.get("sector2_s"), lap_a.get("sector3_s")]
     s_b = [lap_b.get("sector1_s"), lap_b.get("sector2_s"), lap_b.get("sector3_s")]
     if all(v is not None for v in (*s_a, *s_b)):
-        # map each sector's time share onto the lap-relative time grid
-        cum_a = [0.0, s_a[0], s_a[0] + s_a[1], s_a[0] + s_a[1] + s_a[2]]
-        cum_b = [0.0, s_b[0], s_b[0] + s_b[1], s_b[0] + s_b[1] + s_b[2]]
+        import bisect as _bisect2
+
+        nat_times = [t for t, _ in nat_a]
+
+        def _dist_at_time(t: float) -> float:
+            i = _bisect2.bisect_left(nat_times, t)
+            if i <= 0:
+                return cum_a[0]
+            if i >= len(nat_times):
+                return cum_a[-1]
+            c0, c1 = cum_a[i - 1], cum_a[i]
+            t0_, t1_ = nat_times[i - 1], nat_times[i]
+            if t1_ == t0_:
+                return c1
+            return c0 + (c1 - c0) * (t - t0_) / (t1_ - t0_)
+
+        scale = dist_total / D_a if D_a > 0 else 1.0
+        cum_a_time = [0.0, s_a[0], s_a[0] + s_a[1], s_a[0] + s_a[1] + s_a[2]]
+        sec_bounds = [_dist_at_time(t) * scale for t in cum_a_time]
         sectors_out = []
         for i in range(3):
-            # grid window for this sector of driver A's lap (alignment base)
-            w_start, w_end = cum_a[i], cum_a[i + 1]
-            region_losses = [
-                r["attributed_loss_s"] for r in regions
-                if r["t_start_s"] >= w_start - region_s and r["t_end_s"] <= w_end + region_s
-            ]
-            region_signed = [
-                r["signed_loss_s"] for r in regions
-                if r["t_start_s"] >= w_start - region_s and r["t_end_s"] <= w_end + region_s
-            ]
+            w_start, w_end = sec_bounds[i], sec_bounds[i + 1]
+            in_span = [sp for sp in spans
+                       if w_start <= (sp["s_start_m"] + sp["s_end_m"]) / 2
+                       < w_end or (i == 2 and (sp["s_start_m"] + sp["s_end_m"]) / 2 >= w_start)]
             sectors_out.append({
                 "sector": i + 1,
                 "delta_s": round(s_b[i] - s_a[i], 4),          # FACT
-                "telemetry_estimated_loss_s": round(sum(region_losses), 4),  # CALCULATION
-                "telemetry_net_estimate_s": round(sum(region_signed), 4),    # CALCULATION
-                "note": "delta is measured; telemetry estimate covers A's sector window",
+                "telemetry_estimated_loss_s": round(sum(
+                    max(sp["signed_loss_s"], 0.0) for sp in in_span), 4),
+                "telemetry_net_estimate_s": round(sum(
+                    sp["signed_loss_s"] for sp in in_span), 4),
+                "note": "delta is measured; telemetry estimate covers A's sector distance share",
             })
 
     # (5) reconciliation verdict — the residual is measured minus the SIGNED

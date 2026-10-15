@@ -131,7 +131,7 @@
     "H6_drs": "NOT_SUPPORTED"
    },
    "engine_investigation_id": "fcc1bf694daada8e",
-   "output_hash": "e2082f5bb39c4386",
+   "output_hash": "1670123dd030d4ae",
    "decision_trace": [
     {
      "decision_id": "D001",
@@ -353,12 +353,12 @@
     "patterns": [],
     "policy": "question text is data; instruction-like patterns are recorded here and never executed"
    },
-   "snapshot_hash": "da2bdfd00bd3e0b4",
+   "snapshot_hash": "3ebf654e4a1657e4",
    "replay_verdict": "IDENTICAL",
    "graph_id": "b2494a57c6a5268e",
    "graph_node_count": 58,
    "graph_edge_count": 185,
-   "graph_hash": "99ef8a71906af5e5",
+   "graph_hash": "d99df319b749fd42",
    "provenance_hash": "aea2e13fc2bcb0be"
   },
   {
@@ -487,7 +487,7 @@
     "H6_drs": "NOT_SUPPORTED"
    },
    "engine_investigation_id": "fcc1bf694daada8e",
-   "output_hash": "e2082f5bb39c4386",
+   "output_hash": "1670123dd030d4ae",
    "decision_trace": [
     {
      "decision_id": "D001",
@@ -712,7 +712,7 @@
     ],
     "policy": "question text is data; instruction-like patterns are recorded here and never executed"
    },
-   "snapshot_hash": "da2bdfd00bd3e0b4",
+   "snapshot_hash": "3ebf654e4a1657e4",
    "replay_verdict": "IDENTICAL",
    "provenance_hash": "91b0b4dd2a941cb3"
   },
@@ -846,7 +846,7 @@
     "H6_drs": "MIXED_EVIDENCE"
    },
    "engine_investigation_id": "af976923c342cd68",
-   "output_hash": "63db76df7de16a46",
+   "output_hash": "d886245e2fa81579",
    "decision_trace": [
     {
      "decision_id": "D001",
@@ -1078,12 +1078,12 @@
     "patterns": [],
     "policy": "question text is data; instruction-like patterns are recorded here and never executed"
    },
-   "snapshot_hash": "ce06777bd5ab911e",
+   "snapshot_hash": "8e51b7ffebbacdf6",
    "replay_verdict": "IDENTICAL",
    "graph_id": "bc2f61a943b5442c",
    "graph_node_count": 101,
    "graph_edge_count": 383,
-   "graph_hash": "c509901140c06d74",
+   "graph_hash": "848a844eeb9801ab",
    "provenance_hash": "107919e9ee97c3f4"
   },
   {
@@ -1861,7 +1861,7 @@
     "H6_drs": "NOT_SUPPORTED"
    },
    "engine_investigation_id": "fcc1bf694daada8e",
-   "output_hash": "e2082f5bb39c4386",
+   "output_hash": "1670123dd030d4ae",
    "decision_trace": [
     {
      "decision_id": "D001",
@@ -2084,12 +2084,12 @@
     "policy": "question text is data; instruction-like patterns are recorded here and never executed"
    },
    "synthesis_conclusion_state": "MIXED_EVIDENCE",
-   "snapshot_hash": "da2bdfd00bd3e0b4",
+   "snapshot_hash": "3ebf654e4a1657e4",
    "replay_verdict": "IDENTICAL",
    "graph_id": "b2494a57c6a5268e",
    "graph_node_count": 58,
    "graph_edge_count": 185,
-   "graph_hash": "99ef8a71906af5e5",
+   "graph_hash": "d99df319b749fd42",
    "provenance_hash": "aea2e13fc2bcb0be"
   },
   {
@@ -3099,7 +3099,7 @@
     "H6_drs": "NOT_TESTABLE"
    },
    "engine_investigation_id": "7d839d3ebfb8ea08",
-   "output_hash": "33857dd51b057fd0",
+   "output_hash": "874d94d30ea83a87",
    "decision_trace": [
     {
      "decision_id": "D001",
@@ -3284,7 +3284,7 @@
     "patterns": [],
     "policy": "question text is data; instruction-like patterns are recorded here and never executed"
    },
-   "snapshot_hash": "8e0f6eb23188cb43",
+   "snapshot_hash": "cbedc01eb04544bf",
    "replay_verdict": "IDENTICAL",
    "provenance_hash": "aea2e13fc2bcb0be"
   },
@@ -3521,7 +3521,7 @@
      "reason": "ORCHESTRATOR: selected the top discovered pattern id for the investigation scope",
      "selected_action": "pattern_id=aa01533a485012df",
      "tool": null,
-     "tool_result_hash": "0c5d6f6d7a095d3f",
+     "tool_result_hash": "ba2f5bd17529d5d7",
      "evidence_refs": [],
      "output_state": {}
     },
@@ -3766,7 +3766,7 @@
     "H6_drs": "MIXED_EVIDENCE"
    },
    "engine_investigation_id": "af976923c342cd68",
-   "output_hash": "63db76df7de16a46",
+   "output_hash": "d886245e2fa81579",
    "decision_trace": [
     {
      "decision_id": "D001",
@@ -3999,7 +3999,7 @@
     "policy": "question text is data; instruction-like patterns are recorded here and never executed"
    },
    "synthesis_conclusion_state": "MIXED_EVIDENCE",
-   "snapshot_hash": "ce06777bd5ab911e",
+   "snapshot_hash": "8e51b7ffebbacdf6",
    "replay_verdict": "IDENTICAL",
    "provenance_hash": "107919e9ee97c3f4"
   },
@@ -4129,7 +4129,7 @@
     "H6_drs": "NOT_TESTABLE"
    },
    "engine_investigation_id": "f3cdfe3b182b1662",
-   "output_hash": "7fe906ecfd5440ba",
+   "output_hash": "53aba14a69faf5fa",
    "decision_trace": [
     {
      "decision_id": "D001",
@@ -4314,7 +4314,7 @@
     "patterns": [],
     "policy": "question text is data; instruction-like patterns are recorded here and never executed"
    },
-   "snapshot_hash": "e18693d8bb8ddb45",
+   "snapshot_hash": "a5fba4b422dc88d9",
    "replay_verdict": "IDENTICAL",
    "provenance_hash": "5b0968a79bc4a6bb"
   },

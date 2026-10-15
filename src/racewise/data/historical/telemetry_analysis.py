@@ -86,17 +86,57 @@ def compare_telemetry_lap(
     if not windows:
         return {**base, "verdict": "INSUFFICIENT_EVIDENCE", "reason": "no overlapping time windows"}
 
+    # Signed window losses come from the COMMON DISTANCE grid (see
+    # alignment.py), aggregated into these display windows through driver
+    # A's time->distance: time-window means overstate the deficit where
+    # speed varies, so the means above serve association evidence while
+    # the distance sums serve estimation. Both drivers' native samples;
+    # no resampling.
+    from racewise.data.historical.alignment import (
+        cumulative_distance,
+        distance_aligned_losses,
+    )
+    nat_a = [(t, v) for t, v in sig_a["speed"] if v is not None]
+    nat_b = [(t, v) for t, v in sig_b["speed"] if v is not None]
+    aligned = (distance_aligned_losses(
+        [t for t, _ in nat_a], [v for _, v in nat_a],
+        [t for t, _ in nat_b], [v for _, v in nat_b],
+        n_spans=400) if len(nat_a) >= 2 and len(nat_b) >= 2 else None)
+    cum_a = cumulative_distance([t for t, _ in nat_a],
+                                [v for _, v in nat_a]) if nat_a else []
+    dist_total = aligned["distance_m"] if aligned else 0.0
+    D_a = cum_a[-1] if cum_a else 0.0
+
+    def _dist_at_time(t: float) -> float:
+        import bisect as _bisect
+        times = [x for x, _ in nat_a]
+        i = _bisect.bisect_left(times, t)
+        if i <= 0:
+            return cum_a[0]
+        if i >= len(times):
+            return cum_a[-1]
+        c0, c1 = cum_a[i - 1], cum_a[i]
+        t0_, t1_ = times[i - 1], times[i]
+        if t1_ == t0_:
+            return c1
+        return c0 + (c1 - c0) * (t - t0_) / (t1_ - t0_)
+
+    spans = aligned["span_losses"] if aligned else []
+    scale = dist_total / D_a if D_a > 0 else 1.0
     loss_total = 0.0
     net_total = 0.0
     ranked = []
-    for w in windows:
-        # Signed first-order window estimate (negative when B is faster
-        # in the window). The positive-only figure below exists for
-        # worst-window localisation only.
-        signed = w["dt"] * (1.0 - w["v_b"] / w["v_a"]) \
-            if w["v_a"] > 0 and w["v_b"] > 0 else 0.0
-        loss = signed if w["v_a"] > 0 and w["v_b"] < w["v_a"] else 0.0
-        w["signed_loss_s"] = round(signed, 4)
+    for idx, w in enumerate(windows):
+        d0 = _dist_at_time(w["t_start"]) * scale
+        d1 = _dist_at_time(w["t_end"]) * scale
+        last = idx == len(windows) - 1
+        signed = round(sum(
+            sp["signed_loss_s"] for sp in spans
+            if d0 <= (sp["s_start_m"] + sp["s_end_m"]) / 2 < d1
+            or (last and (sp["s_start_m"] + sp["s_end_m"]) / 2 >= d0)), 4) \
+            if spans else 0.0
+        loss = signed if signed > 0 else 0.0
+        w["signed_loss_s"] = signed
         w["est_time_loss_s"] = round(loss, 4)
         loss_total += loss
         net_total += signed
