@@ -472,12 +472,10 @@ def catalog_stint_evidence(
     policy). Stint defaults to the canonical stint with the most telemetry-
     covered common clean laps - never a fabricated one.
     """
-    import logging
-
     from racewise.data.historical.canonical_queries import get_canonical_queries
     from racewise.data.historical.catalog_api import get_catalog_api
     from racewise.data.historical.stint_evidence import (
-        _select_common_laps,
+        default_common_stint,
         fuse_stint_evidence,
     )
 
@@ -501,22 +499,12 @@ def catalog_stint_evidence(
     if stint is not None:
         return fuse_stint_evidence(queries, season, round, driver_a, driver_b, int(stint))
     # default stint: most telemetry-covered common clean laps (deterministic)
-    stints = queries.get_stints(season, round, "RACE", driver_a)
-    best: tuple[int, int] | None = None  # (count, stint_number)
-    for s in stints:
-        try:
-            selected, _excluded, _sa, _sb = _select_common_laps(
-                queries, season, round, "RACE", driver_a, driver_b,
-                int(s["stint_number"]), 10)
-        except Exception:  # noqa: BLE001 - selection must not break the default
-            logging.getLogger("racewise").debug("stint selection failed", exc_info=True)
-            continue
-        if best is None or len(selected) > best[0]:
-            best = (len(selected), int(s["stint_number"]))
-    if best is None or best[0] < 2:
+    from racewise.data.historical.stint_evidence import default_common_stint
+    resolved = default_common_stint(queries, season, round, driver_a, driver_b, "RACE")
+    if resolved is None:
         return {"season": season, "round": round, "status": "INSUFFICIENT_EVIDENCE",
                 "reason": "no canonical stint with >= 2 telemetry-covered common clean laps"}
-    return fuse_stint_evidence(queries, season, round, driver_a, driver_b, best[1])
+    return fuse_stint_evidence(queries, season, round, driver_a, driver_b, resolved)
 
 
 @app.get("/api/catalog/session-context/{season}/{round}")

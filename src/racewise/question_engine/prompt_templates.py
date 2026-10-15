@@ -81,12 +81,28 @@ class PromptTemplate:
         return self.render(**kwargs)
 
 
+def resolve_task(task: str | PromptTask) -> PromptTask:
+    """Resolve a task name, member name or value to a PromptTask member.
+
+    Accepts ``PromptTask.ANSWER_SYNTHESIS``, ``"ANSWER_SYNTHESIS"`` and
+    ``"answer_synthesis"`` alike. Bare ``PromptTask(value)`` construction
+    only accepts values, so member-name strings (the form callers
+    naturally write) would otherwise raise — a dormant defect this
+    function retires.
+    """
+    if isinstance(task, PromptTask):
+        return task
+    key = task.strip().upper()
+    if key in PromptTask.__members__:
+        return PromptTask[key]
+    return PromptTask(task.strip().lower())
+
+
 class PromptRegistry:
     """Registry of versioned prompt templates."""
 
     def __init__(self) -> None:
         self._templates: dict[tuple[PromptTask, str], PromptTemplate] = {}
-
     def register(self, template: PromptTemplate) -> None:
         """Register a prompt template."""
         key = (template.task, template.version)
@@ -104,7 +120,7 @@ class PromptRegistry:
             # Simple semantic version comparison (v1, v2, etc.)
             latest = max(versions, key=lambda v: tuple(map(int, v.lstrip("v").split("."))))
             return self._templates[(task, latest)]
-        key = (PromptTask(task), version)
+        key = (resolve_task(task), version)
         if key not in self._templates:
             raise KeyError(f"Template not found: {key}")
         return self._templates[key]
@@ -415,6 +431,7 @@ __all__ = [
     "PromptTemplate",
     "PromptRegistry",
     "PROMPT_REGISTRY",
+    "resolve_task",
     "RACEWISE_SYSTEM_PROMPT",
     "ANSWER_SYNTHESIS_TEMPLATE",
     "QUESTION_UNDERSTANDING_TEMPLATE",

@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 if __package__ in (None, ""):  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -43,6 +43,7 @@ STINT_EVIDENCE_VERSION = "stint_evidence_v1"
 MIN_TREND_OBS = 3          # fewer valid laps -> trend INSUFFICIENT_EVIDENCE
 DEFAULT_MAX_LAPS = 10      # bounded evenly spaced sample across the stint
 MAX_LAPS_CAP = 16          # hard input bound
+MIN_COMMON_LAPS = 2        # fewer common clean laps -> no comparable stint
 # change-point thresholds (documented, deterministic): a slope change between
 # the first and second half of the lap sequence must exceed this absolute
 # value (s/lap) to be reported.
@@ -335,6 +336,44 @@ def _change_point(trajectory: list[dict[str, Any]]) -> dict[str, Any]:
             "first_half_slope": round(s1, 4), "second_half_slope": round(s2, 4),
             "slope_delta": round(delta, 4), "threshold": CHANGE_POINT_DELTA_S,
             "direction": "widening" if delta > 0 else "narrowing"}
+
+
+# ---------------------------------------------------------------------------
+# default stint resolution (shared by the catalog route and the engine)
+# ---------------------------------------------------------------------------
+
+
+def default_common_stint(
+    queries: CanonicalQueries,
+    season: int,
+    round_num: int,
+    driver_a: str,
+    driver_b: str,
+    session_type: str = "RACE",
+) -> Optional[int]:
+    """Stint with the most telemetry-covered common clean laps.
+
+    Deterministic default when no stint is named: never a fabricated
+    choice. Returns None when no stint reaches MIN_COMMON_LAPS.
+    """
+    import logging
+
+    stints = queries.get_stints(season, round_num, session_type, driver_a)
+    best: Optional[tuple[int, int]] = None  # (count, stint_number)
+    for s in stints:
+        try:
+            selected, _excluded, _sa, _sb = _select_common_laps(
+                queries, season, round_num, session_type, driver_a, driver_b,
+                int(s["stint_number"]), DEFAULT_MAX_LAPS)
+        except Exception:  # noqa: BLE001 - selection must not break the default
+            logging.getLogger("racewise").debug(
+                "stint selection failed", exc_info=True)
+            continue
+        if best is None or len(selected) > best[0]:
+            best = (len(selected), int(s["stint_number"]))
+    if best is None or best[0] < MIN_COMMON_LAPS:
+        return None
+    return best[1]
 
 
 # ---------------------------------------------------------------------------

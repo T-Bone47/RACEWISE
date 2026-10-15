@@ -162,22 +162,51 @@ def _anchor_lap(queries: CanonicalQueries, compiled: CompiledQuestion,
     return None, ("no shared telemetry lap yields a clean two-driver comparison")
 
 
+EXECUTION_BUDGET_MS = 120000  # wall-clock investigation budget (matches 6T default)
+
+
+def _classify_error(exc: BaseException) -> str:
+    """Retry policy for deterministic tool failures, stated once.
+
+    Deterministic tools with identical inputs fail identically, so no
+    deterministic failure is ever retried: retry_count is always 0 and
+    the classification records *why* rather than scheduling another
+    attempt. Provider (network) failures are classified retryable and
+    are bounded by the caller's own retry budget (e.g. critique path).
+    """
+    from racewise.tools.contract import ToolError
+    if isinstance(exc, ToolError):
+        return "permanent_data"
+    return "permanent_deterministic"
+
+
 def _execute_capabilities(
     queries: CanonicalQueries,
     compiled: CompiledQuestion,
     planned: tuple[str, ...],
     anchor_fn: Callable[[int], dict[str, Any]],
-) -> tuple[dict[str, Any], dict[str, str], Optional[int]]:
-    """Run the planned capabilities for real. Returns (results, errors, anchored_lap).
+    budget: Optional[dict[str, int]] = None,
+) -> tuple[dict[str, Any], dict[str, str], Optional[int], list[dict[str, Any]]]:
+    """Run the planned capabilities for real.
+
+    Returns (results, errors, anchored_lap, steps). ``steps`` is the
+    execution ledger: one record per planned capability with its terminal
+    status (SUCCEEDED/FAILED/SKIPPED), duration and error class. A
+    wall-clock budget is enforced cooperatively between steps — a step
+    never starts once the budget is exhausted, and remaining steps are
+    recorded SKIPPED with the reason instead of silently dropped.
 
     Each capability is called through its own deterministic function with
     explicit, validated arguments. Nothing is invoked by name from user text.
     """
     results: dict[str, Any] = {}
     errors: dict[str, str] = {}
+    steps: list[dict[str, Any]] = []
     anchored_lap: Optional[int] = None
     season, round_num = int(compiled.season), int(compiled.round)
     driver_a, driver_b = compiled.driver_a, compiled.driver_b
+    max_ms = (budget or {}).get("max_runtime_ms", EXECUTION_BUDGET_MS)
+    started = time.perf_counter()
 
     def _record(cap_id: str, payload: Any) -> None:
         if isinstance(payload, dict):
@@ -189,6 +218,21 @@ def _execute_capabilities(
             errors[cap_id] = "capability returned a non-object result"
 
     for cap_id in planned:
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        if elapsed_ms >= max_ms:
+            steps.append({
+                "capability_id": cap_id,
+                "status": "SKIPPED",
+                "duration_ms": 0.0,
+                "error_class": None,
+                "reason": (f"wall-clock budget exhausted "
+                           f"({max_ms} ms); step not started"),
+                "retry_count": 0,
+            })
+            errors[cap_id] = (f"skipped: wall-clock budget exhausted "
+                              f"({max_ms} ms)")
+            continue
+        step_started = time.perf_counter()
         try:
             if cap_id in ("compare_laps", "attribute_lap_loss", "fuse_lap_evidence"):
                 if anchored_lap is None:
@@ -242,10 +286,21 @@ def _execute_capabilities(
 
             elif cap_id == "analyze_stint":
                 from racewise.data.historical.stint_evidence import (
-                    analyze_stint_comparison,
+                    default_common_stint,
+                    fuse_stint_evidence,
                 )
-                _record(cap_id, analyze_stint_comparison(
-                    queries, season, round_num, driver_a, driver_b))
+                stint_number = compiled.stint_number
+                if stint_number is None:
+                    stint_number = default_common_stint(
+                        queries, season, round_num, driver_a, driver_b,
+                        compiled.session_type)
+                if stint_number is None:
+                    errors[cap_id] = ("no canonical stint with >= 2 "
+                                     "telemetry-covered common clean laps")
+                else:
+                    _record(cap_id, fuse_stint_evidence(
+                        queries, season, round_num, driver_a, driver_b,
+                        int(stint_number), compiled.session_type))
 
             elif cap_id == "resolve_session_context":
                 _record(cap_id, {
@@ -272,10 +327,40 @@ def _execute_capabilities(
             else:
                 errors[cap_id] = ("capability is served by the investigation "
                                   "lifecycle endpoint, not this path")
+                steps.append({
+                    "capability_id": cap_id,
+                    "status": "SKIPPED",
+                    "duration_ms": round(
+                        (time.perf_counter() - step_started) * 1000.0, 2),
+                    "error_class": None,
+                    "reason": errors[cap_id],
+                    "retry_count": 0,
+                })
+                continue
         except Exception as exc:  # noqa: BLE001 — a capability must never crash an answer
             errors[cap_id] = f"{type(exc).__name__}: {exc}"
+            steps.append({
+                "capability_id": cap_id,
+                "status": "FAILED",
+                "duration_ms": round(
+                    (time.perf_counter() - step_started) * 1000.0, 2),
+                "error_class": _classify_error(exc),
+                "reason": errors[cap_id],
+                "retry_count": 0,
+            })
+            continue
+        steps.append({
+            "capability_id": cap_id,
+            "status": "SUCCEEDED" if cap_id in results else "FAILED",
+            "duration_ms": round(
+                (time.perf_counter() - step_started) * 1000.0, 2),
+            "error_class": (None if cap_id in results
+                            else "permanent_data"),
+            "reason": errors.get(cap_id),
+            "retry_count": 0,
+        })
 
-    return results, errors, anchored_lap
+    return results, errors, anchored_lap, steps
 
 
 # Intents whose whole subject is the *shape of the race over time* rather
@@ -398,6 +483,37 @@ def _run_autopsy(queries: CanonicalQueries, compiled: CompiledQuestion,
     return timeline
 
 
+def _stopping_reason(
+    planned: tuple[str, ...],
+    execution: list[dict[str, Any]],
+    errors: dict[str, str],
+) -> str:
+    """Why the investigation stopped, in one deterministic sentence.
+
+    Derived from the execution ledger, never from model prose: every
+    outcome maps to a defined stop condition (§7).
+    """
+    by_status: dict[str, int] = {}
+    for step in execution:
+        by_status[step.get("status", "?")] = by_status.get(step.get("status", "?"), 0) + 1
+    succeeded = by_status.get("SUCCEEDED", 0)
+    failed = by_status.get("FAILED", 0)
+    skipped = by_status.get("SKIPPED", 0)
+    if not planned:
+        return "stopped: plan contained no runnable capabilities"
+    if skipped and not succeeded and not failed:
+        return f"stopped: all {skipped} planned step(s) skipped ({errors.get(planned[0], 'no runnable evidence')})"
+    if failed and not succeeded:
+        return f"stopped: {failed} planned step(s) failed, none succeeded"
+    if skipped:
+        return (f"completed with limits: {succeeded} succeeded, {failed} failed, "
+                f"{skipped} skipped")
+    if failed:
+        return (f"completed with errors: {succeeded} succeeded, "
+                f"{failed} failed")
+    return f"completed: all {succeeded} planned step(s) executed"
+
+
 def ask(
     queries: CanonicalQueries,
     question: str,
@@ -436,17 +552,26 @@ def ask(
     errors: dict[str, str] = {}
     anchored_lap: Optional[int] = None
     autopsy: dict[str, Any] = {}
+    execution: list[dict[str, Any]] = []
+    stopping_reason: Optional[str] = None
 
     if plan.status == "PLANNED":
         RUNS.register(investigation_id,
                       f"{compiled.season}/{compiled.round}/{compiled.session_type}")
         planned = tuple(s.capability_id for s in plan.runnable)
         stage("INVESTIGATE", "RUNNING", list(planned))
-        results, errors, anchored_lap = _execute_capabilities(
+        results, errors, anchored_lap, execution = _execute_capabilities(
             queries, compiled, planned,
-            lambda lap: (results.get("_anchor") or {}))
+            lambda lap: (results.get("_anchor") or {}),
+            budget=budget)
         RUNS.checkpoint(investigation_id)
         stage("INVESTIGATE", "COMPLETED", sorted(results))
+        stopping_reason = _stopping_reason(planned, execution, errors)
+    else:
+        stopping_reason = (
+            f"plan not executable (status {plan.status}): "
+            f"{plan.reason or 'no runnable capabilities'}"
+        )
 
         # A whole-race question earns a whole-race timeline. The autopsy only
         # relays change points, gap events and context transitions that the
@@ -505,6 +630,8 @@ def ask(
         "context": ctx.as_dict(),
         "autopsy": autopsy,
         "raw_results": {k: v for k, v in results.items() if k != "_anchor"},
+        "execution": execution,
+        "stopping_reason": stopping_reason,
         "duration_ms": int((time.perf_counter() - started) * 1000),
         "identity_hash": canonical_hash({
             "question": question,

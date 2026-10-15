@@ -264,14 +264,14 @@ def generate_with_template(
     variables are missing.
     """
     from racewise.question_engine.prompt_templates import (
-        PromptTask,
+        resolve_task,
         PROMPT_REGISTRY,
     )
 
     try:
-        task_enum = PromptTask(task)
-    except ValueError:
-        raise ProviderUnavailable(f"Unknown prompt task: {task}")
+        task_enum = resolve_task(task)
+    except (ValueError, KeyError, AttributeError) as exc:
+        raise ProviderUnavailable(f"Unknown prompt task: {task}") from exc
 
     template = PROMPT_REGISTRY.get(task_enum, version)
 

@@ -215,7 +215,10 @@ SPATIAL_SCOPES = (
 
 _SPATIAL_RULES: tuple[tuple[str, str], ...] = (
     ("sector", r"\bsector\s*([123])\b|\b([123])\s*(?:st|nd|rd)?\s+sector\b"),
-    ("corner", r"\bcorner\s*(\d{1,2})\b|\bt(?:urn)?\s*(\d{1,2})\b"),
+    ("corner", r"\bcorner\s*(\d{1,2})\b|\bt(?:urn)?\s*(\d{1,2})\b"
+               # a bare "which corner" names corner scope without numbering
+               # it; "corner speed" is a hypothesis phrase, not a scope
+               r"|\bcorners?\b(?!\s+speed)"),
     ("braking_zone", r"\bbraking (?:zone|zone[s]?)\b|\bbraking\b"),
     ("acceleration_zone", r"\bacceleration (?:zone|zones)\b|\baccel\w*\b|\btraction\b"),
     ("straight", r"\bstraights?\b"),

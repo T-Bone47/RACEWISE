@@ -319,8 +319,26 @@ def _extract_calculations(results: dict[str, Any]) -> list[dict[str, Any]]:
     stint = results.get("analyze_stint")
     if isinstance(stint, dict) and not stint.get("error"):
         trend = stint.get("trend") if isinstance(stint.get("trend"), dict) else {}
+        perf = stint.get("performance") if isinstance(stint.get("performance"), dict) else {}
+        if not trend and isinstance(perf.get("trend"), dict):
+            # fuse_stint_evidence shape: trend lives under performance
+            trend = perf["trend"]
         _add("Measured degradation slope per stint-lap",
              trend.get("slope_per_stint_lap"), "s", "analyze_stint")
+        _add("Mean stint delta across common laps",
+             perf.get("mean_delta_s"), "s", "analyze_stint")
+        meta = stint.get("stint_metadata") if isinstance(stint.get("stint_metadata"), dict) else {}
+        for side, who in (("driver_a_stint", "driver A"), ("driver_b_stint", "driver B")):
+            block = meta.get(side)
+            if isinstance(block, dict) and block.get("compound"):
+                out.append({
+                    "statement": f"Stint {block.get('stint_number')} compound ({who})",
+                    "detail": (f"{block.get('compound')} laps "
+                               f"{block.get('lap_start')}-{block.get('lap_end')}"),
+                    "unit": None,
+                    "claim_class": "OBSERVED",
+                    "capability_id": "analyze_stint",
+                })
 
     compare = results.get("compare_laps")
     if isinstance(compare, dict) and not compare.get("error"):
@@ -736,11 +754,16 @@ def synthesize(
             "statement": f"'{term}'",
             "reason": "no deterministic capability measures this quantity",
         })
-    if compiled.spatial_scopes and "corner" in compiled.spatial_scopes and \
-            "telemetry" not in plan.availability.available:
+    if compiled.spatial_scopes and "corner" in compiled.spatial_scopes:
+        # Corner-level attribution is never supported: no evidence layer
+        # indexes by corner (telemetry is lap-relative time, sectors are
+        # the finest measured split). This holds whether or not telemetry
+        # exists — telemetry answers *when*, never *which corner*.
         not_established.append({
             "statement": "corner-level attribution",
-            "reason": "telemetry unavailable; finest valid resolution is lap/sector",
+            "reason": "telemetry unavailable; finest valid resolution is lap/sector"
+            if "telemetry" not in plan.availability.available else
+            "no corner-indexed evidence exists; finest valid resolution is lap/sector",
         })
 
     # --- status: the honest verdict, never the optimistic one --------------

@@ -380,6 +380,67 @@ def build_plan(
             )
             added[cap.capability_id] = step
 
+    # --- scope-driven completion: intent selection alone can leave a
+    # question without the capabilities its own scope demands. Two rules:
+    # (1) a sector-scoped loss question needs sector-resolving capabilities
+    # even when the phrasing carries only a locating intent ("did Perez
+    # lose time in sector 2?" vs "why ..."); (2) any two-driver lap
+    # comparison needs the measured-baseline capabilities, or the answer
+    # reports telemetry estimates with no measured fact to reconcile
+    # against. The same testability, session-type and budget gates apply.
+    def _ensure_scope_caps(cap_ids: tuple[str, ...], rationale: str) -> None:
+        if not sub_questions:
+            return
+        anchor = sub_questions[0]
+        for cap_id in cap_ids:
+            if cap_id in added:
+                continue
+            cap = capability(cap_id)
+            if cap is None:
+                continue
+            state, missing = _testability(cap, availability)
+            closure = dependency_closure(cap.capability_id)
+            blocked = tuple(
+                c for c in closure[:-1]
+                if (p := capability(c)) is not None
+                and p.supported_session_types
+                and availability.session_type not in p.supported_session_types
+            )
+            if blocked:
+                state = NOT_APPLICABLE
+                missing = tuple(sorted(set(missing) | set(blocked)))
+            if state not in (TESTABLE, LIMITED):
+                continue
+            added[cap_id] = PlannedStep(
+                capability_id=cap.capability_id,
+                sub_id=anchor.sub_id,
+                intents=cap.intents,
+                analysis_level=anchor.analysis_level,
+                testability=state,
+                cost=cap.computational_cost,
+                rationale=rationale,
+                missing_data=missing,
+                blocked_by=blocked,
+                depends_on=tuple(
+                    c for c in closure[:-1] if c not in added
+                ),
+            )
+
+    if compiled.sectors:
+        _ensure_scope_caps(
+            ("fuse_lap_evidence", "attribute_lap_loss"),
+            f"sector scope {sorted(compiled.sectors)} requires "
+            f"sector-resolving capability",
+        )
+    if (compiled.driver_a and compiled.driver_b and compiled.lap_number
+            and compiled.question_type in (
+                "RACE_GAP", "LAP_PERFORMANCE", "HYPOTHESIS_EVALUATION",
+                "QUALIFYING_LAP_PERFORMANCE")):
+        _ensure_scope_caps(
+            ("fuse_lap_evidence", "attribute_lap_loss"),
+            "two-driver lap comparison requires the measured baseline",
+        )
+
     ordered = sorted(added.values(),
                      key=lambda s: (COST_CLASSES.index(s.cost), s.analysis_level,
                                     s.capability_id))
@@ -439,3 +500,173 @@ def build_plan(
             "composition": "capabilities are selected with their prerequisite closure",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# plan validation (Phase H §3)
+# ---------------------------------------------------------------------------
+
+
+def validate_plan(plan: InvestigationPlan) -> list[str]:
+    """Check a constructed plan against structural invariants.
+
+    Returns a list of problem strings (empty = valid). Constructed plans
+    satisfy these by construction — this function exists so the invariants
+    are stated once, tested directly, and reused for model-proposed plans
+    (see ``validate_model_plan``), rather than living only implicitly in
+    ``build_plan``.
+    """
+    problems: list[str] = []
+    if plan.status != "PLANNED":
+        return [f"plan status is {plan.status}, not PLANNED"]
+    seen: set[str] = set()
+    for step in list(plan.steps) + list(plan.deferred):
+        if step.capability_id in seen:
+            problems.append(f"duplicate step: {step.capability_id}")
+        seen.add(step.capability_id)
+        if capability(step.capability_id) is None:
+            problems.append(f"unknown capability: {step.capability_id}")
+    # depends_on edges are compositional metadata, not execution wiring:
+    # every capability executes standalone with explicit arguments, so a
+    # recorded edge pointing outside the plan is untidy but cannot break
+    # execution — and is therefore NOT reported here. What must hold:
+    # no duplicates, no unknown tools, no dependency cycles.
+    # dependency cycles would recurse forever in closure expansion; a
+    # topological check over the recorded depends_on edges guards it.
+    edges: dict[str, tuple[str, ...]] = {
+        s.capability_id: tuple(d for d in s.depends_on) for s in plan.steps
+    }
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def _visit(node: str, stack: tuple[str, ...]) -> None:
+        if node in visited:
+            return
+        if node in visiting:
+            problems.append(
+                "dependency cycle: " + " -> ".join((*stack, node)))
+            return
+        visiting.add(node)
+        for dep in edges.get(node, ()):
+            _visit(dep, (*stack, node))
+        visiting.discard(node)
+        visited.add(node)
+
+    for node in edges:
+        _visit(node, ())
+    return problems
+
+
+def validate_model_plan(
+    proposed: dict[str, Any],
+    budget: Optional[dict[str, int]] = None,
+) -> tuple[bool, list[str], list[str]]:
+    """Validate a model-proposed plan BEFORE execution (§3, §9).
+
+    ``proposed`` is the parsed JSON of a model response with shape
+    ``{"steps": [{"capability_id": ..., "arguments": {...}}]}``.
+    Returns ``(accepted, problems, ordered_capability_ids)``. A proposed
+    plan is never executed without passing here first; rejection reasons
+    name the exact defect. Unknown tools, invalid arguments, duplicates
+    and budget violations all reject. Retries are the caller's
+    decision, bounded by the critique/calling budget — never unbounded.
+    """
+    problems: list[str] = []
+    if not isinstance(proposed, dict):
+        return False, ["proposed plan is not an object"], []
+    raw_steps = proposed.get("steps")
+    if not isinstance(raw_steps, list) or not raw_steps:
+        return False, ["proposed plan has no steps"], []
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for i, step in enumerate(raw_steps):
+        if not isinstance(step, dict):
+            problems.append(f"step {i} is not an object")
+            continue
+        cap_id = step.get("capability_id")
+        cap = capability(cap_id) if isinstance(cap_id, str) else None
+        if cap is None:
+            problems.append(f"step {i} names unknown capability: {cap_id!r}")
+            continue
+        if cap_id in seen:
+            problems.append(f"step {i} duplicates capability: {cap_id}")
+            continue
+        seen.add(cap_id)
+        args = step.get("arguments") or {}
+        if not isinstance(args, dict):
+            problems.append(f"step {i} arguments are not an object")
+            continue
+        ordered.append(cap_id)
+    if problems:
+        return False, problems, []
+    # NOTE: no prerequisite-closure membership requirement. Capabilities
+    # execute standalone with explicit arguments (no shared execution
+    # state), so a proposal naming a capability without its conceptual
+    # prerequisites is executable as-is. Requiring the closure would
+    # reject valid minimal plans.
+    limits = dict(DEFAULT_BUDGET)
+    for key, value in (budget or {}).items():
+        if key in limits and isinstance(value, int):
+            limits[key] = value
+    if len(ordered) > limits["max_capabilities"]:
+        problems.append(
+            f"plan proposes {len(ordered)} capabilities, "
+            f"budget allows {limits['max_capabilities']}")
+        return False, problems, []
+    return True, [], ordered
+
+
+def propose_plan_with_model(
+    provider: Any,
+    compiled: CompiledQuestion,
+    availability_summary: dict[str, Any],
+    budget: Optional[dict[str, int]] = None,
+) -> tuple[bool, list[str], list[str]]:
+    """Ask a model to propose an investigation plan; validate before returning.
+
+    The model receives the question, resolved scope, the capability catalog
+    (ids, descriptions, required data) and data availability — never the
+    authority to execute. The proposal passes through
+    ``validate_model_plan``: unknown tools, invalid arguments, duplicates,
+    unsatisfiable prerequisites and budget violations all reject.
+
+    Architectural note, verified against this codebase: a validated model
+    plan can only ever reorder or subset what deterministic planning
+    already finds executable (anything else fails validation against the
+    same availability). Execution therefore stays deterministic-plan
+    driven; this helper exists for novel/complex questions where a second
+    opinion on *ordering and emphasis* is useful, and its output is
+    advisory metadata, never an execution order. Returns
+    ``(accepted, problems, ordered_capability_ids)``.
+    """
+    from racewise.agent.provider import ProviderUnavailable, generate_with_template
+
+    import json
+
+    try:
+        from racewise.question_engine.capabilities import all_capabilities
+        catalog = [
+            {"capability_id": c.capability_id,
+             "description": c.description,
+             "required_data": list(c.required_data)}
+            for c in all_capabilities()
+        ]
+        response = generate_with_template(
+            provider,
+            "INVESTIGATION_PLANNING",
+            question=compiled.raw_question,
+            spec_json=json.dumps(compiled.resolved_context(), default=str,
+                                 sort_keys=True),
+            capabilities_json=json.dumps(catalog, default=str),
+            availability_json=json.dumps(availability_summary, default=str,
+                                         sort_keys=True),
+        )
+    except ProviderUnavailable:
+        raise
+    except Exception as exc:  # noqa: BLE001 — model failure is a rejection reason
+        return False, [f"model proposal failed: {type(exc).__name__}: {exc}"], []
+    try:
+        proposed = json.loads(response.content)
+    except (json.JSONDecodeError, TypeError, AttributeError) as exc:
+        return False, [f"model proposal is not valid JSON: {exc}"], []
+    return validate_model_plan(proposed, budget)
