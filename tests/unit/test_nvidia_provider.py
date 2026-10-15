@@ -232,7 +232,7 @@ class TestNvidiaProviderFromEnv:
 class TestNvidiaRegistryIntegration:
     def test_nvidia_registered_in_default_registry(self):
         from racewise.agent.model_registry import MODEL_REGISTRY
-        r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-120b")
+        r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-20b")
         assert r is not None
         # configured reflects os.environ, not .env files.
         # The .env has the key but os.environ doesn't (not loaded by registry).
@@ -245,7 +245,7 @@ class TestNvidiaRegistryIntegration:
 
     def test_nvidia_capabilities_unknown(self):
         from racewise.agent.model_registry import MODEL_REGISTRY
-        r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-120b")
+        r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-20b")
         # Capabilities unknown until verified
         assert r.supports_structured_output is None
         assert r.supports_tool_calls is None
@@ -253,8 +253,30 @@ class TestNvidiaRegistryIntegration:
 
     def test_nvidia_cost_unknown(self):
         from racewise.agent.model_registry import MODEL_REGISTRY
-        r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-120b")
+        r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-20b")
         assert r.cost_per_1m_tokens is None  # unknown, not zero
+
+    def test_nvidia_catalog_models_registered(self):
+        """All catalog-available NVIDIA models are registered."""
+        from racewise.agent.model_registry import MODEL_REGISTRY
+        catalog_models = [
+            "nvidia/llama-3.1-nemotron-70b-instruct",
+            "nvidia/nemotron-3-super-120b-a12b",
+            "nvidia/nemotron-3-ultra-550b-a55b",
+            "nvidia/nemotron-4-340b-instruct",
+            "deepseek-ai/deepseek-v4.1-flash",
+            "deepseek-ai/deepseek-coder-6.7b-instruct",
+            "moonshotai/kimi-k2.6",
+            "moonshotai/kimi-k3",
+            "openai/gpt-oss-20b",
+        ]
+        for model_id in catalog_models:
+            key = f"nvidia_nim/{model_id}"
+            r = MODEL_REGISTRY.get(key)
+            assert r is not None, f"Catalog model not registered: {model_id}"
+            assert r.supported is True  # catalog-listed
+            assert r.reachable is False  # unverified (invalid key)
+            assert r.integration_tested is False
 
 
 class TestExistingProviderCompatibility:

@@ -337,7 +337,17 @@ def _build_default_registry() -> ModelRegistry:
     registry.register(gemini)
 
     # NVIDIA NIM — adapter implemented; configured if key present
-    nvidia_model = os.environ.get("NVIDIA_MODEL", "openai/gpt-oss-120b")
+    # Available models from NVIDIA catalog (verified 2026-10-15):
+    #   nvidia/llama-3.1-nemotron-70b-instruct
+    #   nvidia/nemotron-3-super-120b-a12b
+    #   nvidia/nemotron-3-ultra-550b-a55b
+    #   nvidia/nemotron-4-340b-instruct
+    #   deepseek-ai/deepseek-v4.1-flash
+    #   deepseek-ai/deepseek-coder-6.7b-instruct
+    #   moonshotai/kimi-k2.6
+    #   moonshotai/kimi-k3
+    #   openai/gpt-oss-20b
+    nvidia_model = os.environ.get("NVIDIA_MODEL", "openai/gpt-oss-20b")
     nvidia_key_present = bool(_env_key("NVIDIA_API_KEY"))
     nvidia = ModelRecord(
         provider="nvidia_nim",
@@ -354,6 +364,29 @@ def _build_default_registry() -> ModelRegistry:
         cost_per_1m_tokens=None,  # unknown — never claim zero
     )
     registry.register(nvidia)
+
+    # Register all catalog-available NVIDIA models (supported but unverified)
+    catalog_models = [
+        ("nvidia/llama-3.1-nemotron-70b-instruct", "Nemotron 70B"),
+        ("nvidia/nemotron-3-super-120b-a12b", "Nemotron 3 Super 120B"),
+        ("nvidia/nemotron-3-ultra-550b-a55b", "Nemotron 3 Ultra 550B"),
+        ("nvidia/nemotron-4-340b-instruct", "Nemotron 4 340B"),
+        ("deepseek-ai/deepseek-v4.1-flash", "DeepSeek V4.1 Flash"),
+        ("deepseek-ai/deepseek-coder-6.7b-instruct", "DeepSeek Coder 6.7B"),
+        ("moonshotai/kimi-k2.6", "Kimi K2.6"),
+        ("moonshotai/kimi-k3", "Kimi K3"),
+        ("openai/gpt-oss-20b", "GPT-OSS 20B"),
+    ]
+    for model_id, label in catalog_models:
+        registry.register(ModelRecord(
+            provider="nvidia_nim",
+            model_id=model_id,
+            display_name=label,
+            configured=False,
+            supported=True,  # catalog-listed
+            reachable=False,  # unverified — invalid API key
+            integration_tested=False,
+        ))
 
     return registry
 
