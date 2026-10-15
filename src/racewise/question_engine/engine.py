@@ -491,6 +491,9 @@ def ask(
         answer_hash=answer.as_dict()["answer_hash"],
     )
 
+    # Routing metadata (Phase E) — auditable model-selection record
+    routing_meta = _routing_metadata()
+
     return {
         "engine_version": ENGINE_VERSION,
         "investigation_id": investigation_id,
@@ -509,7 +512,25 @@ def ask(
             "capabilities": sorted(results),
             "answer_hash": answer.as_dict()["answer_hash"],
         }),
+        "routing": routing_meta,
     }
+
+
+def _routing_metadata() -> dict[str, Any]:
+    """Auditable routing metadata for the answer (Phase E).
+
+    Records which model was selected, under which policy, and why.
+    Never exposes private reasoning — only the selection facts.
+    """
+    try:
+        from racewise.agent.model_registry import MODEL_REGISTRY, RoutingPolicy
+        decision = MODEL_REGISTRY.route(
+            task="answer_synthesis",
+            policy=RoutingPolicy.DEFAULT,
+        )
+        return decision.as_dict()
+    except Exception:
+        return {"error": "routing unavailable"}
 
 
 def _maybe_llm_synthesize(
@@ -518,7 +539,7 @@ def _maybe_llm_synthesize(
     results: dict[str, Any],
     deterministic_answer: "Answer",
 ) -> Optional["Answer"]:
-    """Optional LLM-assisted answer synthesis (Phase D).
+    """Optional LLM-assisted answer synthesis (Phase D/E).
 
     When a provider is configured, use the prompt registry to generate
     an enriched answer. The deterministic answer remains the fallback.
@@ -528,9 +549,16 @@ def _maybe_llm_synthesize(
     """
     try:
         from racewise.agent.provider import provider_from_env, generate_with_template
+        from racewise.agent.model_registry import MODEL_REGISTRY, RoutingPolicy
         provider = provider_from_env()
         if provider is None:
             return None
+
+        # Route the task through the model registry (Phase E)
+        decision = MODEL_REGISTRY.route(
+            task="answer_synthesis",
+            policy=RoutingPolicy.DEFAULT,
+        )
 
         # Use the ANSWER_SYNTHESIS template with the investigation results
         import json
