@@ -172,14 +172,15 @@ class NvidiaNimProvider:
 
         message = data["choices"][0].get("message", {})
         content = message.get("content") or ""
-        if not content:
+        tool_calls = message.get("tool_calls") or []
+        if not content and not tool_calls:
             raise ProviderUnavailable("NVIDIA NIM returned empty content")
 
         return ModelResponse(
             content=content,
             model_id=data.get("model", self.model_id),
             provider=self.name,
-            tool_calls=message.get("tool_calls") or [],
+            tool_calls=tool_calls,
             usage=data.get("usage", {}),
         )
 

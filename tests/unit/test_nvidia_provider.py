@@ -232,29 +232,67 @@ class TestNvidiaProviderFromEnv:
 class TestNvidiaRegistryIntegration:
     def test_nvidia_registered_in_default_registry(self):
         from racewise.agent.model_registry import MODEL_REGISTRY
+        # Depends on data/model_verification.json (committed, no secrets):
+        # openai/gpt-oss-20b was verified live (structured output + tool
+        # calls), so the default registry reports it reachable + tested.
         r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-20b")
         assert r is not None
-        # configured reflects os.environ, not .env files.
-        # The .env has the key but os.environ doesn't (not loaded by registry).
-        # supported=True because the adapter is implemented.
-        # reachable=False because no live call has been made.
-        # integration_tested=False because no live test has succeeded.
-        assert r.supported is True
-        assert r.reachable is False
-        assert r.integration_tested is False
+        assert r.supported is True  # adapter implemented
+        assert r.reachable is True  # verified by live request
+        assert r.integration_tested is True  # live probes succeeded
 
-    def test_nvidia_capabilities_unknown(self):
+    def test_nvidia_capabilities_verified(self):
         from racewise.agent.model_registry import MODEL_REGISTRY
         r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-20b")
-        # Capabilities unknown until verified
-        assert r.supports_structured_output is None
-        assert r.supports_tool_calls is None
-        assert r.supports_streaming is None
+        assert r.supports_structured_output is True  # valid JSON vs schema
+        assert r.supports_tool_calls is True  # emitted function call
+        assert r.supports_streaming is None  # not probed — stays unknown
 
     def test_nvidia_cost_unknown(self):
         from racewise.agent.model_registry import MODEL_REGISTRY
         r = MODEL_REGISTRY.get("nvidia_nim/openai/gpt-oss-20b")
         assert r.cost_per_1m_tokens is None  # unknown, not zero
+
+    def test_verification_record_file_exists_and_parses(self):
+        import json
+        from pathlib import Path
+        path = Path(__file__).resolve().parents[2] / "data" / "model_verification.json"
+        assert path.exists(), "committed verification record missing"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        entry = record["models"]["nvidia_nim/openai/gpt-oss-20b"]
+        assert entry["reachable"] is True
+        assert entry["integration_tested"] is True
+        assert "verified_at" in record
+
+    def test_mark_verified_and_snapshot_roundtrip(self):
+        from racewise.agent.model_registry import ModelRegistry
+        from racewise.agent.model_registry import ModelRecord
+        reg = ModelRegistry()
+        reg.register(ModelRecord(
+            provider="nvidia_nim", model_id="m", display_name="M"))
+        assert reg.get("nvidia_nim/m").reachable is False
+        reg.mark_verified("nvidia_nim/m", supports_structured_output=True,
+                          supports_tool_calls=False)
+        updated = reg.get("nvidia_nim/m")
+        assert updated.reachable is True
+        assert updated.integration_tested is True
+        assert updated.supports_structured_output is True
+        assert updated.supports_tool_calls is False
+        assert updated.supports_streaming is None
+        snap = reg.verified_snapshot()
+        assert snap["nvidia_nim/m"]["reachable"] is True
+        # Round-trip into a fresh registry
+        reg2 = ModelRegistry()
+        reg2.register(ModelRecord(
+            provider="nvidia_nim", model_id="m", display_name="M"))
+        reg2.apply_verified_snapshot(snap)
+        assert reg2.get("nvidia_nim/m").reachable is True
+        assert reg2.get("nvidia_nim/m").supports_tool_calls is False
+
+    def test_mark_verified_unknown_model_raises(self):
+        from racewise.agent.model_registry import ModelRegistry
+        with pytest.raises(ValueError):
+            ModelRegistry().mark_verified("nope/m")
 
     def test_nvidia_catalog_models_registered(self):
         """All catalog-available NVIDIA models are registered."""
@@ -275,8 +313,14 @@ class TestNvidiaRegistryIntegration:
             r = MODEL_REGISTRY.get(key)
             assert r is not None, f"Catalog model not registered: {model_id}"
             assert r.supported is True  # catalog-listed
-            assert r.reachable is False  # unverified (invalid key)
-            assert r.integration_tested is False
+            if model_id == "openai/gpt-oss-20b":
+                # Live-verified (see verification record); the catalog loop
+                # must not clobber verified flags.
+                assert r.reachable is True
+                assert r.integration_tested is True
+            else:
+                assert r.reachable is False  # unverified
+                assert r.integration_tested is False
 
 
 class TestExistingProviderCompatibility:

@@ -1,0 +1,14 @@
+{
+ "models": {
+  "nvidia_nim/openai/gpt-oss-20b": {
+   "context_limit": null,
+   "integration_tested": true,
+   "reachable": true,
+   "supports_streaming": null,
+   "supports_structured_output": true,
+   "supports_tool_calls": true
+  }
+ },
+ "verified_at": "2026-10-15T07:56:48.748040+00:00",
+ "verified_by": "scripts/verify_nvidia_live.py (live request)"
+}

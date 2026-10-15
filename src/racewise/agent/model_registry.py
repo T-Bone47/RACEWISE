@@ -146,6 +146,83 @@ class ModelRegistry:
         """Get a model record by key."""
         return self._models.get(key)
 
+    def mark_verified(
+        self,
+        key: str,
+        *,
+        reachable: bool = True,
+        integration_tested: bool = True,
+        supports_structured_output: Optional[bool] = None,
+        supports_tool_calls: Optional[bool] = None,
+        supports_streaming: Optional[bool] = None,
+        context_limit: Optional[int] = None,
+    ) -> ModelRecord:
+        """Record a verified live-test outcome for a model.
+
+        Only call with evidence from a real successful request — never
+        from mocked tests. Returns the updated record.
+        """
+        from dataclasses import replace
+        record = self._models.get(key)
+        if record is None:
+            raise ValueError(f"Model not registered: {key}")
+        updated = replace(
+            record,
+            reachable=reachable,
+            integration_tested=integration_tested,
+            supports_structured_output=(
+                record.supports_structured_output
+                if supports_structured_output is None
+                else supports_structured_output
+            ),
+            supports_tool_calls=(
+                record.supports_tool_calls
+                if supports_tool_calls is None
+                else supports_tool_calls
+            ),
+            supports_streaming=(
+                record.supports_streaming
+                if supports_streaming is None
+                else supports_streaming
+            ),
+            context_limit=(
+                record.context_limit
+                if context_limit is None else context_limit
+            ),
+        )
+        self._models[key] = updated
+        return updated
+
+    def verified_snapshot(self) -> dict[str, Any]:
+        """Serializable verification state (no secrets)."""
+        return {
+            key: {
+                "reachable": r.reachable,
+                "integration_tested": r.integration_tested,
+                "supports_structured_output": r.supports_structured_output,
+                "supports_tool_calls": r.supports_tool_calls,
+                "supports_streaming": r.supports_streaming,
+                "context_limit": r.context_limit,
+            }
+            for key, r in sorted(self._models.items())
+            if r.reachable or r.integration_tested
+        }
+
+    def apply_verified_snapshot(self, snapshot: dict[str, Any]) -> None:
+        """Apply a previously recorded verification snapshot."""
+        for key, flags in snapshot.items():
+            if key not in self._models:
+                continue
+            self.mark_verified(
+                key,
+                reachable=bool(flags.get("reachable", False)),
+                integration_tested=bool(flags.get("integration_tested", False)),
+                supports_structured_output=flags.get("supports_structured_output"),
+                supports_tool_calls=flags.get("supports_tool_calls"),
+                supports_streaming=flags.get("supports_streaming"),
+                context_limit=flags.get("context_limit"),
+            )
+
     def list_models(self, policy: RoutingPolicy = RoutingPolicy.DEFAULT,
                     task: Optional[str] = None,
                     required_caps: Optional[set[ModelCapability]] = None,
@@ -279,6 +356,11 @@ class ModelRegistry:
 MODEL_REGISTRY = ModelRegistry()
 
 
+def _verification_snapshot_path() -> "Path":
+    from pathlib import Path as _Path
+    return _Path(__file__).resolve().parents[3] / "data" / "model_verification.json"
+
+
 def _build_default_registry() -> ModelRegistry:
     """Build the default registry from environment configuration."""
     registry = ModelRegistry()
@@ -358,8 +440,8 @@ def _build_default_registry() -> ModelRegistry:
         display_name=f"NVIDIA NIM ({nvidia_model})",
         configured=nvidia_key_present,
         supported=True,  # adapter is implemented
-        reachable=False,  # live test failed (401)
-        integration_tested=False,  # live test failed
+        reachable=False,  # only True via the verified record below
+        integration_tested=False,  # only True via the verified record below
         supports_structured_output=None,  # unknown until verified
         supports_tool_calls=None,  # unknown until verified
         supports_streaming=None,  # unknown until verified
@@ -381,15 +463,31 @@ def _build_default_registry() -> ModelRegistry:
         ("openai/gpt-oss-20b", "GPT-OSS 20B"),
     ]
     for model_id, label in catalog_models:
+        key = f"nvidia_nim/{model_id}"
+        if registry.get(key) is not None:
+            continue  # env-configured entry wins; catalog must not clobber it
         registry.register(ModelRecord(
             provider="nvidia_nim",
             model_id=model_id,
             display_name=label,
             configured=False,
             supported=True,  # catalog-listed
-            reachable=False,  # unverified — invalid API key
+            reachable=False,  # unverified
             integration_tested=False,
         ))
+
+    # Apply the committed verification record (if any): models proven
+    # reachable by a real successful request keep their verified flags.
+    # The record carries no secrets — only model ids, capabilities and
+    # the verification timestamp.
+    try:
+        snapshot_path = _verification_snapshot_path()
+        if snapshot_path.exists():
+            import json as _json
+            snapshot = _json.loads(snapshot_path.read_text(encoding="utf-8"))
+            registry.apply_verified_snapshot(snapshot.get("models", {}))
+    except Exception:
+        pass  # a corrupt record must never break registry construction
 
     return registry
 
